@@ -413,12 +413,12 @@ services:
 - **v2.0** — algorithmic recs from request history + ListenBrainz "loved tracks", watchlist/saved items, multi-Lidarr, i18n
 - **v3.0** — *if community demands it:* playback by talking to Navidrome/Subsonic API
 
-## 13. Open questions
+## 13. Resolved decisions
 
-- **Project name** — "Audioseerr" is the working name based on the existing folder; final call before any public registration / domain / repo creation.
-- **Hosting org for the GitHub repo** — personal account vs. dedicated org (org is better long-term for handoff).
-- **License** — MIT vs Apache 2.0 vs GPLv3. Jellyseerr is MIT. Recommend MIT for max community adoption.
-- **Domain** — optional, but a dedicated `audioseerr.dev` or similar makes the project look more credible. Cheap to register.
+- **Project name** — **Audioseerr** (locked in 2026-05-03)
+- **License** — **MIT** (locked in 2026-05-03; matches Jellyseerr, max adoption-friendly)
+- **GitHub hosting** — **personal account** for now; revisit migrating to a dedicated org closer to public launch or at handoff time
+- **Domain** — deferred; optional and cheap to add later once the project is closer to a public release
 
 ## 14. Implementation kickoff (next conversation)
 
