@@ -1,0 +1,106 @@
+// Audioseerr v1 schema
+// Source of truth: docs/plans/2026-05-03-audioseerr-design.md §6
+
+// Using the legacy prisma-client-js generator so `@prisma/client` re-exports
+// the runtime correctly. Prisma 7's new prisma-client generator emits .ts only
+// and requires direct imports from the output path, which trips Turbopack.
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Connection URL is configured in prisma.config.ts (Prisma 7 convention).
+// Runtime PrismaClient is constructed with @prisma/adapter-better-sqlite3 in src/lib/db.ts.
+datasource db {
+  provider = "sqlite"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum RequestType {
+  ALBUM
+  ARTIST
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  DECLINED
+  DOWNLOADING
+  AVAILABLE
+  FAILED
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  username     String    @unique
+  passwordHash String
+  role         Role      @default(USER)
+  requestQuota Int       @default(20)
+  createdAt    DateTime  @default(now())
+  requests     Request[]
+  invitesCreated Invite[] @relation("InvitesCreated")
+  invitesUsed    Invite[] @relation("InvitesUsed")
+}
+
+model Request {
+  id               String        @id @default(cuid())
+  type             RequestType
+  mbid             String
+  title            String
+  artistName       String
+  coverUrl         String?
+  status           RequestStatus @default(PENDING)
+  requestedById    String
+  requestedBy      User          @relation(fields: [requestedById], references: [id])
+  requestedAt      DateTime      @default(now())
+  approvedAt       DateTime?
+  declineReason    String?
+  lidarrId         Int?
+  qualityProfileId Int?
+
+  @@index([status])
+  @@index([requestedById])
+}
+
+model LibraryItem {
+  mbid         String   @id
+  lidarrId     Int      @unique
+  status       String
+  artistName   String
+  title        String
+  lastSyncedAt DateTime
+}
+
+model Settings {
+  id                     Int     @id @default(1)
+  lidarrUrl              String?
+  lidarrApiKey           String?
+  lidarrDefaultProfileId Int?
+  lidarrRootFolderPath   String?
+  lastFmApiKey           String?
+  requireApproval        Boolean @default(true)
+  registrationMode       String  @default("CLOSED")
+  setupComplete          Boolean @default(false)
+}
+
+model ApiCache {
+  key       String   @id
+  value     String
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}
+
+model Invite {
+  token       String    @id
+  createdById String
+  createdBy   User      @relation("InvitesCreated", fields: [createdById], references: [id])
+  expiresAt   DateTime
+  usedAt      DateTime?
+  usedById    String?
+  usedBy      User?     @relation("InvitesUsed", fields: [usedById], references: [id])
+}
