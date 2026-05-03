@@ -59,6 +59,8 @@ export async function syncLibrary(): Promise<{
       if (!album.foreignAlbumId) continue;
       const artist = artistById.get(album.artistId);
       const status = classifyAlbum(album, queueAlbumIds);
+      const trackFileCount = album.statistics?.trackFileCount ?? 0;
+      const totalTrackCount = album.statistics?.totalTrackCount ?? 0;
 
       await prisma.libraryItem.upsert({
         where: { mbid: album.foreignAlbumId },
@@ -67,6 +69,8 @@ export async function syncLibrary(): Promise<{
           status,
           artistName: artist?.artistName ?? "Unknown",
           title: album.title,
+          trackFileCount,
+          totalTrackCount,
           lastSyncedAt: now,
         },
         create: {
@@ -75,6 +79,8 @@ export async function syncLibrary(): Promise<{
           status,
           artistName: artist?.artistName ?? "Unknown",
           title: album.title,
+          trackFileCount,
+          totalTrackCount,
           lastSyncedAt: now,
         },
       });

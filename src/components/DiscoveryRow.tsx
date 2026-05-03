@@ -37,7 +37,7 @@ export function DiscoveryRow({
             <li key={`${a.mbid ?? i}-${a.title}`} className="w-36 shrink-0 sm:w-40">
               <DiscoveryAlbumCard
                 album={a}
-                libraryStatus={library?.lookup(a) ?? null}
+                libraryHit={library?.lookup(a) ?? null}
               />
             </li>
           ))}

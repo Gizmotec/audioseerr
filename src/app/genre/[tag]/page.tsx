@@ -71,7 +71,7 @@ export default async function GenrePage({ params }: { params: RouteParams }) {
         <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
           {albums.map((a, i) => (
             <li key={`${a.mbid ?? i}-${a.title}`}>
-              <DiscoveryAlbumCard album={a} libraryStatus={library.lookup(a)} />
+              <DiscoveryAlbumCard album={a} libraryHit={library.lookup(a)} />
             </li>
           ))}
         </ul>

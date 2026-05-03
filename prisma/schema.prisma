@@ -67,12 +67,14 @@ model Request {
 }
 
 model LibraryItem {
-  mbid         String   @id
-  lidarrId     Int      @unique
-  status       String
-  artistName   String
-  title        String
-  lastSyncedAt DateTime
+  mbid             String   @id
+  lidarrId         Int      @unique
+  status           String
+  artistName       String
+  title            String
+  trackFileCount   Int      @default(0)
+  totalTrackCount  Int      @default(0)
+  lastSyncedAt     DateTime
 }
 
 model Settings {

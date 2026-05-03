@@ -4,18 +4,19 @@ import { Disc3 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { InLibraryBadge } from "@/components/InLibraryBadge";
-import type { LibraryStatus } from "@/lib/library";
+import type { LibraryHit } from "@/lib/library";
 import type { MbAlbum } from "@/lib/musicbrainz";
 
 export function AlbumCard({
   album,
-  libraryStatus,
+  libraryHit,
 }: {
   album: MbAlbum;
-  libraryStatus?: LibraryStatus | null;
+  libraryHit?: LibraryHit | null;
 }) {
   const [imgOk, setImgOk] = useState(true);
   const year = album.firstReleaseDate?.slice(0, 4);
+  const trackLine = formatTrackLine(libraryHit ?? null);
 
   return (
     <Link
@@ -38,7 +39,7 @@ export function AlbumCard({
             <Disc3 className="h-1/3 w-1/3" />
           </div>
         )}
-        <InLibraryBadge status={libraryStatus ?? null} />
+        <InLibraryBadge status={libraryHit?.status ?? null} />
       </div>
       <div className="space-y-0.5">
         <h3
@@ -53,8 +54,18 @@ export function AlbumCard({
         >
           {album.artistName}
           {year ? ` · ${year}` : ""}
+          {trackLine ? ` · ${trackLine}` : ""}
         </p>
       </div>
     </Link>
   );
+}
+
+export function formatTrackLine(hit: LibraryHit | null): string | null {
+  if (!hit || hit.totalTrackCount === 0) return null;
+  if (hit.trackFileCount >= hit.totalTrackCount) {
+    return `${hit.totalTrackCount} tracks`;
+  }
+  if (hit.trackFileCount === 0) return null;
+  return `${hit.trackFileCount}/${hit.totalTrackCount} tracks`;
 }

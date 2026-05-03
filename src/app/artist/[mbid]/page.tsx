@@ -52,7 +52,9 @@ export default async function ArtistPage({ params }: { params: RouteParams }) {
   })).filter((s) => s.items.length > 0);
 
   const inLibraryCount = artist.releaseGroups.filter(
-    (rg) => library.lookup({ mbid: rg.mbid, artistName: artist.name, title: rg.title }) === "downloaded",
+    (rg) =>
+      library.lookup({ mbid: rg.mbid, artistName: artist.name, title: rg.title })
+        ?.status === "downloaded",
   ).length;
 
   return (
@@ -108,7 +110,7 @@ export default async function ArtistPage({ params }: { params: RouteParams }) {
                         primaryType: rg.primaryType,
                         coverUrl: rg.coverUrl,
                       }}
-                      libraryStatus={library.lookup({
+                      libraryHit={library.lookup({
                         mbid: rg.mbid,
                         artistName: artist.name,
                         title: rg.title,

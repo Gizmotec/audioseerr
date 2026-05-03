@@ -2,6 +2,12 @@ import { prisma } from "@/lib/db";
 
 export type LibraryStatus = "downloaded" | "downloading" | "missing";
 
+export type LibraryHit = {
+  status: LibraryStatus;
+  trackFileCount: number;
+  totalTrackCount: number;
+};
+
 function normalize(s: string): string {
   return s
     .toLowerCase()
@@ -16,38 +22,57 @@ function nameKey(artistName: string, title: string): string {
   return `${normalize(artistName)}|${normalize(title)}`;
 }
 
+function rank(s: LibraryStatus): number {
+  return s === "downloaded" ? 2 : s === "downloading" ? 1 : 0;
+}
+
+function preferHit(a: LibraryHit, b: LibraryHit): LibraryHit {
+  if (rank(a.status) !== rank(b.status)) {
+    return rank(a.status) > rank(b.status) ? a : b;
+  }
+  // Same status — prefer the entry with the most track files known.
+  return a.trackFileCount >= b.trackFileCount ? a : b;
+}
+
 export type LibraryIndex = {
   lookup(album: {
     mbid: string | null;
     artistName: string;
     title: string;
-  }): LibraryStatus | null;
+  }): LibraryHit | null;
 };
 
 /**
- * Build an in-memory index of the Lidarr library for badge lookups. Last.fm
- * and Lidarr frequently disagree on which release-group MBID is canonical
- * (e.g. Taylor Swift's "1989" exists as several release-groups), so we
- * fall back to a normalized artist+title key whenever the MBID misses.
+ * Build an in-memory index of the Lidarr library for badge + stats lookups.
+ * Last.fm and Lidarr frequently disagree on which release-group MBID is
+ * canonical (e.g. Taylor Swift's "1989" exists as several release-groups),
+ * so we fall back to a normalized artist+title key whenever the MBID misses.
  */
 export async function buildLibraryIndex(): Promise<LibraryIndex> {
   const rows = await prisma.libraryItem.findMany({
-    select: { mbid: true, artistName: true, title: true, status: true },
+    select: {
+      mbid: true,
+      artistName: true,
+      title: true,
+      status: true,
+      trackFileCount: true,
+      totalTrackCount: true,
+    },
   });
 
-  const byMbid = new Map<string, LibraryStatus>();
-  const byName = new Map<string, LibraryStatus>();
+  const byMbid = new Map<string, LibraryHit>();
+  const byName = new Map<string, LibraryHit>();
 
   for (const r of rows) {
-    const status = r.status as LibraryStatus;
-    byMbid.set(r.mbid, status);
+    const hit: LibraryHit = {
+      status: r.status as LibraryStatus,
+      trackFileCount: r.trackFileCount,
+      totalTrackCount: r.totalTrackCount,
+    };
+    byMbid.set(r.mbid, hit);
     const key = nameKey(r.artistName, r.title);
-    // Prefer "downloaded" over "missing" when multiple releases of the same
-    // album exist in the library.
     const existing = byName.get(key);
-    if (!existing || rank(status) > rank(existing)) {
-      byName.set(key, status);
-    }
+    byName.set(key, existing ? preferHit(hit, existing) : hit);
   }
 
   return {
@@ -61,32 +86,43 @@ export async function buildLibraryIndex(): Promise<LibraryIndex> {
   };
 }
 
-function rank(s: LibraryStatus): number {
-  return s === "downloaded" ? 2 : s === "downloading" ? 1 : 0;
-}
-
-export async function getLibraryStatus(mbid: string): Promise<LibraryStatus | null> {
+export async function getLibraryHit(mbid: string): Promise<LibraryHit | null> {
   const row = await prisma.libraryItem.findUnique({
     where: { mbid },
-    select: { status: true },
+    select: { status: true, trackFileCount: true, totalTrackCount: true },
   });
-  return row ? (row.status as LibraryStatus) : null;
+  return row
+    ? {
+        status: row.status as LibraryStatus,
+        trackFileCount: row.trackFileCount,
+        totalTrackCount: row.totalTrackCount,
+      }
+    : null;
 }
 
-export async function getLibraryStatusByName(
+export async function getLibraryHitByName(
   artistName: string,
   title: string,
-): Promise<LibraryStatus | null> {
+): Promise<LibraryHit | null> {
   const rows = await prisma.libraryItem.findMany({
-    select: { artistName: true, title: true, status: true },
+    select: {
+      artistName: true,
+      title: true,
+      status: true,
+      trackFileCount: true,
+      totalTrackCount: true,
+    },
   });
   const target = nameKey(artistName, title);
-  let best: LibraryStatus | null = null;
+  let best: LibraryHit | null = null;
   for (const r of rows) {
-    if (nameKey(r.artistName, r.title) === target) {
-      const status = r.status as LibraryStatus;
-      if (!best || rank(status) > rank(best)) best = status;
-    }
+    if (nameKey(r.artistName, r.title) !== target) continue;
+    const hit: LibraryHit = {
+      status: r.status as LibraryStatus,
+      trackFileCount: r.trackFileCount,
+      totalTrackCount: r.totalTrackCount,
+    };
+    best = best ? preferHit(hit, best) : hit;
   }
   return best;
 }

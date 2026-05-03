@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { findAlbumPreviews, normalizeTrackTitle } from "@/lib/deezer";
-import { getLibraryStatus, getLibraryStatusByName } from "@/lib/library";
+import { getLibraryHit, getLibraryHitByName } from "@/lib/library";
 import { getAlbum, type MbTrack } from "@/lib/musicbrainz";
 import { isSetupComplete } from "@/lib/settings";
 import { AlbumDetail } from "./AlbumDetail";
@@ -42,9 +42,10 @@ export default async function AlbumPage({ params }: { params: RouteParams }) {
   // manually, or via a previous Audioseerr request from another user).
   // MBID first, then artist+title fallback because release-group MBIDs
   // diverge across MB / Last.fm / Lidarr for the same nominal album.
-  const libraryStatus =
-    (await getLibraryStatus(mbid)) ??
-    (await getLibraryStatusByName(album.artistName, album.title));
+  const libraryHit =
+    (await getLibraryHit(mbid)) ??
+    (await getLibraryHitByName(album.artistName, album.title));
+  const libraryStatus = libraryHit?.status ?? null;
 
   // Deezer match runs in parallel-ish (MB call already happened), best-effort.
   let previews: Awaited<ReturnType<typeof findAlbumPreviews>> = null;

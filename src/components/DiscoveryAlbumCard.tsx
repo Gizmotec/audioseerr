@@ -4,7 +4,8 @@ import { Disc3 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { InLibraryBadge } from "@/components/InLibraryBadge";
-import type { LibraryStatus } from "@/lib/library";
+import type { LibraryHit } from "@/lib/library";
+import { formatTrackLine } from "@/app/search/AlbumCard";
 
 export type DiscoveryAlbum = {
   mbid: string | null;
@@ -15,12 +16,13 @@ export type DiscoveryAlbum = {
 
 export function DiscoveryAlbumCard({
   album,
-  libraryStatus,
+  libraryHit,
 }: {
   album: DiscoveryAlbum;
-  libraryStatus?: LibraryStatus | null;
+  libraryHit?: LibraryHit | null;
 }) {
   const [imgOk, setImgOk] = useState(album.coverUrl !== null);
+  const trackLine = formatTrackLine(libraryHit ?? null);
 
   // Without an MBID we can't deep-link to /album/[mbid]; falling back to a
   // search link still gets the user to the request flow in one extra click.
@@ -49,7 +51,7 @@ export function DiscoveryAlbumCard({
             <Disc3 className="h-1/3 w-1/3" />
           </div>
         )}
-        <InLibraryBadge status={libraryStatus ?? null} />
+        <InLibraryBadge status={libraryHit?.status ?? null} />
       </div>
       <div className="space-y-0.5">
         <p
@@ -63,6 +65,7 @@ export function DiscoveryAlbumCard({
           title={album.artistName}
         >
           {album.artistName}
+          {trackLine ? ` · ${trackLine}` : ""}
         </p>
       </div>
     </Link>

@@ -1,3 +1,5 @@
+import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { buildLibraryIndex } from "@/lib/library";
@@ -40,6 +42,13 @@ export default async function SearchPage({
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8 md:px-6">
+      <Link
+        href="/home"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4" /> Home
+      </Link>
+
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold tracking-tight">Search</h1>
         <p className="text-sm text-muted-foreground">
@@ -65,7 +74,7 @@ export default async function SearchPage({
         <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {results.map((album) => (
             <li key={album.mbid}>
-              <AlbumCard album={album} libraryStatus={library.lookup(album)} />
+              <AlbumCard album={album} libraryHit={library.lookup(album)} />
             </li>
           ))}
         </ul>
