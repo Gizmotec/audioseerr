@@ -1,6 +1,7 @@
 "use client";
 
 import { Disc3, Loader2, Pause, Play } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { LibraryStatus } from "@/lib/library";
 import type { TrackWithPreview } from "./page";
@@ -10,6 +11,7 @@ type AlbumHero = {
   mbid: string;
   title: string;
   artistName: string;
+  artistMbid: string | null;
   firstReleaseDate: string | null;
   primaryType: string | null;
   coverUrl: string;
@@ -105,7 +107,16 @@ export function AlbumDetail({
             {album.title}
           </h1>
           <p className="text-lg text-muted-foreground">
-            {album.artistName}
+            {album.artistMbid ? (
+              <Link
+                href={`/artist/${album.artistMbid}`}
+                className="font-medium text-foreground hover:underline"
+              >
+                {album.artistName}
+              </Link>
+            ) : (
+              album.artistName
+            )}
             {year ? ` · ${year}` : ""}
           </p>
 

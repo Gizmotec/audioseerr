@@ -79,6 +79,7 @@ export default async function AlbumPage({ params }: { params: RouteParams }) {
           mbid: album.mbid,
           title: album.title,
           artistName: album.artistName,
+          artistMbid: album.artistMbid,
           firstReleaseDate: album.firstReleaseDate,
           primaryType: album.primaryType,
           coverUrl: previews?.cover ?? album.coverUrl,

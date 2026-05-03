@@ -32,6 +32,27 @@ export type MbAlbumDetail = MbAlbum & {
   tracks: MbTrack[];
 };
 
+export type MbReleaseGroupSummary = {
+  mbid: string;
+  title: string;
+  primaryType: string | null;
+  secondaryTypes: string[];
+  firstReleaseDate: string | null;
+  coverUrl: string;
+};
+
+export type MbArtist = {
+  mbid: string;
+  name: string;
+  /** "Person" | "Group" | "Orchestra" | "Choir" | "Character" | "Other" | null */
+  type: string | null;
+  country: string | null;
+  lifeBegin: string | null;
+  lifeEnd: string | null;
+  ended: boolean;
+  releaseGroups: MbReleaseGroupSummary[];
+};
+
 type MbReleaseGroupSearchResponse = {
   "release-groups": Array<{
     id: string;
@@ -168,6 +189,59 @@ export async function getAlbum(mbid: string): Promise<MbAlbumDetail | null> {
       coverUrl: coverUrl(rg.id),
       releaseMbid,
       tracks,
+    };
+  });
+}
+
+type MbArtistDetailResponse = {
+  id: string;
+  name: string;
+  type?: string;
+  country?: string;
+  "life-span"?: { begin?: string; end?: string; ended?: boolean };
+  "release-groups"?: Array<{
+    id: string;
+    title: string;
+    "primary-type"?: string;
+    "secondary-types"?: string[];
+    "first-release-date"?: string;
+  }>;
+};
+
+export async function getArtist(mbid: string): Promise<MbArtist | null> {
+  const cacheKey = `mb:artist:detail:${mbid}`;
+  return withCache<MbArtist | null>(cacheKey, 24 * 60 * 60, async () => {
+    let data: MbArtistDetailResponse;
+    try {
+      data = await mbFetch<MbArtistDetailResponse>(`/artist/${mbid}`, {
+        inc: "release-groups",
+      });
+    } catch {
+      return null;
+    }
+
+    const lifeSpan = data["life-span"] ?? {};
+    const groups = (data["release-groups"] ?? [])
+      .map<MbReleaseGroupSummary>((rg) => ({
+        mbid: rg.id,
+        title: rg.title,
+        primaryType: rg["primary-type"] ?? null,
+        secondaryTypes: rg["secondary-types"] ?? [],
+        firstReleaseDate: rg["first-release-date"] ?? null,
+        coverUrl: coverUrl(rg.id),
+      }))
+      // Most-recent first within each type. Sort secondary at the page level.
+      .sort((a, b) => (b.firstReleaseDate ?? "").localeCompare(a.firstReleaseDate ?? ""));
+
+    return {
+      mbid: data.id,
+      name: data.name,
+      type: data.type ?? null,
+      country: data.country ?? null,
+      lifeBegin: lifeSpan.begin ?? null,
+      lifeEnd: lifeSpan.end ?? null,
+      ended: lifeSpan.ended ?? false,
+      releaseGroups: groups,
     };
   });
 }
