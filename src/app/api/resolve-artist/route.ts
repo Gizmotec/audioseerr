@@ -1,35 +1,42 @@
 // Lazy MBID resolution for artist chart rows when Last.fm omits MusicBrainz
 // IDs. Redirects to the canonical artist page when MB can resolve the name,
 // otherwise falls back to app search.
+//
+// Uses a relative Location header — see resolve-album/route.ts for the full
+// reasoning around standalone Next + reverse-proxy hosts.
 
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { searchArtists } from "@/lib/musicbrainz";
+
+function redirectTo(path: string): NextResponse {
+  return new NextResponse(null, {
+    status: 307,
+    headers: { Location: path },
+  });
+}
 
 export async function GET(request: NextRequest) {
   const session = await auth();
   if (!session?.user) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return redirectTo("/login");
   }
 
   const artist = request.nextUrl.searchParams.get("artist")?.trim() ?? "";
   if (!artist) {
-    return NextResponse.redirect(new URL("/search", request.url));
+    return redirectTo("/search");
   }
 
-  const fallback = new URL(
-    `/search?q=${encodeURIComponent(artist)}`,
-    request.url,
-  );
+  const fallback = `/search?q=${encodeURIComponent(artist)}`;
 
   try {
     const results = await searchArtists(artist, 5);
     const hit = results[0];
     if (hit) {
-      return NextResponse.redirect(new URL(`/artist/${hit.mbid}`, request.url));
+      return redirectTo(`/artist/${hit.mbid}`);
     }
   } catch {
     // fall through to search
   }
-  return NextResponse.redirect(fallback);
+  return redirectTo(fallback);
 }
