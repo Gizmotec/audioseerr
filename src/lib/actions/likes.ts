@@ -22,6 +22,10 @@ export async function toggleLikeAction(
   } else if (payload.albumMbid) {
     revalidatePath(`/album/${payload.albumMbid}`);
   }
+  if (payload.targetType === "TRACK") {
+    revalidatePath("/playlists");
+    revalidatePath("/playlists/liked");
+  }
 
   return { ok: true, liked };
 }

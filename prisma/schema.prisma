@@ -169,6 +169,7 @@ model Playlist {
   user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   name        String
   description String?
+  coverUrl    String?
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
   tracks      PlaylistTrack[]

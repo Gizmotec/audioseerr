@@ -1,4 +1,4 @@
-import { Heart, Home, Inbox, Library, ListMusic, Settings as SettingsIcon, ShieldCheck } from "lucide-react";
+import { Home, Inbox, Library, ListMusic, Settings as SettingsIcon, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import type { ComponentType } from "react";
 import { auth, signOut } from "@/auth";
@@ -19,7 +19,6 @@ export async function Sidebar() {
 
       <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-2 py-4">
         <SidebarLink href="/home" icon={Home}>Home</SidebarLink>
-        <SidebarLink href="/liked" icon={Heart}>Liked</SidebarLink>
         <SidebarLink href="/playlists" icon={ListMusic}>Playlists</SidebarLink>
         <SidebarLink href="/library" icon={Library}>Library</SidebarLink>
         <SidebarLink href="/requests" icon={Inbox}>My requests</SidebarLink>

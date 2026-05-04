@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { getLibraryHit, getLibraryHitByName } from "@/lib/library";
-import type { LidarrConfig } from "@/lib/lidarr";
+import { listTracksByAlbum, type LidarrConfig } from "@/lib/lidarr";
 import { buildTrackFileLookup } from "@/lib/playback";
 import { getSettings } from "@/lib/settings";
 
@@ -9,8 +9,10 @@ export type PlaylistSummary = {
   name: string;
   description: string | null;
   trackCount: number;
+  coverUrls: string[];
   coverUrl: string | null;
   updatedAt: Date;
+  system?: "liked-songs";
 };
 
 export type PlaylistTrackRow = {
@@ -31,9 +33,11 @@ export type PlaylistDetail = {
   id: string;
   name: string;
   description: string | null;
+  coverUrl: string | null;
   createdAt: Date;
   updatedAt: Date;
   tracks: PlaylistTrackRow[];
+  system?: "liked-songs";
 };
 
 export type AddTrackPayload = {
@@ -48,6 +52,14 @@ export type AddTrackPayload = {
   durationMs?: number | null;
 };
 
+export type AvailablePlaylistTrack = AddTrackPayload & {
+  key: string;
+};
+
+function coverUrlForReleaseGroup(mbid: string): string {
+  return `https://coverartarchive.org/release-group/${mbid}/front-250`;
+}
+
 // CRUD ----------------------------------------------------------------------
 
 export async function listPlaylists(userId: string): Promise<PlaylistSummary[]> {
@@ -58,23 +70,37 @@ export async function listPlaylists(userId: string): Promise<PlaylistSummary[]> 
       id: true,
       name: true,
       description: true,
+      coverUrl: true,
       updatedAt: true,
       tracks: {
-        select: { coverUrl: true },
+        select: { albumMbid: true, coverUrl: true },
         orderBy: { position: "asc" },
-        take: 1,
+        take: 24,
       },
       _count: { select: { tracks: true } },
     },
   });
-  return rows.map((r) => ({
-    id: r.id,
-    name: r.name,
-    description: r.description,
-    trackCount: r._count.tracks,
-    coverUrl: r.tracks[0]?.coverUrl ?? null,
-    updatedAt: r.updatedAt,
-  }));
+  return rows.map((r) => {
+    const coverUrls: string[] = [];
+    const seen = new Set<string>();
+    for (const track of r.tracks) {
+      const url = track.coverUrl ?? coverUrlForReleaseGroup(track.albumMbid);
+      if (seen.has(url)) continue;
+      seen.add(url);
+      coverUrls.push(url);
+      if (coverUrls.length === 4) break;
+    }
+
+    return {
+      id: r.id,
+      name: r.name,
+      description: r.description,
+      trackCount: r._count.tracks,
+      coverUrls,
+      coverUrl: r.coverUrl ?? coverUrls[0] ?? null,
+      updatedAt: r.updatedAt,
+    };
+  });
 }
 
 export async function getPlaylist(
@@ -87,6 +113,7 @@ export async function getPlaylist(
       id: true,
       name: true,
       description: true,
+      coverUrl: true,
       createdAt: true,
       updatedAt: true,
       tracks: {
@@ -112,9 +139,13 @@ export async function getPlaylist(
     id: row.id,
     name: row.name,
     description: row.description,
+    coverUrl: row.coverUrl,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
-    tracks: row.tracks,
+    tracks: row.tracks.map((track) => ({
+      ...track,
+      coverUrl: track.coverUrl ?? coverUrlForReleaseGroup(track.albumMbid),
+    })),
   };
 }
 
@@ -156,6 +187,33 @@ export async function updatePlaylist(
   }
   if (Object.keys(data).length === 0) return;
   await prisma.playlist.update({ where: { id: playlistId }, data });
+}
+
+export async function getPlaylistCoverForUser(
+  userId: string,
+  playlistId: string,
+): Promise<{ coverUrl: string | null } | null> {
+  return prisma.playlist.findFirst({
+    where: { id: playlistId, userId },
+    select: { coverUrl: true },
+  });
+}
+
+export async function setPlaylistCover(
+  userId: string,
+  playlistId: string,
+  coverUrl: string,
+): Promise<{ previousCoverUrl: string | null }> {
+  const existing = await prisma.playlist.findFirst({
+    where: { id: playlistId, userId },
+    select: { id: true, coverUrl: true },
+  });
+  if (!existing) throw new Error("Playlist not found.");
+  await prisma.playlist.update({
+    where: { id: playlistId },
+    data: { coverUrl },
+  });
+  return { previousCoverUrl: existing.coverUrl };
 }
 
 export async function deletePlaylist(
@@ -216,6 +274,53 @@ export async function addTrackToPlaylist(
     });
 
     return created;
+  });
+}
+
+export async function addTracksToPlaylist(
+  userId: string,
+  playlistId: string,
+  payloads: AddTrackPayload[],
+): Promise<{ count: number }> {
+  if (payloads.length === 0) return { count: 0 };
+  if (payloads.length > 200) throw new Error("Too many tracks selected.");
+
+  return prisma.$transaction(async (tx) => {
+    const playlist = await tx.playlist.findFirst({
+      where: { id: playlistId, userId },
+      select: { id: true },
+    });
+    if (!playlist) throw new Error("Playlist not found.");
+
+    const last = await tx.playlistTrack.findFirst({
+      where: { playlistId },
+      orderBy: { position: "desc" },
+      select: { position: true },
+    });
+    const start = last?.position ?? 0;
+
+    await tx.playlistTrack.createMany({
+      data: payloads.map((payload, idx) => ({
+        playlistId,
+        position: start + idx + 1,
+        recordingMbid: payload.recordingMbid,
+        trackFileId: payload.trackFileId,
+        albumMbid: payload.albumMbid,
+        albumPosition: payload.albumPosition,
+        title: payload.title,
+        artistName: payload.artistName,
+        albumTitle: payload.albumTitle ?? null,
+        coverUrl: payload.coverUrl ?? null,
+        durationMs: payload.durationMs ?? null,
+      })),
+    });
+
+    await tx.playlist.update({
+      where: { id: playlistId },
+      data: { updatedAt: new Date() },
+    });
+
+    return { count: payloads.length };
   });
 }
 
@@ -306,6 +411,72 @@ export async function moveTrack(
       data: { updatedAt: new Date() },
     });
   });
+}
+
+// Available tracks ----------------------------------------------------------
+
+/**
+ * Lists every downloaded track Lidarr currently has files for. Playlist rows
+ * can heal stale file ids by album position later, so the only playlist-level
+ * requirement here is a current trackFileId and stable-enough identity.
+ */
+export async function listAvailablePlaylistTracks(): Promise<
+  AvailablePlaylistTrack[]
+> {
+  const settings = await getSettings();
+  if (!settings.lidarrUrl || !settings.lidarrApiKey) return [];
+
+  const albums = await prisma.libraryItem.findMany({
+    where: { status: "downloaded", trackFileCount: { gt: 0 } },
+    orderBy: [{ artistName: "asc" }, { title: "asc" }],
+    select: {
+      mbid: true,
+      lidarrId: true,
+      artistName: true,
+      title: true,
+    },
+  });
+  if (albums.length === 0) return [];
+
+  const config: LidarrConfig = {
+    url: settings.lidarrUrl,
+    apiKey: settings.lidarrApiKey,
+  };
+
+  const settled = await Promise.allSettled(
+    albums.map(async (album) => {
+      const tracks = await listTracksByAlbum(config, album.lidarrId);
+      return tracks
+        .filter((track) => track.hasFile && track.trackFileId)
+        .map<AvailablePlaylistTrack>((track) => {
+          const position =
+            track.absoluteTrackNumber ?? Number.parseInt(track.trackNumber, 10);
+          return {
+            key: `${album.lidarrId}:${track.id}:${track.trackFileId}`,
+            recordingMbid: `lidarr:${track.id}`,
+            trackFileId: track.trackFileId,
+            albumMbid: album.mbid,
+            albumPosition:
+              Number.isFinite(position) && position > 0 ? position : track.id,
+            title: track.title,
+            artistName: album.artistName,
+            albumTitle: album.title,
+            coverUrl: coverUrlForReleaseGroup(album.mbid),
+            durationMs: null,
+          };
+        });
+    }),
+  );
+
+  return settled
+    .flatMap((result) => (result.status === "fulfilled" ? result.value : []))
+    .sort(
+      (a, b) =>
+        a.artistName.localeCompare(b.artistName) ||
+        (a.albumTitle ?? "").localeCompare(b.albumTitle ?? "") ||
+        a.albumPosition - b.albumPosition ||
+        a.title.localeCompare(b.title),
+    );
 }
 
 // Heal ----------------------------------------------------------------------

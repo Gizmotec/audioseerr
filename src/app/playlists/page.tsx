@@ -2,6 +2,7 @@ import { ArrowLeft, ListMusic } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { getLikedSongsPlaylistSummary } from "@/lib/likes";
 import { listPlaylists } from "@/lib/playlists";
 import { isSetupComplete } from "@/lib/settings";
 import { CreatePlaylistInline } from "./CreatePlaylistInline";
@@ -19,7 +20,11 @@ export default async function PlaylistsPage() {
     redirect("/login");
   }
 
-  const playlists = await listPlaylists(userId);
+  const [likedSongs, playlists] = await Promise.all([
+    getLikedSongsPlaylistSummary(userId),
+    listPlaylists(userId),
+  ]);
+  const allPlaylists = [likedSongs, ...playlists];
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 md:px-6">
@@ -40,7 +45,7 @@ export default async function PlaylistsPage() {
         <CreatePlaylistInline />
       </header>
 
-      {playlists.length === 0 ? (
+      {allPlaylists.length === 0 ? (
         <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
           <ListMusic className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" />
           <p>No playlists yet.</p>
@@ -50,7 +55,7 @@ export default async function PlaylistsPage() {
         </div>
       ) : (
         <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-          {playlists.map((p) => (
+          {allPlaylists.map((p) => (
             <li key={p.id}>
               <PlaylistTile playlist={p} />
             </li>

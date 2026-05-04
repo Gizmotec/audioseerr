@@ -6,25 +6,44 @@ import {
   Check,
   ChevronDown,
   Disc3,
+  ImagePlus,
   Loader2,
   ListMusic,
   Pause,
   Pencil,
   Play,
+  Plus,
+  Search,
+  Square,
+  SquareCheck,
   Trash2,
   X,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { type QueueItem, usePreviewPlayer } from "@/components/PreviewPlayer";
 import {
+  addTracksToPlaylistAction,
   deletePlaylistAction,
+  listAvailablePlaylistTracksAction,
   moveTrackAction,
   removeTrackAction,
+  uploadPlaylistCoverAction,
   updatePlaylistAction,
 } from "@/lib/actions/playlists";
-import type { PlaylistTrackRow } from "@/lib/playlists";
+import type {
+  AddTrackPayload,
+  AvailablePlaylistTrack,
+  PlaylistTrackRow,
+} from "@/lib/playlists";
 import { cn } from "@/lib/utils";
 
 type DetailTrack = PlaylistTrackRow & {
@@ -36,14 +55,20 @@ type Props = {
   playlistId: string;
   initialName: string;
   description: string | null;
+  coverUrl: string | null;
   tracks: DetailTrack[];
+  readOnly?: boolean;
+  showEmptyState?: boolean;
 };
 
 export function PlaylistDetail({
   playlistId,
   initialName,
   description,
+  coverUrl,
   tracks,
+  readOnly = false,
+  showEmptyState = true,
 }: Props) {
   const player = usePreviewPlayer();
   const router = useRouter();
@@ -103,15 +128,27 @@ export function PlaylistDetail({
     <div className="mt-6 flex flex-col gap-6">
       <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div className="flex items-end gap-5">
-          <PlaylistCover tracks={tracks} />
+          <PlaylistCover
+            playlistId={playlistId}
+            coverUrl={coverUrl}
+            tracks={tracks}
+            readOnly={readOnly}
+          />
           <div className="flex flex-col gap-2">
             <p className="text-xs uppercase tracking-wider text-muted-foreground">
               Playlist
             </p>
-            <PlaylistTitle
-              playlistId={playlistId}
-              initialName={initialName}
-            />
+            {readOnly ? (
+              <h1 className="text-3xl font-semibold leading-tight md:text-5xl">
+                {initialName}
+              </h1>
+            ) : (
+              <PlaylistTitle
+                key={initialName}
+                playlistId={playlistId}
+                initialName={initialName}
+              />
+            )}
             <p className="text-sm text-muted-foreground">
               {tracks.length} {tracks.length === 1 ? "track" : "tracks"}
               {tracks.length > playableCount && (
@@ -132,6 +169,12 @@ export function PlaylistDetail({
         </div>
 
         <div className="flex items-center gap-2">
+          {!readOnly && (
+            <AddSongsButton
+              playlistId={playlistId}
+              currentTracks={tracks}
+            />
+          )}
           <button
             type="button"
             onClick={playAll}
@@ -141,23 +184,23 @@ export function PlaylistDetail({
             <Play className="h-4 w-4" fill="currentColor" />
             Play
           </button>
-          <DeletePlaylistButton playlistId={playlistId} name={initialName} />
+          {!readOnly && (
+            <DeletePlaylistButton playlistId={playlistId} name={initialName} />
+          )}
         </div>
       </header>
 
-      {tracks.length === 0 ? (
+      {tracks.length === 0 && showEmptyState ? (
         <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
           <ListMusic className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" />
-          <p>This playlist is empty.</p>
+          <p>{readOnly ? "No liked songs yet." : "This playlist is empty."}</p>
           <p className="mt-1">
-            Find a track on any album page and use the{" "}
-            <span className="rounded bg-secondary px-1 py-0.5 font-mono text-xs">
-              + add to playlist
-            </span>{" "}
-            button to add it here.
+            {readOnly
+              ? "Heart tracks on album pages to collect them here."
+              : "Use Add songs to search your downloaded library."}
           </p>
         </div>
-      ) : (
+      ) : tracks.length > 0 ? (
         <ol className="divide-y divide-border/50">
           {tracks.map((t, idx) => {
             const failedAtPlay = player.failedIds.has(t.id);
@@ -275,58 +318,400 @@ export function PlaylistDetail({
                   {formatDuration(t.durationMs)}
                 </span>
 
-                <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-                  <button
-                    type="button"
-                    onClick={() => moveTrack(t.id, t.position - 1)}
-                    disabled={isFirst || busy}
-                    aria-label="Move up"
-                    className={cn(
-                      "flex h-7 w-7 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:bg-secondary hover:text-foreground",
-                      isFirst && "cursor-not-allowed opacity-30",
-                    )}
-                  >
-                    <ArrowUp className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => moveTrack(t.id, t.position + 1)}
-                    disabled={isLast || busy}
-                    aria-label="Move down"
-                    className={cn(
-                      "flex h-7 w-7 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:bg-secondary hover:text-foreground",
-                      isLast && "cursor-not-allowed opacity-30",
-                    )}
-                  >
-                    <ArrowDown className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => removeTrack(t.id)}
-                    disabled={busy}
-                    aria-label="Remove from playlist"
-                    className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive"
-                  >
-                    {busy ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <X className="h-3.5 w-3.5" />
-                    )}
-                  </button>
-                </div>
+                {!readOnly && (
+                  <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                    <button
+                      type="button"
+                      onClick={() => moveTrack(t.id, t.position - 1)}
+                      disabled={isFirst || busy}
+                      aria-label="Move up"
+                      className={cn(
+                        "flex h-7 w-7 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:bg-secondary hover:text-foreground",
+                        isFirst && "cursor-not-allowed opacity-30",
+                      )}
+                    >
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveTrack(t.id, t.position + 1)}
+                      disabled={isLast || busy}
+                      aria-label="Move down"
+                      className={cn(
+                        "flex h-7 w-7 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:bg-secondary hover:text-foreground",
+                        isLast && "cursor-not-allowed opacity-30",
+                      )}
+                    >
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeTrack(t.id)}
+                      disabled={busy}
+                      aria-label="Remove from playlist"
+                      className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      {busy ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <X className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  </div>
+                )}
               </li>
             );
           })}
         </ol>
-      )}
+      ) : null}
     </div>
   );
 }
 
-function PlaylistCover({ tracks }: { tracks: DetailTrack[] }) {
+function AddSongsButton({
+  playlistId,
+  currentTracks,
+}: {
+  playlistId: string;
+  currentTracks: DetailTrack[];
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [availableTracks, setAvailableTracks] = useState<
+    AvailablePlaylistTrack[]
+  >([]);
+  const [loadedTracks, setLoadedTracks] = useState(false);
+  const [loadingTracks, setLoadingTracks] = useState(false);
+  const [query, setQuery] = useState("");
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const panelRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const existingKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const track of currentTracks) {
+      keys.add(
+        `${track.albumMbid}:${track.albumPosition}:${
+          track.currentTrackFileId ?? track.trackFileId
+        }`,
+      );
+    }
+    return keys;
+  }, [currentTracks]);
+
+  const byKey = useMemo(
+    () => new Map(availableTracks.map((track) => [track.key, track])),
+    [availableTracks],
+  );
+
+  const filteredTracks = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return availableTracks.slice(0, 100);
+    return availableTracks
+      .filter((track) =>
+        `${track.title} ${track.artistName} ${track.albumTitle ?? ""}`
+          .toLowerCase()
+          .includes(needle),
+      )
+      .slice(0, 100);
+  }, [availableTracks, query]);
+
+  const close = useCallback(() => {
+    setOpen(false);
+    setError(null);
+    setQuery("");
+  }, []);
+
+  const openPicker = () => {
+    setOpen(true);
+    if (loadedTracks || loadingTracks) return;
+    setLoadingTracks(true);
+    setError(null);
+    startTransition(async () => {
+      const res = await listAvailablePlaylistTracksAction();
+      setLoadingTracks(false);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      setAvailableTracks(res.tracks);
+      setLoadedTracks(true);
+    });
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    inputRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [close, open]);
+
+  const toggle = (key: string) => {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const selectFiltered = () => {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      for (const track of filteredTracks) next.add(track.key);
+      return next;
+    });
+  };
+
+  const clearSelected = () => setSelectedKeys(new Set());
+
+  const addSelected = () => {
+    const payloads: AddTrackPayload[] = Array.from(selectedKeys)
+      .map((key) => byKey.get(key))
+      .filter((track): track is AvailablePlaylistTrack => !!track)
+      .map((track) => ({
+        recordingMbid: track.recordingMbid,
+        trackFileId: track.trackFileId,
+        albumMbid: track.albumMbid,
+        albumPosition: track.albumPosition,
+        title: track.title,
+        artistName: track.artistName,
+        albumTitle: track.albumTitle,
+        coverUrl: track.coverUrl,
+        durationMs: track.durationMs,
+      }));
+    if (payloads.length === 0) return;
+
+    setError(null);
+    startTransition(async () => {
+      const res = await addTracksToPlaylistAction(playlistId, payloads);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      setSelectedKeys(new Set());
+      close();
+      router.refresh();
+    });
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={openPicker}
+        className="inline-flex h-10 items-center gap-2 rounded-md border border-border px-3 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
+      >
+        <Plus className="h-4 w-4" />
+        Add songs
+      </button>
+
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-end bg-background/80 p-0 backdrop-blur-sm sm:items-center sm:justify-center sm:p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Add songs"
+          onMouseDown={(e) => {
+            if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+              close();
+            }
+          }}
+        >
+          <div
+            ref={panelRef}
+            className="flex max-h-[88vh] w-full flex-col overflow-hidden rounded-t-lg border border-border bg-background shadow-2xl sm:max-w-3xl sm:rounded-lg"
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-border p-4">
+              <div>
+                <h2 className="text-lg font-semibold">Add songs</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {loadingTracks
+                    ? "Loading downloaded songs..."
+                    : `${availableTracks.length} downloaded ${
+                        availableTracks.length === 1 ? "song" : "songs"
+                      } available`}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={close}
+                aria-label="Close"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="border-b border-border p-4">
+              <label className="relative block">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  ref={inputRef}
+                  type="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search songs, artists, or albums"
+                  className="h-10 w-full rounded-md border border-input bg-transparent pl-9 pr-3 text-sm outline-none transition-colors focus:border-ring focus:ring-3 focus:ring-ring/30"
+                />
+              </label>
+
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <button
+                  type="button"
+                  onClick={selectFiltered}
+                  disabled={filteredTracks.length === 0}
+                  className="rounded-md border border-border px-2 py-1 transition-colors hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Select shown
+                </button>
+                <button
+                  type="button"
+                  onClick={clearSelected}
+                  disabled={selectedKeys.size === 0}
+                  className="rounded-md border border-border px-2 py-1 transition-colors hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Clear
+                </button>
+                <span className="ml-auto tabular-nums">
+                  Showing {filteredTracks.length}
+                  {availableTracks.length > filteredTracks.length ? " of 100+" : ""}
+                </span>
+              </div>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {availableTracks.length === 0 ? (
+                <div className="px-6 py-12 text-center text-sm text-muted-foreground">
+                  {loadingTracks ? (
+                    <Loader2 className="mx-auto h-6 w-6 animate-spin" />
+                  ) : (
+                    "No downloaded songs were found in your Lidarr library."
+                  )}
+                </div>
+              ) : filteredTracks.length === 0 ? (
+                <div className="px-6 py-12 text-center text-sm text-muted-foreground">
+                  No songs match your search.
+                </div>
+              ) : (
+                <ol className="divide-y divide-border/50">
+                  {filteredTracks.map((track) => {
+                    const selected = selectedKeys.has(track.key);
+                    const alreadyInPlaylist = existingKeys.has(
+                      `${track.albumMbid}:${track.albumPosition}:${track.trackFileId}`,
+                    );
+                    return (
+                      <li key={track.key}>
+                        <button
+                          type="button"
+                          onClick={() => toggle(track.key)}
+                          className={cn(
+                            "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-secondary/70",
+                            selected && "bg-secondary",
+                          )}
+                        >
+                          {selected ? (
+                            <SquareCheck className="h-5 w-5 shrink-0 text-foreground" />
+                          ) : (
+                            <Square className="h-5 w-5 shrink-0 text-muted-foreground" />
+                          )}
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded bg-secondary text-muted-foreground/40">
+                            {track.coverUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={track.coverUrl}
+                                alt=""
+                                loading="lazy"
+                                referrerPolicy="no-referrer"
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <Disc3 className="h-5 w-5" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium" title={track.title}>
+                              {track.title}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {track.artistName}
+                              {track.albumTitle ? ` · ${track.albumTitle}` : ""}
+                            </p>
+                          </div>
+                          {alreadyInPlaylist && (
+                            <span className="hidden shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground sm:inline">
+                              In playlist
+                            </span>
+                          )}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-3 border-t border-border p-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-foreground">
+                {selectedKeys.size} selected
+                {error ? <span className="text-destructive"> · {error}</span> : null}
+              </p>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={close}
+                  disabled={pending}
+                  className="inline-flex h-9 items-center rounded-md border border-border px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-40"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={addSelected}
+                  disabled={pending || selectedKeys.size === 0}
+                  className="inline-flex h-9 items-center gap-2 rounded-md bg-foreground px-3 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-40"
+                >
+                  {pending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Plus className="h-4 w-4" />
+                  )}
+                  Add selected
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function PlaylistCover({
+  playlistId,
+  coverUrl,
+  tracks,
+  readOnly,
+}: {
+  playlistId: string;
+  coverUrl: string | null;
+  tracks: DetailTrack[];
+  readOnly: boolean;
+}) {
+  const router = useRouter();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
   // First four covers form a 2×2 grid à la Spotify; fall back to one big cover
   // if there's only one unique cover, or the icon if there are none.
   const covers = useMemo(() => {
+    if (coverUrl) return [coverUrl];
     const seen = new Set<string>();
     const out: string[] = [];
     for (const t of tracks) {
@@ -336,19 +721,68 @@ function PlaylistCover({ tracks }: { tracks: DetailTrack[] }) {
       if (out.length === 4) break;
     }
     return out;
-  }, [tracks]);
+  }, [coverUrl, tracks]);
+
+  const upload = (file: File | undefined) => {
+    if (!file) return;
+    const formData = new FormData();
+    formData.set("cover", file);
+    setError(null);
+    startTransition(async () => {
+      const res = await uploadPlaylistCoverAction(playlistId, formData);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      router.refresh();
+    });
+  };
+
+  const uploadControl = (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif"
+        className="sr-only"
+        onChange={(e) => {
+          upload(e.target.files?.[0]);
+          e.currentTarget.value = "";
+        }}
+      />
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={pending}
+        className="absolute inset-x-3 bottom-3 inline-flex h-9 items-center justify-center gap-2 rounded-md bg-background/85 px-3 text-sm font-medium text-foreground opacity-0 shadow-lg backdrop-blur transition-opacity hover:bg-background group-hover/cover:opacity-100 group-focus-within/cover:opacity-100 disabled:opacity-70"
+      >
+        {pending ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <ImagePlus className="h-4 w-4" />
+        )}
+        {coverUrl ? "Change cover" : "Upload cover"}
+      </button>
+      {error && (
+        <p className="absolute inset-x-3 top-3 rounded-md bg-destructive/90 px-2 py-1 text-xs text-destructive-foreground shadow">
+          {error}
+        </p>
+      )}
+    </>
+  );
 
   if (covers.length === 0) {
     return (
-      <div className="flex h-40 w-40 shrink-0 items-center justify-center rounded-lg bg-secondary text-muted-foreground/40 shadow-lg md:h-48 md:w-48">
+      <div className="group/cover relative flex h-40 w-40 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-secondary text-muted-foreground/40 shadow-lg md:h-48 md:w-48">
         <ListMusic className="h-1/3 w-1/3" />
+        {!readOnly && uploadControl}
       </div>
     );
   }
 
   if (covers.length === 1) {
     return (
-      <div className="relative h-40 w-40 shrink-0 overflow-hidden rounded-lg bg-secondary shadow-lg md:h-48 md:w-48">
+      <div className="group/cover relative h-40 w-40 shrink-0 overflow-hidden rounded-lg bg-secondary shadow-lg md:h-48 md:w-48">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={covers[0]}
@@ -356,12 +790,18 @@ function PlaylistCover({ tracks }: { tracks: DetailTrack[] }) {
           referrerPolicy="no-referrer"
           className="h-full w-full object-cover"
         />
+        {!readOnly && (
+          <>
+            <div className="absolute inset-0 bg-background/0 transition-colors group-hover/cover:bg-background/20 group-focus-within/cover:bg-background/20" />
+            {uploadControl}
+          </>
+        )}
       </div>
     );
   }
 
   return (
-    <div className="grid h-40 w-40 shrink-0 grid-cols-2 grid-rows-2 overflow-hidden rounded-lg bg-secondary shadow-lg md:h-48 md:w-48">
+    <div className="group/cover relative grid h-40 w-40 shrink-0 grid-cols-2 grid-rows-2 overflow-hidden rounded-lg bg-secondary shadow-lg md:h-48 md:w-48">
       {covers.slice(0, 4).map((url, i) => (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -372,6 +812,12 @@ function PlaylistCover({ tracks }: { tracks: DetailTrack[] }) {
           className="h-full w-full object-cover"
         />
       ))}
+      {!readOnly && (
+        <>
+          <div className="absolute inset-0 bg-background/0 transition-colors group-hover/cover:bg-background/20 group-focus-within/cover:bg-background/20" />
+          {uploadControl}
+        </>
+      )}
     </div>
   );
 }
@@ -393,11 +839,6 @@ function PlaylistTitle({
   useEffect(() => {
     if (editing) inputRef.current?.select();
   }, [editing]);
-
-  // Sync from server props if SSR re-runs while we're not editing.
-  useEffect(() => {
-    if (!editing) setName(initialName);
-  }, [initialName, editing]);
 
   const submit = () => {
     const trimmed = name.trim();

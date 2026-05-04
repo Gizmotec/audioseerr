@@ -2,6 +2,7 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { AmbientArtworkBackground } from "@/components/AmbientArtworkBackground";
 import { resolveAppleMusicUrl } from "@/lib/appleMusic";
 import { prisma } from "@/lib/db";
 import { findAlbumPreviews, normalizeTrackTitle } from "@/lib/deezer";
@@ -128,7 +129,9 @@ export default async function AlbumPage({ params }: { params: RouteParams }) {
   }));
 
   return (
-    <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 md:px-6">
+    <main className="relative isolate mx-auto w-full max-w-5xl flex-1 px-4 py-6 md:px-6">
+      <AmbientArtworkBackground imageUrl={coverUrl} />
+
       <Link
         href="/search"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
@@ -157,4 +160,3 @@ export default async function AlbumPage({ params }: { params: RouteParams }) {
     </main>
   );
 }
-

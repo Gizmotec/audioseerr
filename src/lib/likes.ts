@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/db";
+import { getAlbum } from "@/lib/musicbrainz";
+import type { PlaylistDetail, PlaylistSummary, PlaylistTrackRow } from "@/lib/playlists";
 
 export type LikeTargetType = "TRACK" | "ALBUM" | "ARTIST";
+
+export const LIKED_SONGS_PLAYLIST_ID = "liked";
 
 export type LikePayload = {
   targetType: LikeTargetType;
@@ -75,6 +79,127 @@ export async function getAllLikes(userId: string): Promise<LikedRow[]> {
       createdAt: true,
     },
   });
+}
+
+function coverUrlForReleaseGroup(mbid: string): string {
+  return `https://coverartarchive.org/release-group/${mbid}/front-250`;
+}
+
+function likedSongsCoverUrls(rows: LikedRow[]): string[] {
+  const coverUrls: string[] = [];
+  const seen = new Set<string>();
+  for (const row of rows) {
+    const url =
+      row.coverUrl ?? (row.albumMbid ? coverUrlForReleaseGroup(row.albumMbid) : null);
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    coverUrls.push(url);
+    if (coverUrls.length === 4) break;
+  }
+  return coverUrls;
+}
+
+export async function getLikedSongsPlaylistSummary(
+  userId: string,
+): Promise<PlaylistSummary> {
+  const rows = await prisma.like.findMany({
+    where: { userId, targetType: "TRACK" },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      targetType: true,
+      targetId: true,
+      title: true,
+      artistName: true,
+      albumMbid: true,
+      albumTitle: true,
+      coverUrl: true,
+      createdAt: true,
+    },
+    take: 24,
+  });
+  const coverUrls = likedSongsCoverUrls(rows);
+  const trackCount = await prisma.like.count({
+    where: { userId, targetType: "TRACK" },
+  });
+
+  return {
+    id: LIKED_SONGS_PLAYLIST_ID,
+    name: "Liked Songs",
+    description: "Tracks you've hearted across Audioseerr.",
+    trackCount,
+    coverUrls,
+    coverUrl: coverUrls[0] ?? null,
+    updatedAt: rows[0]?.createdAt ?? new Date(0),
+    system: "liked-songs",
+  };
+}
+
+export async function getLikedSongsPlaylist(
+  userId: string,
+): Promise<PlaylistDetail> {
+  const rows = await prisma.like.findMany({
+    where: { userId, targetType: "TRACK" },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      targetType: true,
+      targetId: true,
+      title: true,
+      artistName: true,
+      albumMbid: true,
+      albumTitle: true,
+      coverUrl: true,
+      createdAt: true,
+    },
+  });
+  const coverUrls = likedSongsCoverUrls(rows);
+  const albums = new Map<string, Awaited<ReturnType<typeof getAlbum>>>();
+  await Promise.all(
+    Array.from(new Set(rows.map((row) => row.albumMbid).filter(Boolean))).map(
+      async (albumMbid) => {
+        albums.set(albumMbid!, await getAlbum(albumMbid!));
+      },
+    ),
+  );
+
+  const tracks = rows.flatMap<PlaylistTrackRow>((row, index) => {
+    if (!row.albumMbid) return [];
+    const album = albums.get(row.albumMbid);
+    const mbTrack =
+      album?.tracks.find((track) => track.recordingMbid === row.targetId) ??
+      album?.tracks.find(
+        (track) => track.title.toLowerCase() === row.title.toLowerCase(),
+      );
+    if (!mbTrack) return [];
+
+    return [
+      {
+        id: row.id,
+        position: index + 1,
+        recordingMbid: row.targetId,
+        trackFileId: 0,
+        albumMbid: row.albumMbid,
+        albumPosition: mbTrack.position,
+        title: row.title,
+        artistName: row.artistName ?? album?.artistName ?? "Unknown artist",
+        albumTitle: row.albumTitle ?? album?.title ?? null,
+        coverUrl: row.coverUrl ?? coverUrlForReleaseGroup(row.albumMbid),
+        durationMs: mbTrack.lengthMs,
+      },
+    ];
+  });
+
+  return {
+    id: LIKED_SONGS_PLAYLIST_ID,
+    name: "Liked Songs",
+    description: "Tracks you've hearted across Audioseerr.",
+    coverUrl: coverUrls[0] ?? null,
+    createdAt: rows.at(-1)?.createdAt ?? new Date(0),
+    updatedAt: rows[0]?.createdAt ?? new Date(0),
+    tracks,
+    system: "liked-songs",
+  };
 }
 
 /**

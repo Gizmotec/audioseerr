@@ -1,15 +1,22 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
+import { mkdir, unlink, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import {
   type AddTrackPayload,
+  addTracksToPlaylist,
   addTrackToPlaylist,
   createPlaylist,
   deletePlaylist,
+  getPlaylistCoverForUser,
+  listAvailablePlaylistTracks,
   listPlaylists,
   moveTrack,
   removeTrackFromPlaylist,
+  setPlaylistCover,
   updatePlaylist,
 } from "@/lib/playlists";
 
@@ -28,6 +35,21 @@ async function requireUserId(): Promise<
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : "Something went wrong.";
+}
+
+const PLAYLIST_COVER_MAX_BYTES = 4 * 1024 * 1024;
+const PLAYLIST_COVER_TYPES = new Map([
+  ["image/jpeg", "jpg"],
+  ["image/png", "png"],
+  ["image/webp", "webp"],
+  ["image/gif", "gif"],
+]);
+
+function localPlaylistCoverPath(url: string): string | null {
+  if (!url.startsWith("/uploads/playlists/")) return null;
+  const fileName = path.basename(url);
+  if (fileName !== url.slice("/uploads/playlists/".length)) return null;
+  return path.join(process.cwd(), "public", "uploads", "playlists", fileName);
 }
 
 export async function createPlaylistAction(input: {
@@ -61,6 +83,62 @@ export async function updatePlaylistAction(
   }
 }
 
+export async function uploadPlaylistCoverAction(
+  playlistId: string,
+  formData: FormData,
+): Promise<Result<{ coverUrl: string }>> {
+  const auth = await requireUserId();
+  if (!auth.ok) return auth;
+
+  const file = formData.get("cover");
+  if (!(file instanceof File)) {
+    return { ok: false, error: "Choose an image file." };
+  }
+  if (file.size === 0) {
+    return { ok: false, error: "Choose an image file." };
+  }
+  if (file.size > PLAYLIST_COVER_MAX_BYTES) {
+    return { ok: false, error: "Cover image must be 4 MB or smaller." };
+  }
+
+  const ext = PLAYLIST_COVER_TYPES.get(file.type);
+  if (!ext) {
+    return {
+      ok: false,
+      error: "Cover must be a JPEG, PNG, WebP, or GIF image.",
+    };
+  }
+
+  try {
+    const playlist = await getPlaylistCoverForUser(auth.userId, playlistId);
+    if (!playlist) throw new Error("Playlist not found.");
+
+    const dir = path.join(process.cwd(), "public", "uploads", "playlists");
+    await mkdir(dir, { recursive: true });
+
+    const fileName = `${playlistId}-${randomUUID()}.${ext}`;
+    const filePath = path.join(dir, fileName);
+    const coverUrl = `/uploads/playlists/${fileName}`;
+    await writeFile(filePath, Buffer.from(await file.arrayBuffer()));
+
+    await setPlaylistCover(auth.userId, playlistId, coverUrl);
+    const previousPath = playlist.coverUrl
+      ? localPlaylistCoverPath(playlist.coverUrl)
+      : null;
+    if (previousPath) {
+      await unlink(previousPath).catch(() => {
+        /* stale file cleanup is best-effort */
+      });
+    }
+
+    revalidatePath("/playlists");
+    revalidatePath(`/playlists/${playlistId}`);
+    return { ok: true, coverUrl };
+  } catch (err) {
+    return { ok: false, error: errorMessage(err) };
+  }
+}
+
 export async function deletePlaylistAction(
   playlistId: string,
 ): Promise<Result> {
@@ -86,6 +164,22 @@ export async function addTrackToPlaylistAction(
     revalidatePath("/playlists");
     revalidatePath(`/playlists/${playlistId}`);
     return { ok: true, id: row.id, position: row.position };
+  } catch (err) {
+    return { ok: false, error: errorMessage(err) };
+  }
+}
+
+export async function addTracksToPlaylistAction(
+  playlistId: string,
+  payloads: AddTrackPayload[],
+): Promise<Result<{ count: number }>> {
+  const auth = await requireUserId();
+  if (!auth.ok) return auth;
+  try {
+    const result = await addTracksToPlaylist(auth.userId, playlistId, payloads);
+    revalidatePath("/playlists");
+    revalidatePath(`/playlists/${playlistId}`);
+    return { ok: true, count: result.count };
   } catch (err) {
     return { ok: false, error: errorMessage(err) };
   }
@@ -141,4 +235,17 @@ export async function listMyPlaylistsAction(): Promise<
       trackCount: p.trackCount,
     })),
   };
+}
+
+export async function listAvailablePlaylistTracksAction(): Promise<
+  Result<{ tracks: Awaited<ReturnType<typeof listAvailablePlaylistTracks>> }>
+> {
+  const auth = await requireUserId();
+  if (!auth.ok) return auth;
+  try {
+    const tracks = await listAvailablePlaylistTracks();
+    return { ok: true, tracks };
+  } catch (err) {
+    return { ok: false, error: errorMessage(err) };
+  }
 }

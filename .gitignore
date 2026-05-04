@@ -51,3 +51,6 @@ next-env.d.ts
 
 # Production data dir (mounted at /config in Docker; not committed if created locally)
 /config
+
+# Claude Code tooling state
+.claude/

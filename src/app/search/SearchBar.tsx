@@ -28,7 +28,7 @@ export function SearchBar({ initialQuery }: { initialQuery: string }) {
         onChange={(e) => setValue(e.target.value)}
         className="h-11 text-base"
       />
-      <Button type="submit" size="lg">
+      <Button type="submit" size="lg" className="h-11 px-5 text-base">
         Search
       </Button>
     </form>
