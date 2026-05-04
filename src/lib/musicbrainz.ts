@@ -72,6 +72,25 @@ type MbReleaseGroupSearchResponse = {
   count?: number;
 };
 
+type MbArtistSearchResponse = {
+  artists: Array<{
+    id: string;
+    name: string;
+    type?: string;
+    country?: string;
+    score?: number;
+  }>;
+  count?: number;
+};
+
+export type MbArtistSearchHit = {
+  mbid: string;
+  name: string;
+  type: string | null;
+  country: string | null;
+  score: number;
+};
+
 class MbHttpError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -108,6 +127,14 @@ async function resolveReleaseToReleaseGroup(mbid: string): Promise<string | null
 
 function coverUrl(mbid: string): string {
   return `https://coverartarchive.org/release-group/${mbid}/front-250`;
+}
+
+function normalizeName(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N} ]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function joinArtistCredit(
@@ -313,5 +340,36 @@ export async function searchAlbums(query: string, limit = 25): Promise<MbAlbum[]
         coverUrl: coverUrl(rg.id),
       };
     });
+  });
+}
+
+export async function searchArtists(
+  query: string,
+  limit = 10,
+): Promise<MbArtistSearchHit[]> {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+
+  const cacheKey = `mb:search:artist:v2:${limit}:${trimmed.toLowerCase()}`;
+  return withCache<MbArtistSearchHit[]>(cacheKey, 60 * 60, async () => {
+    const data = await mbFetch<MbArtistSearchResponse>("/artist", {
+      query: trimmed,
+      limit: String(limit),
+    });
+    const want = normalizeName(trimmed);
+    return data.artists
+      .map((a) => ({
+        mbid: a.id,
+        name: a.name,
+        type: a.type ?? null,
+        country: a.country ?? null,
+        score: typeof a.score === "number" ? a.score : 0,
+      }))
+      .sort((a, b) => {
+        const exactA = normalizeName(a.name) === want ? 1 : 0;
+        const exactB = normalizeName(b.name) === want ? 1 : 0;
+        if (exactA !== exactB) return exactB - exactA;
+        return b.score - a.score;
+      });
   });
 }
