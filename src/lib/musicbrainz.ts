@@ -356,6 +356,52 @@ export async function searchAlbums(query: string, limit = 25): Promise<MbAlbum[]
   });
 }
 
+// Field-qualified album lookup for "I know the artist + title, give me the
+// MBID" cases (e.g. resolving a Deezer chart card). Free-text searchAlbums
+// blindly trusts MB's relevance ranking, which can rank a different album
+// above the right one when the title is a common phrase like "Greatest Hits".
+export async function findAlbumByArtistTitle(
+  artist: string,
+  title: string,
+): Promise<MbAlbum | null> {
+  const a = artist.trim();
+  const t = title.trim();
+  if (!a || !t) return null;
+
+  const escape = (s: string) => s.replace(/(["\\])/g, "\\$1");
+  const lucene = `artist:"${escape(a)}" AND releasegroup:"${escape(t)}" AND primarytype:(Album OR EP)`;
+  const cacheKey = `mb:resolve:rg:${a.toLowerCase()}|${t.toLowerCase()}`;
+
+  return withCache<MbAlbum | null>(cacheKey, 60 * 60, async () => {
+    const data = await mbFetch<MbReleaseGroupSearchResponse>("/release-group", {
+      query: lucene,
+      limit: "10",
+    });
+    const wantArtist = normalizeName(a);
+    const wantTitle = normalizeName(t);
+    const candidates = data["release-groups"].map((rg) => {
+      const credit = joinArtistCredit(rg["artist-credit"]);
+      return {
+        mbid: rg.id,
+        title: rg.title,
+        artistName: credit.name,
+        artistMbid: credit.mbid,
+        firstReleaseDate: rg["first-release-date"] ?? null,
+        primaryType: rg["primary-type"] ?? null,
+        coverUrl: coverUrl(rg.id),
+      };
+    });
+    // Require the artist to actually match — MB sometimes still returns
+    // off-artist hits when the title is generic.
+    const artistMatch = candidates.filter(
+      (c) => normalizeName(c.artistName) === wantArtist,
+    );
+    if (artistMatch.length === 0) return null;
+    const exact = artistMatch.find((c) => normalizeName(c.title) === wantTitle);
+    return exact ?? artistMatch[0];
+  });
+}
+
 export async function searchArtists(
   query: string,
   limit = 10,

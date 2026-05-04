@@ -11,7 +11,7 @@
 
 import { type NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { searchAlbums } from "@/lib/musicbrainz";
+import { findAlbumByArtistTitle } from "@/lib/musicbrainz";
 
 function redirectTo(path: string): NextResponse {
   return new NextResponse(null, {
@@ -36,8 +36,7 @@ export async function GET(request: NextRequest) {
   const fallback = `/search?q=${encodeURIComponent(`${artist} ${title}`)}`;
 
   try {
-    const results = await searchAlbums(`${artist} ${title}`, 5);
-    const hit = results[0];
+    const hit = await findAlbumByArtistTitle(artist, title);
     if (hit) {
       return redirectTo(`/album/${hit.mbid}`);
     }
