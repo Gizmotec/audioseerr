@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { prisma } from "@/lib/db";
 
 export type LibraryStatus = "downloaded" | "downloading" | "missing";
@@ -49,7 +50,7 @@ export type LibraryIndex = {
  * canonical (e.g. Taylor Swift's "1989" exists as several release-groups),
  * so we fall back to a normalized artist+title key whenever the MBID misses.
  */
-export async function buildLibraryIndex(): Promise<LibraryIndex> {
+export const buildLibraryIndex = cache(async (): Promise<LibraryIndex> => {
   const rows = await prisma.libraryItem.findMany({
     select: {
       mbid: true,
@@ -87,7 +88,7 @@ export async function buildLibraryIndex(): Promise<LibraryIndex> {
       return byName.get(nameKey(artistName, title)) ?? null;
     },
   };
-}
+});
 
 export async function getLibraryHit(mbid: string): Promise<LibraryHit | null> {
   const row = await prisma.libraryItem.findUnique({
