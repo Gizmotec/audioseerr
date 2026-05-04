@@ -5,8 +5,9 @@ services:
     container_name: audioseerr
     restart: unless-stopped
     ports:
-      # Change the left-hand "3000" if port 3000 is already in use on the host.
-      - "3000:3000"
+      # Host port is configurable via HOST_PORT in .env (defaults to 3000).
+      # Container always listens on 3000 internally.
+      - "${HOST_PORT:-3000}:3000"
     environment:
       # SQLite lives inside the /config volume so it survives image rebuilds.
       DATABASE_URL: "file:/config/db.sqlite"
