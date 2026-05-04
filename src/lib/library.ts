@@ -6,6 +6,7 @@ export type LibraryHit = {
   status: LibraryStatus;
   trackFileCount: number;
   totalTrackCount: number;
+  lidarrId: number;
 };
 
 function normalize(s: string): string {
@@ -52,6 +53,7 @@ export async function buildLibraryIndex(): Promise<LibraryIndex> {
   const rows = await prisma.libraryItem.findMany({
     select: {
       mbid: true,
+      lidarrId: true,
       artistName: true,
       title: true,
       status: true,
@@ -68,6 +70,7 @@ export async function buildLibraryIndex(): Promise<LibraryIndex> {
       status: r.status as LibraryStatus,
       trackFileCount: r.trackFileCount,
       totalTrackCount: r.totalTrackCount,
+      lidarrId: r.lidarrId,
     };
     byMbid.set(r.mbid, hit);
     const key = nameKey(r.artistName, r.title);
@@ -89,13 +92,19 @@ export async function buildLibraryIndex(): Promise<LibraryIndex> {
 export async function getLibraryHit(mbid: string): Promise<LibraryHit | null> {
   const row = await prisma.libraryItem.findUnique({
     where: { mbid },
-    select: { status: true, trackFileCount: true, totalTrackCount: true },
+    select: {
+      lidarrId: true,
+      status: true,
+      trackFileCount: true,
+      totalTrackCount: true,
+    },
   });
   return row
     ? {
         status: row.status as LibraryStatus,
         trackFileCount: row.trackFileCount,
         totalTrackCount: row.totalTrackCount,
+        lidarrId: row.lidarrId,
       }
     : null;
 }
@@ -106,6 +115,7 @@ export async function getLibraryHitByName(
 ): Promise<LibraryHit | null> {
   const rows = await prisma.libraryItem.findMany({
     select: {
+      lidarrId: true,
       artistName: true,
       title: true,
       status: true,
@@ -121,6 +131,7 @@ export async function getLibraryHitByName(
       status: r.status as LibraryStatus,
       trackFileCount: r.trackFileCount,
       totalTrackCount: r.totalTrackCount,
+      lidarrId: r.lidarrId,
     };
     best = best ? preferHit(hit, best) : hit;
   }

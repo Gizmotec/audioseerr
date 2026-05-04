@@ -4,6 +4,7 @@ import { Disc3 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { InLibraryBadge } from "@/components/InLibraryBadge";
+import { LikedBadge } from "@/components/LikedBadge";
 import type { LibraryHit } from "@/lib/library";
 import { formatTrackLine } from "@/app/search/AlbumCard";
 
@@ -17,18 +18,21 @@ export type DiscoveryAlbum = {
 export function DiscoveryAlbumCard({
   album,
   libraryHit,
+  liked,
 }: {
   album: DiscoveryAlbum;
   libraryHit?: LibraryHit | null;
+  liked?: boolean;
 }) {
   const [imgOk, setImgOk] = useState(album.coverUrl !== null);
   const trackLine = formatTrackLine(libraryHit ?? null);
 
-  // Without an MBID we can't deep-link to /album/[mbid]; falling back to a
-  // search link still gets the user to the request flow in one extra click.
+  // Without an MBID (e.g. Deezer chart cards), bounce through a server route
+  // that resolves artist+title to an MBID via MusicBrainz, then redirects to
+  // /album/[mbid]. Falls back to /search if MB has no match.
   const href = album.mbid
     ? `/album/${album.mbid}`
-    : `/search?q=${encodeURIComponent(`${album.artistName} ${album.title}`)}`;
+    : `/api/resolve-album?artist=${encodeURIComponent(album.artistName)}&title=${encodeURIComponent(album.title)}`;
 
   return (
     <Link
@@ -52,6 +56,7 @@ export function DiscoveryAlbumCard({
           </div>
         )}
         <InLibraryBadge status={libraryHit?.status ?? null} />
+        <LikedBadge liked={!!liked} />
       </div>
       <div className="space-y-0.5">
         <p

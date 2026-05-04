@@ -9,6 +9,7 @@ import {
   pollForAlbum,
   setAlbumsMonitored,
   triggerAlbumSearch,
+  triggerArtistSearch,
   type LidarrConfig,
 } from "@/lib/lidarr";
 import { getAlbum } from "@/lib/musicbrainz";
@@ -62,8 +63,10 @@ export async function approveRequestAction(requestId: string): Promise<ActionRes
   }
 
   try {
-    // 1. Find or add the artist. New adds use monitor=none so Lidarr doesn't
-    //    grab the entire back catalog (design doc §8).
+    // 1. Find or add the artist. Album requests add with monitor=none so we
+    //    can opt-in a single album below; artist requests add with monitor=all
+    //    + searchForMissingAlbums so Lidarr fans out across the back catalog
+    //    (design doc §8).
     const existing = await findArtistByMbid(lidarr, artistMbid);
     const lidarrArtistId = existing
       ? existing.id
@@ -71,6 +74,8 @@ export async function approveRequestAction(requestId: string): Promise<ActionRes
           await addArtist(lidarr, artistMbid, request.artistName, {
             qualityProfileId: settings.lidarrDefaultProfileId,
             rootFolderPath: settings.lidarrRootFolderPath,
+            monitor: request.type === "ARTIST" ? "all" : "none",
+            searchForMissingAlbums: request.type === "ARTIST",
           })
         ).id;
 
@@ -93,6 +98,14 @@ export async function approveRequestAction(requestId: string): Promise<ActionRes
     }
     // If `album` is null (poll timeout / artist-typed request), the request
     // still advances to APPROVED — milestone 8's status sync will reconcile.
+
+    // 4. Artist requests against an already-imported artist won't trigger
+    //    Lidarr's add-time search — kick one off explicitly so existing
+    //    monitored albums get searched. Newly-added artists already searched
+    //    via addOptions.searchForMissingAlbums above.
+    if (request.type === "ARTIST" && existing) {
+      await triggerArtistSearch(lidarr, lidarrArtistId).catch(() => {});
+    }
 
     await prisma.request.update({
       where: { id: request.id },

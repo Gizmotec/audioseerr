@@ -1,12 +1,10 @@
-import { Inbox, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { auth, signOut } from "@/auth";
-import { Button } from "@/components/ui/button";
+import { auth } from "@/auth";
 import { DiscoveryRow } from "@/components/DiscoveryRow";
 import { buildLibraryIndex } from "@/lib/library";
-import { getSettings, isSetupComplete } from "@/lib/settings";
-import { getTopAlbumsByTag } from "@/lib/lastfm";
+import { isSetupComplete } from "@/lib/settings";
+import { getDeezerChartAlbums } from "@/lib/deezer";
 import { SearchBar } from "@/app/search/SearchBar";
 
 export const dynamic = "force-dynamic";
@@ -38,65 +36,24 @@ export default async function HomePage() {
     redirect("/login");
   }
 
-  const role = (session.user as { role?: string }).role;
-  const settings = await getSettings();
-  const lastFmKey = settings.lastFmApiKey;
-
-  let rows: { tag: string; albums: Awaited<ReturnType<typeof getTopAlbumsByTag>> }[] =
-    [];
-  if (lastFmKey) {
-    const settled = await Promise.all(
-      HOME_TAGS.map(async (tag) => {
-        try {
-          return { tag, albums: await getTopAlbumsByTag({ apiKey: lastFmKey }, tag, 12) };
-        } catch {
-          return { tag, albums: [] };
-        }
-      }),
-    );
-    rows = settled.filter((r) => r.albums.length > 0);
-  }
+  // Deezer's chart endpoint is keyless and reflects current play activity, so
+  // recent releases actually surface here. (Earlier versions used Last.fm's
+  // all-time tag chart, which is why a 2014 album was showing as "trending".)
+  const settled = await Promise.all(
+    HOME_TAGS.map(async (tag) => {
+      try {
+        return { tag, albums: await getDeezerChartAlbums(tag, 12) };
+      } catch {
+        return { tag, albums: [] };
+      }
+    }),
+  );
+  const rows = settled.filter((r) => r.albums.length > 0);
 
   const library = await buildLibraryIndex();
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-10 px-4 py-10 md:px-6">
-      <header className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Audioseerr</h1>
-          <p className="text-xs text-muted-foreground">
-            Signed in as <span className="font-mono">{session.user.name}</span>
-            {role === "ADMIN" ? " · admin" : ""}
-          </p>
-        </div>
-        <nav className="flex items-center gap-1">
-          <Link
-            href="/requests"
-            className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
-          >
-            <Inbox className="h-4 w-4" /> My requests
-          </Link>
-          {role === "ADMIN" && (
-            <Link
-              href="/admin/requests"
-              className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
-            >
-              <ShieldCheck className="h-4 w-4" /> Queue
-            </Link>
-          )}
-          <form
-            action={async () => {
-              "use server";
-              await signOut({ redirectTo: "/login" });
-            }}
-          >
-            <Button variant="ghost" size="sm" type="submit">
-              Sign out
-            </Button>
-          </form>
-        </nav>
-      </header>
-
       <section className="space-y-3">
         <h2 className="text-lg font-medium">Find an album</h2>
         <SearchBar initialQuery="" />
@@ -111,13 +68,6 @@ export default async function HomePage() {
           library={library}
         />
       ))}
-
-      {!lastFmKey && (
-        <section className="rounded-md border border-dashed p-6 text-sm text-muted-foreground">
-          Add a Last.fm API key in setup to unlock charts and genre browsing.
-          Without it, search is the only entry point.
-        </section>
-      )}
 
       <section className="space-y-3">
         <h2 className="text-lg font-medium">Browse by genre</h2>

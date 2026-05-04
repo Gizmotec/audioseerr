@@ -15,7 +15,7 @@ export type LastFmAlbum = {
   coverUrl: string | null;
 };
 
-type LastFmConfig = { apiKey: string };
+export type LastFmConfig = { apiKey: string };
 
 async function lastFmFetch<T>(
   config: LastFmConfig,
@@ -133,5 +133,113 @@ export async function getTopTags(
       name: t.name,
       reach: typeof t.reach === "number" ? t.reach : 0,
     }));
+  });
+}
+
+type LastFmArtistInfoResponse = {
+  artist?: {
+    name?: string;
+    mbid?: string;
+    bio?: {
+      summary?: string;
+      content?: string;
+    };
+    tags?: { tag?: Array<{ name?: string }> };
+    stats?: { listeners?: string; playcount?: string };
+  };
+};
+
+export type LastFmArtistInfo = {
+  /** Plain text, with the trailing "Read more on Last.fm" link stripped. */
+  bio: string | null;
+  tags: string[];
+  listeners: number | null;
+};
+
+// Last.fm appends a "<a href...>Read more on Last.fm</a>." link to every bio.
+// It's noise for our card; trim it.
+function stripBioFooter(html: string): string {
+  return html
+    .replace(/<a[^>]*>Read more on Last\.fm<\/a>\.?/i, "")
+    .replace(/<a[^>]*>(.*?)<\/a>/gi, "$1")
+    .trim();
+}
+
+export async function getArtistInfo(
+  config: LastFmConfig,
+  mbid: string | null,
+  name: string,
+): Promise<LastFmArtistInfo | null> {
+  const cacheKey = `lastfm:artist.getinfo:${(mbid ?? name).toLowerCase()}`;
+  return withCache<LastFmArtistInfo | null>(cacheKey, 24 * 60 * 60, async () => {
+    // Prefer mbid lookup — disambiguates artists with shared names. Fall back
+    // to plain name when MB hasn't tagged the entity (rare for v1 sources).
+    const params: Record<string, string> = mbid
+      ? { method: "artist.getinfo", mbid }
+      : { method: "artist.getinfo", artist: name };
+    let data: LastFmArtistInfoResponse;
+    try {
+      data = await lastFmFetch<LastFmArtistInfoResponse>(config, params);
+    } catch {
+      return null;
+    }
+    const a = data.artist;
+    if (!a) return null;
+
+    const summary = a.bio?.summary ?? a.bio?.content ?? "";
+    const cleaned = stripBioFooter(summary);
+    const listeners = a.stats?.listeners ? Number(a.stats.listeners) : null;
+
+    return {
+      bio: cleaned.length > 0 ? cleaned : null,
+      tags: (a.tags?.tag ?? []).map((t) => t.name ?? "").filter(Boolean),
+      listeners: Number.isFinite(listeners as number) ? (listeners as number) : null,
+    };
+  });
+}
+
+type LastFmTopTracksResponse = {
+  toptracks?: {
+    track?: Array<{
+      name?: string;
+      mbid?: string;
+      playcount?: string;
+      listeners?: string;
+    }>;
+  };
+};
+
+export type LastFmTopTrack = {
+  name: string;
+  mbid: string | null;
+  playcount: number;
+  listeners: number;
+};
+
+export async function getArtistTopTracks(
+  config: LastFmConfig,
+  mbid: string | null,
+  name: string,
+  limit = 10,
+): Promise<LastFmTopTrack[]> {
+  const cacheKey = `lastfm:artist.gettoptracks:${(mbid ?? name).toLowerCase()}:${limit}`;
+  return withCache<LastFmTopTrack[]>(cacheKey, 24 * 60 * 60, async () => {
+    const params: Record<string, string> = mbid
+      ? { method: "artist.gettoptracks", mbid, limit: String(limit) }
+      : { method: "artist.gettoptracks", artist: name, limit: String(limit) };
+    let data: LastFmTopTracksResponse;
+    try {
+      data = await lastFmFetch<LastFmTopTracksResponse>(config, params);
+    } catch {
+      return [];
+    }
+    return (data.toptracks?.track ?? [])
+      .map((t) => ({
+        name: t.name ?? "",
+        mbid: t.mbid && t.mbid.length > 0 ? t.mbid : null,
+        playcount: t.playcount ? Number(t.playcount) || 0 : 0,
+        listeners: t.listeners ? Number(t.listeners) || 0 : 0,
+      }))
+      .filter((t) => t.name.length > 0);
   });
 }

@@ -24,6 +24,11 @@ export type MbTrack = {
   title: string;
   /** Length in milliseconds, when MB provides it. */
   lengthMs: number | null;
+  /**
+   * Recording-level MBID (stable across reissues — preferred over the
+   * release-specific track MBID). Null when MB omits the recording sub-object.
+   */
+  recordingMbid: string | null;
 };
 
 export type MbAlbumDetail = MbAlbum & {
@@ -67,6 +72,12 @@ type MbReleaseGroupSearchResponse = {
   count?: number;
 };
 
+class MbHttpError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+  }
+}
+
 async function mbFetch<T>(path: string, search: Record<string, string>): Promise<T> {
   const params = new URLSearchParams({ ...search, fmt: "json" });
   const url = `${MB_BASE}${path}?${params.toString()}`;
@@ -75,9 +86,24 @@ async function mbFetch<T>(path: string, search: Record<string, string>): Promise
     headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
   });
   if (!res.ok) {
-    throw new Error(`MusicBrainz ${path} → HTTP ${res.status}`);
+    throw new MbHttpError(res.status, `MusicBrainz ${path} → HTTP ${res.status}`);
   }
   return (await res.json()) as T;
+}
+
+// Last.fm's tag.gettopalbums often returns *release* MBIDs in the `mbid` field
+// rather than release-group MBIDs, so /release-group/{id} 404s. Resolve to the
+// owning release group so callers can keep working with one canonical id.
+async function resolveReleaseToReleaseGroup(mbid: string): Promise<string | null> {
+  try {
+    const rel = await mbFetch<{ "release-group"?: { id?: string } }>(
+      `/release/${mbid}`,
+      { inc: "release-groups" },
+    );
+    return rel["release-group"]?.id ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function coverUrl(mbid: string): string {
@@ -126,6 +152,7 @@ type MbReleaseDetail = {
       number?: string;
       title: string;
       length?: number;
+      recording?: { id: string; title?: string; length?: number };
     }>;
   }>;
 };
@@ -145,15 +172,30 @@ function pickPreferredRelease(
 }
 
 export async function getAlbum(mbid: string): Promise<MbAlbumDetail | null> {
-  const cacheKey = `mb:rg:detail:${mbid}`;
+  // v2 — recordingMbid added to MbTrack
+  const cacheKey = `mb:rg:detail:v2:${mbid}`;
   return withCache<MbAlbumDetail | null>(cacheKey, 7 * 24 * 60 * 60, async () => {
     let rg: MbReleaseGroupDetail;
     try {
       rg = await mbFetch<MbReleaseGroupDetail>(`/release-group/${mbid}`, {
         inc: "releases artist-credits",
       });
-    } catch {
-      return null;
+    } catch (e) {
+      // Last.fm sometimes hands us a release MBID instead of a release-group
+      // MBID. Try resolving and re-fetching once before giving up.
+      if (e instanceof MbHttpError && e.status === 404) {
+        const rgMbid = await resolveReleaseToReleaseGroup(mbid);
+        if (!rgMbid) return null;
+        try {
+          rg = await mbFetch<MbReleaseGroupDetail>(`/release-group/${rgMbid}`, {
+            inc: "releases artist-credits",
+          });
+        } catch {
+          return null;
+        }
+      } else {
+        return null;
+      }
     }
 
     const release = pickPreferredRelease(rg.releases ?? []);
@@ -171,6 +213,7 @@ export async function getAlbum(mbid: string): Promise<MbAlbumDetail | null> {
             position: t.position ?? mi + 1,
             title: t.title,
             lengthMs: typeof t.length === "number" ? t.length : null,
+            recordingMbid: t.recording?.id ?? null,
           })),
         );
       } catch {

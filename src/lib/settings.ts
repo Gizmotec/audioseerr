@@ -10,6 +10,7 @@ export type SettingsView = {
   lidarrDefaultProfileId: number | null;
   lidarrRootFolderPath: string | null;
   lastFmApiKey: string | null;
+  mediaPathMap: string | null;
 };
 
 export async function getSettings(): Promise<SettingsView> {
@@ -28,6 +29,7 @@ export async function getSettings(): Promise<SettingsView> {
     lidarrDefaultProfileId: row.lidarrDefaultProfileId,
     lidarrRootFolderPath: row.lidarrRootFolderPath,
     lastFmApiKey: row.lastFmApiKey,
+    mediaPathMap: row.mediaPathMap,
   };
 }
 
@@ -37,6 +39,7 @@ export type SettingsUpdate = {
   lidarrDefaultProfileId?: number | null;
   lidarrRootFolderPath?: string | null;
   lastFmApiKey?: string | null;
+  mediaPathMap?: string | null;
   registrationMode?: string;
   requireApproval?: boolean;
   setupComplete?: boolean;

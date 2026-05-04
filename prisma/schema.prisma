@@ -33,6 +33,12 @@ enum RequestStatus {
   FAILED
 }
 
+enum LikeTargetType {
+  TRACK
+  ALBUM
+  ARTIST
+}
+
 model User {
   id           String    @id @default(cuid())
   email        String    @unique
@@ -42,6 +48,9 @@ model User {
   requestQuota Int       @default(20)
   createdAt    DateTime  @default(now())
   requests     Request[]
+  likes        Like[]
+  recentSearches RecentSearch[]
+  playlists      Playlist[]
   invitesCreated Invite[] @relation("InvitesCreated")
   invitesUsed    Invite[] @relation("InvitesUsed")
 }
@@ -84,6 +93,11 @@ model Settings {
   lidarrDefaultProfileId Int?
   lidarrRootFolderPath   String?
   lastFmApiKey           String?
+  // Comma-separated `lidarrPath:localPath` pairs for bridging filesystem
+  // differences between the Lidarr container and Audioseerr (e.g. when
+  // Lidarr writes to /music but Audioseerr mounts the library at /data).
+  // Empty/null means no remapping.
+  mediaPathMap           String?
   requireApproval        Boolean @default(true)
   registrationMode       String  @default("CLOSED")
   setupComplete          Boolean @default(false)
@@ -97,6 +111,45 @@ model ApiCache {
   @@index([expiresAt])
 }
 
+// Polymorphic per-user likes for tracks, albums, and artists. Cached metadata
+// (title/artistName/coverUrl/albumMbid) lets us render a "Liked items" view
+// later without re-fetching MusicBrainz for every row.
+//
+// targetId conventions:
+//   - ALBUM  → release-group MBID
+//   - ARTIST → artist MBID
+//   - TRACK  → recording MBID (stable across reissues; album context is
+//              captured separately in albumMbid for navigation)
+model Like {
+  id           String         @id @default(cuid())
+  userId       String
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetType   LikeTargetType
+  targetId     String
+  title        String
+  artistName   String?
+  albumMbid    String?
+  albumTitle   String?
+  coverUrl     String?
+  createdAt    DateTime       @default(now())
+
+  @@unique([userId, targetType, targetId])
+  @@index([userId, targetType])
+}
+
+// Per-user album-search history. Upserted on every search submission so a
+// repeated query bumps `lastSearchedAt` rather than creating a duplicate row.
+model RecentSearch {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  query          String
+  lastSearchedAt DateTime @default(now())
+
+  @@unique([userId, query])
+  @@index([userId, lastSearchedAt])
+}
+
 model Invite {
   token       String    @id
   createdById String
@@ -105,4 +158,47 @@ model Invite {
   usedAt      DateTime?
   usedById    String?
   usedBy      User?     @relation("InvitesUsed", fields: [usedById], references: [id])
+}
+
+// User-curated ordered list of tracks the user has in their Lidarr library.
+// Tracks live in PlaylistTrack with dense 1-indexed positions; reorders
+// renumber the affected rows in a single transaction.
+model Playlist {
+  id          String          @id @default(cuid())
+  userId      String
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  tracks      PlaylistTrack[]
+
+  @@index([userId])
+}
+
+// One row per track in a playlist. Duplicates of the same recordingMbid are
+// allowed (sometimes you want the same track twice in a row).
+//
+// trackFileId is the last-known Lidarr id and may go stale across re-imports.
+// Lidarr's track API doesn't expose recording MBIDs, so the heal path keys on
+// `albumPosition` (1-indexed track number on the album) — the same key the
+// album page uses via buildTrackFileLookup. recordingMbid is kept for future
+// MB-side lookups and as a stable display identity.
+model PlaylistTrack {
+  id            String   @id @default(cuid())
+  playlistId    String
+  playlist      Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  position      Int
+  recordingMbid String
+  trackFileId   Int
+  albumMbid     String
+  albumPosition Int
+  title         String
+  artistName    String
+  albumTitle    String?
+  coverUrl      String?
+  durationMs    Int?
+  addedAt       DateTime @default(now())
+
+  @@index([playlistId, position])
 }

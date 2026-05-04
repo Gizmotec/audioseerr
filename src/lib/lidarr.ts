@@ -48,6 +48,27 @@ export type LidarrQueueItem = {
 
 export type LidarrAlbumState = "downloaded" | "downloading" | "missing";
 
+export type LidarrTrack = {
+  id: number;
+  albumId: number;
+  trackFileId: number;
+  trackNumber: string;
+  absoluteTrackNumber?: number;
+  title: string;
+  hasFile: boolean;
+  mediumNumber?: number;
+};
+
+export type LidarrTrackFile = {
+  id: number;
+  albumId: number;
+  artistId: number;
+  path: string;
+  size: number;
+  quality?: { quality?: { name?: string } };
+  mediaInfo?: { audioBitrate?: number; audioChannels?: number };
+};
+
 /** Shape returned by `/artist/lookup`. We forward most of it back when adding. */
 export type LidarrArtistLookup = Record<string, unknown> & {
   foreignArtistId: string;
@@ -137,11 +158,26 @@ export async function lookupArtist(
   );
 }
 
+/** Lidarr's add-options monitor enum. We only use a subset. */
+export type LidarrMonitor =
+  | "all"
+  | "future"
+  | "missing"
+  | "existing"
+  | "first"
+  | "latest"
+  | "pastYear"
+  | "none";
+
 type AddArtistOptions = {
   qualityProfileId: number;
   rootFolderPath: string;
   /** Hardcoded to 1 for now — Lidarr's "Standard" metadata profile. */
   metadataProfileId?: number;
+  /** Defaults to "none" so album requests can monitor a single album below. */
+  monitor?: LidarrMonitor;
+  /** Defaults to false — same reason as `monitor`. */
+  searchForMissingAlbums?: boolean;
 };
 
 export async function addArtist(
@@ -158,9 +194,9 @@ export async function addArtist(
     );
   }
 
-  // monitor=none + no auto-search keeps Lidarr quiet until we explicitly
-  // monitor the requested album below. Without this, every approval would
-  // queue downloads for the artist's full back catalog (design doc §8).
+  // For album requests we leave monitor=none and explicitly monitor a single
+  // album below. For artist requests we pass monitor="all" + searchForMissingAlbums
+  // so Lidarr immediately fans out to the back catalog (design doc §8).
   const body = {
     ...stub,
     qualityProfileId: options.qualityProfileId,
@@ -168,8 +204,8 @@ export async function addArtist(
     rootFolderPath: options.rootFolderPath,
     monitored: true,
     addOptions: {
-      monitor: "none",
-      searchForMissingAlbums: false,
+      monitor: options.monitor ?? "none",
+      searchForMissingAlbums: options.searchForMissingAlbums ?? false,
     },
   };
 
@@ -235,6 +271,17 @@ export async function triggerAlbumSearch(
   });
 }
 
+export async function triggerArtistSearch(
+  config: LidarrConfig,
+  artistId: number,
+): Promise<void> {
+  await lidarrFetch(config, "/api/v1/command", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: "ArtistSearch", artistId }),
+  });
+}
+
 export async function getQueue(config: LidarrConfig): Promise<LidarrQueueItem[]> {
   type QueueResponse =
     | LidarrQueueItem[]
@@ -247,6 +294,33 @@ export async function getQueue(config: LidarrConfig): Promise<LidarrQueueItem[]>
   );
   if (Array.isArray(res)) return res;
   return res.records ?? [];
+}
+
+export async function listTracksByAlbum(
+  config: LidarrConfig,
+  albumId: number,
+): Promise<LidarrTrack[]> {
+  return lidarrFetch<LidarrTrack[]>(config, `/api/v1/track?albumId=${albumId}`);
+}
+
+export async function listTrackFilesByAlbum(
+  config: LidarrConfig,
+  albumId: number,
+): Promise<LidarrTrackFile[]> {
+  return lidarrFetch<LidarrTrackFile[]>(
+    config,
+    `/api/v1/trackfile?albumId=${albumId}`,
+  );
+}
+
+export async function getTrackFile(
+  config: LidarrConfig,
+  trackFileId: number,
+): Promise<LidarrTrackFile> {
+  return lidarrFetch<LidarrTrackFile>(
+    config,
+    `/api/v1/trackfile/${trackFileId}`,
+  );
 }
 
 export function classifyAlbum(

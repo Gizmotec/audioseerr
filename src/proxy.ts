@@ -17,6 +17,7 @@ export const config = {
     "/album/:path*",
     "/artist/:path*",
     "/genre/:path*",
+    "/liked/:path*",
     "/admin/:path*",
     "/account/:path*",
     "/requests/:path*",

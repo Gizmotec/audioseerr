@@ -2,9 +2,14 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { DiscoveryAlbumCard } from "@/components/DiscoveryAlbumCard";
+import {
+  type DiscoveryAlbum,
+  DiscoveryAlbumCard,
+} from "@/components/DiscoveryAlbumCard";
+import { getDeezerChartAlbums, hasDeezerChartGenre } from "@/lib/deezer";
 import { getTopAlbumsByTag } from "@/lib/lastfm";
 import { buildLibraryIndex } from "@/lib/library";
+import { getLikedSet } from "@/lib/likes";
 import { getSettings, isSetupComplete } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +21,8 @@ export default async function GenrePage({ params }: { params: RouteParams }) {
     redirect("/setup");
   }
   const session = await auth();
-  if (!session?.user) {
+  const userId = session?.user?.id;
+  if (!userId) {
     redirect("/login");
   }
 
@@ -26,19 +32,40 @@ export default async function GenrePage({ params }: { params: RouteParams }) {
   const settings = await getSettings();
   const lastFmKey = settings.lastFmApiKey;
 
-  let albums: Awaited<ReturnType<typeof getTopAlbumsByTag>> = [];
+  let albums: DiscoveryAlbum[] = [];
+  let source: "deezer" | "lastfm" | null = null;
   let error: string | null = null;
-  if (!lastFmKey) {
-    error = "Last.fm isn't configured — add a key in setup to browse genres.";
-  } else {
+  if (hasDeezerChartGenre(tag)) {
+    try {
+      albums = await getDeezerChartAlbums(tag, 48);
+      source = "deezer";
+    } catch (err) {
+      error = err instanceof Error ? err.message : "Deezer request failed.";
+    }
+  } else if (lastFmKey) {
     try {
       albums = await getTopAlbumsByTag({ apiKey: lastFmKey }, tag, 48);
+      source = "lastfm";
     } catch (err) {
       error = err instanceof Error ? err.message : "Last.fm request failed.";
     }
+  } else {
+    error = "Last.fm isn't configured — add a key in setup to browse this genre.";
   }
 
+  const subtitle =
+    source === "deezer"
+      ? "Trending now on Deezer."
+      : source === "lastfm"
+        ? "Top albums on Last.fm."
+        : null;
+
   const library = await buildLibraryIndex();
+  const likedAlbums = await getLikedSet(
+    userId,
+    "ALBUM",
+    albums.map((a) => a.mbid).filter((id): id is string => !!id),
+  );
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 md:px-6">
@@ -52,7 +79,7 @@ export default async function GenrePage({ params }: { params: RouteParams }) {
       <header className="mt-4 mb-6">
         <p className="text-xs uppercase tracking-wider text-muted-foreground">Genre</p>
         <h1 className="text-3xl font-semibold capitalize tracking-tight">{tag}</h1>
-        <p className="text-sm text-muted-foreground">Top albums on Last.fm.</p>
+        {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
       </header>
 
       {error && (
@@ -71,7 +98,11 @@ export default async function GenrePage({ params }: { params: RouteParams }) {
         <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
           {albums.map((a, i) => (
             <li key={`${a.mbid ?? i}-${a.title}`}>
-              <DiscoveryAlbumCard album={a} libraryHit={library.lookup(a)} />
+              <DiscoveryAlbumCard
+                album={a}
+                libraryHit={library.lookup(a)}
+                liked={a.mbid ? likedAlbums.has(a.mbid) : false}
+              />
             </li>
           ))}
         </ul>

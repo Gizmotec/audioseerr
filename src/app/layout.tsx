@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Outfit, Geist_Mono } from "next/font/google";
+import { PreviewPlayerProvider } from "@/components/PreviewPlayer";
+import { Sidebar } from "@/components/Sidebar";
 import "./globals.css";
 
 // Outfit — geometric, rounded sans in the same family as Spotify's Circular.
@@ -30,7 +32,12 @@ export default function RootLayout({
       lang="en"
       className={`${outfit.variable} ${geistMono.variable} dark h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col font-sans">{children}</body>
+      <body className="min-h-full flex font-sans">
+        <PreviewPlayerProvider>
+          <Sidebar />
+          <div className="flex min-h-screen flex-1 flex-col">{children}</div>
+        </PreviewPlayerProvider>
+      </body>
     </html>
   );
 }

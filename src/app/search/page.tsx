@@ -3,9 +3,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { buildLibraryIndex } from "@/lib/library";
+import { getLikedSet } from "@/lib/likes";
 import { searchAlbums } from "@/lib/musicbrainz";
+import { getRecentSearches, recordSearch } from "@/lib/recentSearches";
 import { isSetupComplete } from "@/lib/settings";
 import { AlbumCard } from "./AlbumCard";
+import { RecentSearches } from "./RecentSearches";
 import { SearchBar } from "./SearchBar";
 
 export const dynamic = "force-dynamic";
@@ -21,9 +24,10 @@ export default async function SearchPage({
     redirect("/setup");
   }
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.id) {
     redirect("/login");
   }
+  const userId = session.user.id;
 
   const { q } = await searchParams;
   const query = q?.trim() ?? "";
@@ -33,12 +37,21 @@ export default async function SearchPage({
   if (query) {
     try {
       results = await searchAlbums(query);
+      await recordSearch(userId, query);
     } catch (err) {
       error = err instanceof Error ? err.message : "Search failed";
     }
   }
 
-  const library = await buildLibraryIndex();
+  const [library, recent, likedAlbums] = await Promise.all([
+    buildLibraryIndex(),
+    query ? Promise.resolve([]) : getRecentSearches(userId),
+    getLikedSet(
+      userId,
+      "ALBUM",
+      results.map((a) => a.mbid),
+    ),
+  ]);
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8 md:px-6">
@@ -74,13 +87,19 @@ export default async function SearchPage({
         <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {results.map((album) => (
             <li key={album.mbid}>
-              <AlbumCard album={album} libraryHit={library.lookup(album)} />
+              <AlbumCard
+                album={album}
+                libraryHit={library.lookup(album)}
+                liked={likedAlbums.has(album.mbid)}
+              />
             </li>
           ))}
         </ul>
       )}
 
-      {!query && (
+      {!query && recent.length > 0 && <RecentSearches items={recent} />}
+
+      {!query && recent.length === 0 && (
         <p className="text-sm text-muted-foreground">
           Try an artist or album above &mdash; e.g. <em>Radiohead In Rainbows</em>.
         </p>
