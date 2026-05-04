@@ -24,6 +24,9 @@ services:
     volumes:
       # Persistent data: SQLite db + anything else Audioseerr stores per-host.
       - ./config:/config
-      # Optional: mount your music library so in-app playback can read files.
-      # Uncomment and adjust the host path to match where Lidarr writes music.
-      # - /srv/music:/music:ro
+      # Music library mount. In-app playback streams files directly from
+      # disk, so this MUST point at the same files Lidarr writes to. Set
+      # MUSIC_PATH in .env to your host path (e.g. MUSIC_PATH=/media/Music).
+      # Defaults to ./music (an empty dir created next to compose) so the
+      # container can boot for users not using local playback yet.
+      - "${MUSIC_PATH:-./music}:/music:ro"
