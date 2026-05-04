@@ -1,10 +1,18 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import {
+  MostLovedChart,
+  TopArtistsChart,
+  TopTracksChart,
+} from "@/components/ChartList";
 import { DiscoveryRow } from "@/components/DiscoveryRow";
+import { enrichArtistArtwork, enrichTrackArtwork } from "@/lib/chartArtwork";
 import { buildLibraryIndex } from "@/lib/library";
-import { isSetupComplete } from "@/lib/settings";
-import { getDeezerChartAlbums } from "@/lib/deezer";
+import { getMostLoved } from "@/lib/mostLoved";
+import { getSettings, isSetupComplete } from "@/lib/settings";
+import { getDeezerChartAlbums, getDeezerNewReleaseAlbums } from "@/lib/deezer";
+import { getGlobalTopArtists, getGlobalTopTracks } from "@/lib/lastfm";
 import { SearchBar } from "@/app/search/SearchBar";
 
 export const dynamic = "force-dynamic";
@@ -35,19 +43,41 @@ export default async function HomePage() {
   if (!session?.user) {
     redirect("/login");
   }
+  const userId = session.user.id;
+  if (!userId) {
+    redirect("/login");
+  }
+
+  const settings = await getSettings();
+  const lastFmKey = settings.lastFmApiKey;
 
   // Deezer's chart endpoint is keyless and reflects current play activity, so
   // recent releases actually surface here. (Earlier versions used Last.fm's
   // all-time tag chart, which is why a 2014 album was showing as "trending".)
-  const settled = await Promise.all(
-    HOME_TAGS.map(async (tag) => {
-      try {
-        return { tag, albums: await getDeezerChartAlbums(tag, 12) };
-      } catch {
-        return { tag, albums: [] };
-      }
-    }),
-  );
+  const [settled, newReleases, topTracks, topArtists, mostLoved] =
+    await Promise.all([
+      Promise.all(
+        HOME_TAGS.map(async (tag) => {
+          try {
+            return { tag, albums: await getDeezerChartAlbums(tag, 12) };
+          } catch {
+            return { tag, albums: [] };
+          }
+        }),
+      ),
+      getDeezerNewReleaseAlbums(12).catch(() => []),
+      lastFmKey
+        ? getGlobalTopTracks({ apiKey: lastFmKey }, 10)
+            .then(enrichTrackArtwork)
+            .catch(() => [])
+        : Promise.resolve([]),
+      lastFmKey
+        ? getGlobalTopArtists({ apiKey: lastFmKey }, 12)
+            .then(enrichArtistArtwork)
+            .catch(() => [])
+        : Promise.resolve([]),
+      getMostLoved(10),
+    ]);
   const rows = settled.filter((r) => r.albums.length > 0);
 
   const library = await buildLibraryIndex();
@@ -58,6 +88,18 @@ export default async function HomePage() {
         <h2 className="text-lg font-medium">Find an album</h2>
         <SearchBar initialQuery="" />
       </section>
+
+      <DiscoveryRow
+        title="Top new releases"
+        albums={newReleases}
+        library={library}
+      />
+
+      <TopTracksChart tracks={topTracks} />
+
+      <TopArtistsChart artists={topArtists} />
+
+      <MostLovedChart items={mostLoved} />
 
       {rows.map((r) => (
         <DiscoveryRow

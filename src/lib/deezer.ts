@@ -69,6 +69,30 @@ type DeezerSearchArtistResponse = {
   }>;
 };
 
+type DeezerArtistTopForArtworkResponse = {
+  data?: Array<{
+    album?: {
+      cover_xl?: string;
+      cover_big?: string;
+      cover_medium?: string;
+    };
+  }>;
+};
+
+type DeezerSearchTracksResponse = {
+  data?: Array<{
+    id: number;
+    title: string;
+    artist?: { name?: string };
+    album?: {
+      title?: string;
+      cover_xl?: string;
+      cover_big?: string;
+      cover_medium?: string;
+    };
+  }>;
+};
+
 type DeezerArtistTopTracksResponse = {
   data?: Array<{
     id: number;
@@ -102,6 +126,11 @@ export type DeezerSimilarArtist = {
   imageUrl: string | null;
 };
 
+export type DeezerTrackArtwork = {
+  imageUrl: string | null;
+  albumTitle: string | null;
+};
+
 export type DeezerArtistBundle = {
   artistId: number;
   imageUrl: string | null;
@@ -115,9 +144,22 @@ function pickArtistImage(a: {
   picture_medium?: string;
 }): string | null {
   // Deezer's CDN serves a generic silhouette when the artist has no picture.
-  // The placeholder URL contains "/artist//" or a known empty-image hash —
-  // simplest filter: drop anything missing every size variant.
-  return a.picture_xl ?? a.picture_big ?? a.picture_medium ?? null;
+  // A few artists also return a near-black legal/placeholder image. Treat that
+  // as unusable so the chart can fall back to album art instead.
+  const url = a.picture_xl ?? a.picture_big ?? a.picture_medium ?? null;
+  if (!url) return null;
+  if (url.includes("bb76c2ee3b068726ab4c37b0aabdb57a")) return null;
+  return url;
+}
+
+function pickTrackCover(t: {
+  album?: {
+    cover_xl?: string;
+    cover_big?: string;
+    cover_medium?: string;
+  };
+}): string | null {
+  return t.album?.cover_xl ?? t.album?.cover_big ?? t.album?.cover_medium ?? null;
 }
 
 /**
@@ -193,6 +235,83 @@ export async function getDeezerArtistBundle(
   );
 }
 
+export async function getDeezerArtistArtwork(
+  artistName: string,
+): Promise<string | null> {
+  const cacheKey = `deezer:artist:artwork:v2:${normalizeTrackTitle(artistName)}`;
+  return withCache<string | null>(cacheKey, 7 * 24 * 60 * 60, async () => {
+    let search: DeezerSearchArtistResponse;
+    try {
+      search = await deezerFetch<DeezerSearchArtistResponse>("/search/artist", {
+        q: artistName,
+        limit: "5",
+      });
+    } catch {
+      return null;
+    }
+
+    const want = normalizeTrackTitle(artistName);
+    const candidates = search.data ?? [];
+    const exact = candidates.find((a) => normalizeTrackTitle(a.name) === want);
+    const hit = exact ?? candidates[0];
+    if (!hit) return null;
+
+    const profileImage = pickArtistImage(hit);
+    if (profileImage) return profileImage;
+
+    try {
+      const top = await deezerFetch<DeezerArtistTopForArtworkResponse>(
+        `/artist/${hit.id}/top`,
+        { limit: "1" },
+      );
+      const album = top.data?.[0]?.album;
+      return album?.cover_xl ?? album?.cover_big ?? album?.cover_medium ?? null;
+    } catch {
+      return null;
+    }
+  });
+}
+
+export async function getDeezerTrackArtwork({
+  artistName,
+  trackName,
+}: {
+  artistName: string;
+  trackName: string;
+}): Promise<DeezerTrackArtwork> {
+  const cacheKey = `deezer:track:artwork:v2:${normalizeTrackTitle(artistName)}:${normalizeTrackTitle(trackName)}`;
+  return withCache<DeezerTrackArtwork>(cacheKey, 7 * 24 * 60 * 60, async () => {
+    let search: DeezerSearchTracksResponse;
+    try {
+      search = await deezerFetch<DeezerSearchTracksResponse>("/search/track", {
+        q: `${artistName} ${trackName}`,
+        limit: "8",
+      });
+    } catch {
+      return { imageUrl: null, albumTitle: null };
+    }
+
+    const wantArtist = normalizeTrackTitle(artistName);
+    const wantTrack = normalizeTrackTitle(trackName);
+    const candidates = search.data ?? [];
+    const exact = candidates.find(
+      (t) =>
+        normalizeTrackTitle(t.artist?.name ?? "") === wantArtist &&
+        normalizeTrackTitle(t.title) === wantTrack,
+    );
+    const sameArtist = candidates.find(
+      (t) => normalizeTrackTitle(t.artist?.name ?? "") === wantArtist,
+    );
+    const hit = exact ?? sameArtist ?? candidates[0];
+    return hit
+      ? {
+          imageUrl: pickTrackCover(hit),
+          albumTitle: hit.album?.title ?? null,
+        }
+      : { imageUrl: null, albumTitle: null };
+  });
+}
+
 // Maps Audioseerr's genre slugs to Deezer's numeric genre IDs (from /genre).
 // Slugs without an entry fall through to a Last.fm lookup at the call-site.
 const DEEZER_GENRE_IDS: Record<string, number> = {
@@ -228,6 +347,18 @@ type DeezerChartAlbumsResponse = {
   }>;
 };
 
+type DeezerEditorialReleasesResponse = {
+  data?: Array<{
+    id: number;
+    title: string;
+    cover_xl?: string;
+    cover_big?: string;
+    cover_medium?: string;
+    release_date?: string;
+    artist?: { id?: number; name?: string };
+  }>;
+};
+
 export function hasDeezerChartGenre(slug: string): boolean {
   return slug.toLowerCase() in DEEZER_GENRE_IDS;
 }
@@ -249,6 +380,36 @@ export async function getDeezerChartAlbums(
     try {
       data = await deezerFetch<DeezerChartAlbumsResponse>(
         `/chart/${id}/albums`,
+        { limit: String(limit) },
+      );
+    } catch {
+      return [];
+    }
+    return (data.data ?? [])
+      .map<DeezerChartAlbum>((a) => ({
+        mbid: null,
+        title: a.title,
+        artistName: a.artist?.name ?? "Unknown artist",
+        artistMbid: null,
+        coverUrl: a.cover_xl ?? a.cover_big ?? a.cover_medium ?? null,
+      }))
+      .filter((a) => a.title.length > 0);
+  });
+}
+
+/**
+ * Deezer editorial releases are the closest keyless source we have for a true
+ * "new releases" shelf. Last.fm exposes charts, but not release-date feeds.
+ */
+export async function getDeezerNewReleaseAlbums(
+  limit = 12,
+): Promise<DeezerChartAlbum[]> {
+  const cacheKey = `deezer:editorial:releases:${limit}`;
+  return withCache<DeezerChartAlbum[]>(cacheKey, 60 * 60, async () => {
+    let data: DeezerEditorialReleasesResponse;
+    try {
+      data = await deezerFetch<DeezerEditorialReleasesResponse>(
+        "/editorial/0/releases",
         { limit: String(limit) },
       );
     } catch {

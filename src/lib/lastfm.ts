@@ -17,6 +17,27 @@ export type LastFmAlbum = {
 
 export type LastFmConfig = { apiKey: string };
 
+export type LastFmChartTrack = {
+  name: string;
+  mbid: string | null;
+  artistName: string;
+  artistMbid: string | null;
+  albumTitle: string | null;
+  playcount: number;
+  listeners: number;
+  url: string | null;
+  imageUrl: string | null;
+};
+
+export type LastFmChartArtist = {
+  name: string;
+  mbid: string | null;
+  playcount: number;
+  listeners: number;
+  url: string | null;
+  imageUrl: string | null;
+};
+
 async function lastFmFetch<T>(
   config: LastFmConfig,
   params: Record<string, string>,
@@ -38,6 +59,10 @@ async function lastFmFetch<T>(
 }
 
 type LastFmImage = { "#text"?: string; size?: string };
+
+function toNumber(value: string | undefined): number {
+  return value ? Number(value) || 0 : 0;
+}
 
 type LastFmTagAlbumsResponse = {
   albums?: {
@@ -101,6 +126,83 @@ export async function getTopAlbumsByTag(
         };
       })
       .filter((a) => a.title.length > 0);
+  });
+}
+
+type LastFmChartTracksResponse = {
+  tracks?: {
+    track?: Array<{
+      name?: string;
+      mbid?: string;
+      playcount?: string;
+      listeners?: string;
+      url?: string;
+      image?: LastFmImage[];
+      artist?: { name?: string; mbid?: string };
+    }>;
+  };
+};
+
+export async function getGlobalTopTracks(
+  config: LastFmConfig,
+  limit = 12,
+): Promise<LastFmChartTrack[]> {
+  const cacheKey = `lastfm:chart.gettoptracks:${limit}`;
+  return withCache<LastFmChartTrack[]>(cacheKey, 60 * 60, async () => {
+    const data = await lastFmFetch<LastFmChartTracksResponse>(config, {
+      method: "chart.gettoptracks",
+      limit: String(limit),
+    });
+    return (data.tracks?.track ?? [])
+      .map((t) => ({
+        name: t.name ?? "",
+        mbid: t.mbid && t.mbid.length > 0 ? t.mbid : null,
+        artistName: t.artist?.name ?? "Unknown artist",
+        artistMbid:
+          t.artist?.mbid && t.artist.mbid.length > 0 ? t.artist.mbid : null,
+        albumTitle: null,
+        playcount: toNumber(t.playcount),
+        listeners: toNumber(t.listeners),
+        url: t.url ?? null,
+        imageUrl: pickLastFmImage(t.image),
+      }))
+      .filter((t) => t.name.length > 0);
+  });
+}
+
+type LastFmChartArtistsResponse = {
+  artists?: {
+    artist?: Array<{
+      name?: string;
+      mbid?: string;
+      playcount?: string;
+      listeners?: string;
+      url?: string;
+      image?: LastFmImage[];
+    }>;
+  };
+};
+
+export async function getGlobalTopArtists(
+  config: LastFmConfig,
+  limit = 12,
+): Promise<LastFmChartArtist[]> {
+  const cacheKey = `lastfm:chart.gettopartists:${limit}`;
+  return withCache<LastFmChartArtist[]>(cacheKey, 60 * 60, async () => {
+    const data = await lastFmFetch<LastFmChartArtistsResponse>(config, {
+      method: "chart.gettopartists",
+      limit: String(limit),
+    });
+    return (data.artists?.artist ?? [])
+      .map((a) => ({
+        name: a.name ?? "",
+        mbid: a.mbid && a.mbid.length > 0 ? a.mbid : null,
+        playcount: toNumber(a.playcount),
+        listeners: toNumber(a.listeners),
+        url: a.url ?? null,
+        imageUrl: pickLastFmImage(a.image),
+      }))
+      .filter((a) => a.name.length > 0);
   });
 }
 
