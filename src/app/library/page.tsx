@@ -5,7 +5,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import type { LibraryStatus } from "@/lib/library";
 import { isSetupComplete } from "@/lib/settings";
-import { LibraryAlbumTile } from "./LibraryAlbumTile";
+import { LibraryView } from "./LibraryView";
 
 export const dynamic = "force-dynamic";
 
@@ -17,10 +17,11 @@ export default async function LibraryPage() {
   if (!session?.user) {
     redirect("/login");
   }
+  const isAdmin = (session.user as { role?: string }).role === "ADMIN";
 
   // Reads straight from LibraryItem — kept up to date every 15 min by the
   // syncLibrary cron (see src/lib/jobs/syncLibrary.ts).
-  const items = await prisma.libraryItem.findMany({
+  const rows = await prisma.libraryItem.findMany({
     select: {
       mbid: true,
       status: true,
@@ -31,6 +32,15 @@ export default async function LibraryPage() {
     },
     orderBy: [{ artistName: "asc" }, { title: "asc" }],
   });
+
+  const items = rows.map((r) => ({
+    mbid: r.mbid,
+    title: r.title,
+    artistName: r.artistName,
+    status: r.status as LibraryStatus,
+    trackFileCount: r.trackFileCount,
+    totalTrackCount: r.totalTrackCount,
+  }));
 
   const isEmpty = items.length === 0;
 
@@ -68,22 +78,7 @@ export default async function LibraryPage() {
           </p>
         </div>
       ) : (
-        <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-          {items.map((item) => (
-            <li key={item.mbid}>
-              <LibraryAlbumTile
-                item={{
-                  mbid: item.mbid,
-                  title: item.title,
-                  artistName: item.artistName,
-                  status: item.status as LibraryStatus,
-                  trackFileCount: item.trackFileCount,
-                  totalTrackCount: item.totalTrackCount,
-                }}
-              />
-            </li>
-          ))}
-        </ul>
+        <LibraryView items={items} canDelete={isAdmin} />
       )}
     </main>
   );

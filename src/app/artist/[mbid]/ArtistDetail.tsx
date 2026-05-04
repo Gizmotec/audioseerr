@@ -5,6 +5,7 @@ import { useState } from "react";
 import { AppleMusicButton } from "@/components/AppleMusicButton";
 import { LikeButton } from "@/components/LikeButton";
 import { usePreviewPlayer } from "@/components/PreviewPlayer";
+import { RemoveFromLibraryButton } from "@/components/RemoveFromLibraryButton";
 import { YouTubeButton } from "@/components/YouTubeButton";
 import type { DeezerArtistTopTrack } from "@/lib/deezer";
 import {
@@ -33,6 +34,7 @@ export function ArtistDetail({
   hasLastFmKey,
   liked,
   appleMusicUrl,
+  canRemoveFromLibrary = false,
 }: {
   artist: ArtistHero;
   topTracks: ArtistTopTrack[];
@@ -40,6 +42,7 @@ export function ArtistDetail({
   hasLastFmKey: boolean;
   liked: boolean;
   appleMusicUrl: string;
+  canRemoveFromLibrary?: boolean;
 }) {
   const [imgOk, setImgOk] = useState(artist.imageUrl !== null);
   const [bioExpanded, setBioExpanded] = useState(false);
@@ -135,6 +138,11 @@ export function ArtistDetail({
               initialLiked={liked}
             />
             <AppleMusicButton href={appleMusicUrl} label="Find on Apple Music" />
+            {canRemoveFromLibrary && (
+              <RemoveFromLibraryButton
+                target={{ type: "artist", mbid: artist.mbid, name: artist.name }}
+              />
+            )}
           </div>
         </div>
       </header>

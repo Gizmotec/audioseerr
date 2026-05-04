@@ -36,6 +36,7 @@ export default async function AlbumPage({ params }: { params: RouteParams }) {
   if (!userId) {
     redirect("/login");
   }
+  const isAdmin = (session?.user as { role?: string } | undefined)?.role === "ADMIN";
 
   const { mbid } = await params;
   const album = await getAlbum(mbid);
@@ -156,6 +157,7 @@ export default async function AlbumPage({ params }: { params: RouteParams }) {
         likedRecordingMbids={Array.from(likedTrackSet)}
         playlists={playlistOptions}
         appleMusicUrl={appleMusicUrl}
+        canRemoveFromLibrary={isAdmin}
       />
     </main>
   );

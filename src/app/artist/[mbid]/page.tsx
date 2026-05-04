@@ -38,6 +38,7 @@ export default async function ArtistPage({ params }: { params: RouteParams }) {
   if (!userId) {
     redirect("/login");
   }
+  const isAdmin = (session.user as { role?: string }).role === "ADMIN";
 
   const { mbid } = await params;
   const artist = await getArtist(mbid);
@@ -172,6 +173,7 @@ export default async function ArtistPage({ params }: { params: RouteParams }) {
           hasLastFmKey={!!lastFmKey}
           liked={artistLiked}
           appleMusicUrl={appleMusicUrl}
+          canRemoveFromLibrary={isAdmin && inLibraryCount > 0}
         />
       </div>
 

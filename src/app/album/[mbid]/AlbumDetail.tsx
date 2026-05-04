@@ -9,7 +9,8 @@ import {
 } from "@/components/AddToPlaylistButton";
 import { AppleMusicButton } from "@/components/AppleMusicButton";
 import { LikeButton } from "@/components/LikeButton";
-import { usePreviewPlayer } from "@/components/PreviewPlayer";
+import { type QueueItem, usePreviewPlayer } from "@/components/PreviewPlayer";
+import { RemoveFromLibraryButton } from "@/components/RemoveFromLibraryButton";
 import { YouTubeButton } from "@/components/YouTubeButton";
 import type { LibraryStatus } from "@/lib/library";
 import type { TrackWithPreview } from "./page";
@@ -34,6 +35,7 @@ export function AlbumDetail({
   likedRecordingMbids,
   playlists,
   appleMusicUrl,
+  canRemoveFromLibrary = false,
 }: {
   album: AlbumHero;
   tracks: TrackWithPreview[];
@@ -43,6 +45,7 @@ export function AlbumDetail({
   likedRecordingMbids: string[];
   playlists: PlaylistOption[];
   appleMusicUrl: string;
+  canRemoveFromLibrary?: boolean;
 }) {
   const likedTracks = useMemo(
     () => new Set(likedRecordingMbids),
@@ -51,18 +54,30 @@ export function AlbumDetail({
   const [coverOk, setCoverOk] = useState(true);
   const player = usePreviewPlayer();
 
-  const togglePreview = (track: TrackWithPreview) => {
-    // Full local stream takes priority over the 30s Deezer preview when the
-    // file is on disk.
+  // Build the album as a playback queue so the player auto-advances and the
+  // bar's prev/next controls step through the tracklist. Full local stream
+  // takes priority over the 30s Deezer preview when the file is on disk.
+  const queueItems = useMemo<QueueItem[]>(
+    () =>
+      tracks.map((t, idx) => ({
+        id: trackQueueId(album.mbid, t, idx),
+        title: t.title,
+        artistName: album.artistName,
+        coverUrl: album.coverUrl,
+        streamUrl: t.streamUrl ?? t.previewUrl,
+      })),
+    [tracks, album.mbid, album.artistName, album.coverUrl],
+  );
+
+  const togglePreview = (track: TrackWithPreview, idx: number) => {
     const url = track.streamUrl ?? track.previewUrl;
     if (!url) return;
-    player.play({
-      id: url,
-      title: track.title,
-      artistName: album.artistName,
-      coverUrl: album.coverUrl,
-      previewUrl: url,
-    });
+    const id = trackQueueId(album.mbid, track, idx);
+    if (player.isCurrent(id)) {
+      player.toggle();
+      return;
+    }
+    player.playQueue(queueItems, idx);
   };
 
   const year = album.firstReleaseDate?.slice(0, 4);
@@ -131,6 +146,16 @@ export function AlbumDetail({
               initialLiked={albumLiked}
             />
             <AppleMusicButton href={appleMusicUrl} label="Buy on Apple Music" />
+            {canRemoveFromLibrary && libraryStatus && (
+              <RemoveFromLibraryButton
+                target={{
+                  type: "album",
+                  mbid: album.mbid,
+                  title: album.title,
+                  artistName: album.artistName,
+                }}
+              />
+            )}
           </div>
         </div>
       </header>
@@ -145,10 +170,11 @@ export function AlbumDetail({
           </p>
         ) : (
           <ol className="divide-y divide-border/50">
-            {tracks.map((t) => {
+            {tracks.map((t, idx) => {
               const playUrl = t.streamUrl ?? t.previewUrl;
               const playable = !!playUrl;
-              const isActive = playable && player.isCurrent(playUrl!);
+              const queueId = trackQueueId(album.mbid, t, idx);
+              const isActive = playable && player.isCurrent(queueId);
               const isFull = !!t.streamUrl;
               return (
                 <li
@@ -159,7 +185,7 @@ export function AlbumDetail({
                 >
                   <button
                     type="button"
-                    onClick={() => togglePreview(t)}
+                    onClick={() => togglePreview(t, idx)}
                     disabled={!playable}
                     className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border ${
                       playable
@@ -239,6 +265,16 @@ export function AlbumDetail({
 
     </div>
   );
+}
+
+function trackQueueId(
+  albumMbid: string,
+  t: TrackWithPreview,
+  idx: number,
+): string {
+  // idx disambiguates multi-disc releases where t.position is per-disc and
+  // collisions otherwise highlight two rows as "currently playing".
+  return `${albumMbid}:${idx}:${t.position}:${t.recordingMbid ?? t.title}`;
 }
 
 function formatDuration(ms: number | null): string {

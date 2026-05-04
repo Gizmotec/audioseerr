@@ -248,6 +248,51 @@ export async function pollForAlbum(
   return null;
 }
 
+/**
+ * Delete an album from Lidarr. With `deleteFiles=true` the underlying audio
+ * files are removed from disk too — Lidarr is the file owner.
+ */
+export async function deleteAlbum(
+  config: LidarrConfig,
+  albumId: number,
+  options: { deleteFiles?: boolean; addImportListExclusion?: boolean } = {},
+): Promise<void> {
+  const params = new URLSearchParams({
+    deleteFiles: String(options.deleteFiles ?? true),
+    addImportListExclusion: String(options.addImportListExclusion ?? false),
+  });
+  const res = await fetch(buildUrl(config.url, `/api/v1/album/${albumId}?${params}`), {
+    method: "DELETE",
+    headers: { "X-Api-Key": config.apiKey, Accept: "application/json" },
+  });
+  if (!res.ok) {
+    throw new LidarrError(res.status, `Lidarr DELETE album → HTTP ${res.status}`);
+  }
+}
+
+/**
+ * Delete an artist (and all their albums + files) from Lidarr. The default
+ * adds an import-list exclusion so Lidarr won't re-add them on the next
+ * automatic sync.
+ */
+export async function deleteArtist(
+  config: LidarrConfig,
+  artistId: number,
+  options: { deleteFiles?: boolean; addImportListExclusion?: boolean } = {},
+): Promise<void> {
+  const params = new URLSearchParams({
+    deleteFiles: String(options.deleteFiles ?? true),
+    addImportListExclusion: String(options.addImportListExclusion ?? true),
+  });
+  const res = await fetch(buildUrl(config.url, `/api/v1/artist/${artistId}?${params}`), {
+    method: "DELETE",
+    headers: { "X-Api-Key": config.apiKey, Accept: "application/json" },
+  });
+  if (!res.ok) {
+    throw new LidarrError(res.status, `Lidarr DELETE artist → HTTP ${res.status}`);
+  }
+}
+
 export async function setAlbumsMonitored(
   config: LidarrConfig,
   albumIds: number[],
