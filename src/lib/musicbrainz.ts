@@ -369,8 +369,12 @@ export async function findAlbumByArtistTitle(
   if (!a || !t) return null;
 
   const escape = (s: string) => s.replace(/(["\\])/g, "\\$1");
-  const lucene = `artist:"${escape(a)}" AND releasegroup:"${escape(t)}" AND primarytype:(Album OR EP)`;
-  const cacheKey = `mb:resolve:rg:${a.toLowerCase()}|${t.toLowerCase()}`;
+  // Constrain artist (phrase match), but leave the title as free text so
+  // suffixes like "(Remastered)" that aren't in MB's release-group title
+  // still find their parent release group.
+  const titleTerms = t.replace(/[()[\]{}"\\]/g, " ").trim();
+  const lucene = `artist:"${escape(a)}" AND (${titleTerms}) AND primarytype:(Album OR EP)`;
+  const cacheKey = `mb:resolve:rg:v2:${a.toLowerCase()}|${t.toLowerCase()}`;
 
   return withCache<MbAlbum | null>(cacheKey, 60 * 60, async () => {
     const data = await mbFetch<MbReleaseGroupSearchResponse>("/release-group", {
