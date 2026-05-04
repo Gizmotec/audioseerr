@@ -19,6 +19,71 @@ npm run dev                # http://localhost:3000
 
 Generate dev secrets with `openssl rand -base64 32`.
 
+## Self-hosting with Docker
+
+Audioseerr ships with a `Dockerfile` and `docker-compose.yml`. The flow below builds the image directly on your server — no GitHub Actions or container registry required.
+
+### One-time setup on the server
+
+Run these on your Ubuntu box. Replace `<your-github-user>` with your GitHub username.
+
+```bash
+# 1. Install Docker (skip if already installed)
+sudo apt update && sudo apt install -y docker.io docker-compose-plugin git
+sudo usermod -aG docker $USER         # log out / back in for this to take effect
+
+# 2. Clone the repo somewhere persistent
+sudo mkdir -p /opt && sudo chown $USER /opt
+cd /opt
+git clone https://github.com/<your-github-user>/audioseerr.git
+cd audioseerr
+
+# 3. Create the .env file Docker Compose reads
+cp .env.example .env
+# Edit .env and fill in:
+#   AUTH_SECRET=        # openssl rand -base64 32
+#   AUDIOSEERR_SECRET=  # openssl rand -base64 32
+#   YOUTUBE_API_KEY=    # optional
+#   AUTH_URL=http://<server-ip-or-hostname>:3000
+nano .env
+
+# 4. Build and start
+docker compose up -d --build
+```
+
+The first build takes a few minutes (it compiles `better-sqlite3`). When it's done, Audioseerr is at `http://<server-ip>:3000`. The SQLite database lives in `./config/db.sqlite` on the host — back up that folder and you've backed up the app.
+
+### Pushing updates from your laptop
+
+The flow is **commit on your laptop → push to GitHub → pull on the server → rebuild**:
+
+```bash
+# On your laptop, after making changes:
+git add -A
+git commit -m "describe what changed"
+git push
+
+# On the server (SSH in):
+cd /opt/audioseerr
+git pull
+docker compose up -d --build
+```
+
+`docker compose up -d --build` rebuilds the image and restarts the container. Database migrations apply automatically on startup (the entrypoint runs `prisma migrate deploy`). Your data in `./config` is untouched.
+
+### Useful commands
+
+```bash
+docker compose logs -f audioseerr     # live logs
+docker compose restart audioseerr     # restart without rebuilding
+docker compose down                   # stop the container (data is preserved)
+docker compose pull && docker compose up -d --build   # full refresh
+```
+
+### Reading music files for in-app playback
+
+If you want Audioseerr to stream files from your Lidarr library, uncomment the `/music` volume in `docker-compose.yml` and point it at the host path Lidarr writes to. Then, in Audioseerr's admin settings, configure a path mapping so the Lidarr-side path (e.g. `/music`) maps to the container-side path (e.g. `/music`).
+
 ## Layout
 
 ```

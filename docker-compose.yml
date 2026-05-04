@@ -1,0 +1,26 @@
+services:
+  audioseerr:
+    build: .
+    image: audioseerr:local
+    container_name: audioseerr
+    restart: unless-stopped
+    ports:
+      # Change the left-hand "3000" if port 3000 is already in use on the host.
+      - "3000:3000"
+    environment:
+      # SQLite lives inside the /config volume so it survives image rebuilds.
+      DATABASE_URL: "file:/config/db.sqlite"
+      # Required secrets — set these in the .env file next to this compose file.
+      AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET is required}
+      AUDIOSEERR_SECRET: ${AUDIOSEERR_SECRET:?AUDIOSEERR_SECRET is required}
+      # Optional. Leave blank to fall back to "open YouTube in a new tab".
+      YOUTUBE_API_KEY: ${YOUTUBE_API_KEY:-}
+      # Public URL Auth.js uses for callbacks. Set to your real URL behind a
+      # reverse proxy, otherwise the container default (localhost:3000) is fine.
+      AUTH_URL: ${AUTH_URL:-http://localhost:3000}
+    volumes:
+      # Persistent data: SQLite db + anything else Audioseerr stores per-host.
+      - ./config:/config
+      # Optional: mount your music library so in-app playback can read files.
+      # Uncomment and adjust the host path to match where Lidarr writes music.
+      # - /srv/music:/music:ro
