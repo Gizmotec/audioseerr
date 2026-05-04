@@ -7,12 +7,16 @@ import {
   Play,
   SkipBack,
   SkipForward,
+  Volume1,
+  Volume2,
+  VolumeX,
   X,
 } from "lucide-react";
 import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -91,6 +95,63 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
   const [failedIds, setFailedIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
+
+  // Volume + mute, persisted to localStorage. Refs mirror the state so the
+  // audio element (created lazily in ensureAudio) can read the latest value
+  // at construction time without us having to re-create the listeners.
+  const volumeRef = useRef(1);
+  const mutedRef = useRef(false);
+  const [volume, setVolumeState] = useState(1);
+  const [muted, setMutedState] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const v = window.localStorage.getItem("audioseerr.volume");
+    if (v != null) {
+      const n = Number(v);
+      if (Number.isFinite(n) && n >= 0 && n <= 1) {
+        volumeRef.current = n;
+        setVolumeState(n);
+        if (audioRef.current) audioRef.current.volume = n;
+      }
+    }
+    const m = window.localStorage.getItem("audioseerr.muted");
+    if (m === "true") {
+      mutedRef.current = true;
+      setMutedState(true);
+      if (audioRef.current) audioRef.current.muted = true;
+    }
+  }, []);
+
+  const setVolume = useCallback((v: number) => {
+    const clamped = Math.max(0, Math.min(1, v));
+    volumeRef.current = clamped;
+    setVolumeState(clamped);
+    if (audioRef.current) audioRef.current.volume = clamped;
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("audioseerr.volume", String(clamped));
+    }
+    // Dragging the slider above zero while muted is implicitly an unmute —
+    // matches what Spotify/YouTube do and avoids the "why no sound?" trap.
+    if (mutedRef.current && clamped > 0) {
+      mutedRef.current = false;
+      setMutedState(false);
+      if (audioRef.current) audioRef.current.muted = false;
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("audioseerr.muted", "false");
+      }
+    }
+  }, []);
+
+  const toggleMute = useCallback(() => {
+    const next = !mutedRef.current;
+    mutedRef.current = next;
+    setMutedState(next);
+    if (audioRef.current) audioRef.current.muted = next;
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("audioseerr.muted", String(next));
+    }
+  }, []);
   const markFailed = useCallback((id: string) => {
     setFailedIds((prev) => {
       if (prev.has(id)) return prev;
@@ -187,6 +248,8 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
     if (audioRef.current) return audioRef.current;
     const el = new Audio();
     el.preload = "none";
+    el.volume = volumeRef.current;
+    el.muted = mutedRef.current;
     el.addEventListener("waiting", () => setState("loading"));
     el.addEventListener("playing", () => {
       setState("playing");
@@ -359,11 +422,15 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
         hasQueue={hasQueue}
         hasNext={hasNext}
         hasPrev={hasPrev}
+        volume={volume}
+        muted={muted}
         onToggle={toggle}
         onNext={next}
         onPrev={prev}
         onSeek={seek}
         onClose={close}
+        onVolumeChange={setVolume}
+        onToggleMute={toggleMute}
       />
     </PreviewPlayerContext.Provider>
   );
@@ -391,11 +458,15 @@ function PreviewPlayerBar({
   hasQueue,
   hasNext,
   hasPrev,
+  volume,
+  muted,
   onToggle,
   onNext,
   onPrev,
   onSeek,
   onClose,
+  onVolumeChange,
+  onToggleMute,
 }: {
   current: PreviewTrack | null;
   state: PlaybackState;
@@ -404,11 +475,15 @@ function PreviewPlayerBar({
   hasQueue: boolean;
   hasNext: boolean;
   hasPrev: boolean;
+  volume: number;
+  muted: boolean;
   onToggle: () => void;
   onNext: () => void;
   onPrev: () => void;
   onSeek: (time: number) => void;
   onClose: () => void;
+  onVolumeChange: (v: number) => void;
+  onToggleMute: () => void;
 }) {
   const [coverOk, setCoverOk] = useState(true);
 
@@ -478,6 +553,12 @@ function PreviewPlayerBar({
               onSeek={onSeek}
             />
             <TimeText value={safeDuration} muted />
+            <VolumeControl
+              volume={volume}
+              muted={muted}
+              onVolumeChange={onVolumeChange}
+              onToggleMute={onToggleMute}
+            />
           </div>
 
           <div className="flex items-center gap-1 md:hidden">
@@ -650,6 +731,63 @@ function Scrubber({
           disabled && "cursor-not-allowed",
         )}
       />
+    </div>
+  );
+}
+
+function VolumeControl({
+  volume,
+  muted,
+  onVolumeChange,
+  onToggleMute,
+}: {
+  volume: number;
+  muted: boolean;
+  onVolumeChange: (v: number) => void;
+  onToggleMute: () => void;
+}) {
+  const effective = muted ? 0 : volume;
+  const Icon =
+    muted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
+  return (
+    <div className="flex shrink-0 items-center gap-1.5">
+      <button
+        type="button"
+        onClick={onToggleMute}
+        aria-label={muted ? "Unmute" : "Mute"}
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
+      >
+        <Icon className="h-4 w-4" />
+      </button>
+      <div className="group relative flex h-4 w-20 items-center">
+        <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 overflow-hidden rounded-full bg-secondary">
+          <div
+            className="h-full bg-foreground transition-[width] duration-100 ease-linear"
+            style={{ width: `${effective * 100}%` }}
+          />
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.01}
+          value={effective}
+          onChange={(e) => onVolumeChange(Number(e.target.value))}
+          aria-label="Volume"
+          className={cn(
+            "relative h-4 w-full cursor-pointer appearance-none bg-transparent",
+            "[&::-webkit-slider-thumb]:appearance-none",
+            "[&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3",
+            "[&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-foreground",
+            "[&::-webkit-slider-thumb]:opacity-0 group-hover:[&::-webkit-slider-thumb]:opacity-100",
+            "[&::-webkit-slider-thumb]:transition-opacity",
+            "[&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:w-3",
+            "[&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-foreground",
+            "[&::-moz-range-thumb]:opacity-0 group-hover:[&::-moz-range-thumb]:opacity-100",
+            "[&::-moz-range-thumb]:transition-opacity",
+          )}
+        />
+      </div>
     </div>
   );
 }
