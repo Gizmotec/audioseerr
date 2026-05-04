@@ -357,6 +357,35 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
     else safePlay(el);
   }, [state, current]);
 
+  // Global Space → play/pause, matching what users expect from Spotify, YouTube
+  // Music, etc. Skipped when focus is inside an editable element, when a
+  // modifier key is held (so Cmd-Space / Ctrl-Space still hit the OS), and
+  // when there's no track loaded.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code !== "Space" && e.key !== " ") return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (!current) return;
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        if (
+          tag === "INPUT" ||
+          tag === "TEXTAREA" ||
+          tag === "SELECT" ||
+          target.isContentEditable
+        ) {
+          return;
+        }
+      }
+      e.preventDefault();
+      toggle();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [current, toggle]);
+
   const seek = useCallback((time: number) => {
     const el = audioRef.current;
     if (!el || !Number.isFinite(time)) return;
