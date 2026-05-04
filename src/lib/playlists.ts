@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { getLibraryHit, getLibraryHitByName } from "@/lib/library";
 import { listTracksByAlbum, type LidarrConfig } from "@/lib/lidarr";
-import { buildTrackFileLookup } from "@/lib/playback";
+import { buildTrackFileLookup, type TrackFileLookup } from "@/lib/playback";
 import { getSettings } from "@/lib/settings";
 
 export type PlaylistSummary = {
@@ -526,7 +526,7 @@ export async function resolvePlaylistTrackFiles(
     }
   }
 
-  const albumLookups = new Map<string, Map<number, number> | null>();
+  const albumLookups = new Map<string, TrackFileLookup | null>();
   await Promise.all(
     Array.from(albumKeys.values()).map(async (info) => {
       try {

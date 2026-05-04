@@ -180,7 +180,7 @@ export async function getLikedSongsPlaylist(
         recordingMbid: row.targetId,
         trackFileId: 0,
         albumMbid: row.albumMbid,
-        albumPosition: mbTrack.position,
+        albumPosition: mbTrack.absolutePosition,
         title: row.title,
         artistName: row.artistName ?? album?.artistName ?? "Unknown artist",
         albumTitle: row.albumTitle ?? album?.title ?? null,

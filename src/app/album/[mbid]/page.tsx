@@ -95,7 +95,7 @@ export default async function AlbumPage({ params }: { params: RouteParams }) {
 
   const tracks: TrackWithPreview[] = album.tracks.map((t) => {
     const dz = previews?.trackByTitle[normalizeTrackTitle(t.title)];
-    const trackFileId = trackFileLookup?.get(t.position);
+    const trackFileId = trackFileLookup?.get(t.absolutePosition);
     return {
       ...t,
       previewUrl: dz?.previewUrl ?? null,

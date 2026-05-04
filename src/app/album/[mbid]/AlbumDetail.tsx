@@ -224,7 +224,7 @@ export function AlbumDetail({
                         recordingMbid: t.recordingMbid,
                         trackFileId: t.trackFileId,
                         albumMbid: album.mbid,
-                        albumPosition: t.position,
+                        albumPosition: t.absolutePosition,
                         title: t.title,
                         artistName: album.artistName,
                         albumTitle: album.title,

@@ -20,7 +20,14 @@ export type MbAlbum = {
 };
 
 export type MbTrack = {
+  /** 1-indexed track number within its disc. */
   position: number;
+  /** 1-indexed disc number. */
+  mediumNumber: number;
+  /** 1-indexed track number across the whole release (counting through all
+   * discs). Used as the join key against Lidarr's track files because MB and
+   * Lidarr sometimes model the same release with different disc structures. */
+  absolutePosition: number;
   title: string;
   /** Length in milliseconds, when MB provides it. */
   lengthMs: number | null;
@@ -199,8 +206,8 @@ function pickPreferredRelease(
 }
 
 export async function getAlbum(mbid: string): Promise<MbAlbumDetail | null> {
-  // v2 — recordingMbid added to MbTrack
-  const cacheKey = `mb:rg:detail:v2:${mbid}`;
+  // v4 — absolutePosition added to MbTrack (multi-disc disambiguation)
+  const cacheKey = `mb:rg:detail:v4:${mbid}`;
   return withCache<MbAlbumDetail | null>(cacheKey, 7 * 24 * 60 * 60, async () => {
     let rg: MbReleaseGroupDetail;
     try {
@@ -235,13 +242,19 @@ export async function getAlbum(mbid: string): Promise<MbAlbumDetail | null> {
         const rel = await mbFetch<MbReleaseDetail>(`/release/${release.id}`, {
           inc: "recordings",
         });
+        let absolute = 0;
         tracks = (rel.media ?? []).flatMap((m, mi) =>
-          (m.tracks ?? []).map((t) => ({
-            position: t.position ?? mi + 1,
-            title: t.title,
-            lengthMs: typeof t.length === "number" ? t.length : null,
-            recordingMbid: t.recording?.id ?? null,
-          })),
+          (m.tracks ?? []).map((t) => {
+            absolute += 1;
+            return {
+              position: t.position ?? mi + 1,
+              mediumNumber: mi + 1,
+              absolutePosition: absolute,
+              title: t.title,
+              lengthMs: typeof t.length === "number" ? t.length : null,
+              recordingMbid: t.recording?.id ?? null,
+            };
+          }),
         );
       } catch {
         // tracks remain empty; the page still renders the hero
