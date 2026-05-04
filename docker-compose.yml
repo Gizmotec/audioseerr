@@ -10,9 +10,11 @@ services:
     environment:
       # SQLite lives inside the /config volume so it survives image rebuilds.
       DATABASE_URL: "file:/config/db.sqlite"
-      # Required secrets — set these in the .env file next to this compose file.
-      AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET is required}
-      AUDIOSEERR_SECRET: ${AUDIOSEERR_SECRET:?AUDIOSEERR_SECRET is required}
+      # Secrets are auto-generated on first boot and persisted to
+      # /config/secrets.env. Set these in a .env file only if you want to
+      # override the generated values (e.g. to share a secret across hosts).
+      AUTH_SECRET: ${AUTH_SECRET:-}
+      AUDIOSEERR_SECRET: ${AUDIOSEERR_SECRET:-}
       # Optional. Leave blank to fall back to "open YouTube in a new tab".
       YOUTUBE_API_KEY: ${YOUTUBE_API_KEY:-}
       # Public URL Auth.js uses for callbacks. Set to your real URL behind a

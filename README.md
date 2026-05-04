@@ -38,20 +38,18 @@ cd /opt
 git clone https://github.com/<your-github-user>/audioseerr.git
 cd audioseerr
 
-# 3. Create the .env file Docker Compose reads
-cp .env.example .env
-# Edit .env and fill in:
-#   AUTH_SECRET=        # openssl rand -base64 32
-#   AUDIOSEERR_SECRET=  # openssl rand -base64 32
-#   YOUTUBE_API_KEY=    # optional
-#   AUTH_URL=http://<server-ip-or-hostname>:3000
-nano .env
-
-# 4. Build and start
+# 3. Build and start
 docker compose up -d --build
 ```
 
 The first build takes a few minutes (it compiles `better-sqlite3`). When it's done, Audioseerr is at `http://<server-ip>:3000`. The SQLite database lives in `./config/db.sqlite` on the host — back up that folder and you've backed up the app.
+
+On first boot the container generates `AUTH_SECRET` and `AUDIOSEERR_SECRET` automatically and writes them to `./config/secrets.env`. Subsequent restarts reuse the same values, so logins persist and your encrypted Lidarr API key stays decryptable. To override the auto-generated values (rare — usually only when migrating between hosts), create a `.env` next to `docker-compose.yml` with `AUTH_SECRET=...` / `AUDIOSEERR_SECRET=...` lines.
+
+Optional `.env` knobs:
+
+- `AUTH_URL` — set to your real public URL if you put Audioseerr behind a reverse proxy.
+- `YOUTUBE_API_KEY` — enables the in-app YouTube player.
 
 ### Pushing updates from your laptop
 
