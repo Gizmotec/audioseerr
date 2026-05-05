@@ -33,17 +33,29 @@ type EnvFlags = {
   audioseerrSecret: boolean;
 };
 
+export type StorageInfo = {
+  rootFolderPath: string | null;
+  diskPath: string | null;
+  freeSpace: number | null;
+  totalSpace: number | null;
+  librarySize: number | null;
+  artistCount: number | null;
+  trackFileCount: number | null;
+};
+
 export function SettingsForm({
   initial,
   profiles: initialProfiles,
   rootFolders: initialRootFolders,
   lidarrReachable: initialReachable,
+  storage,
   env,
 }: {
   initial: Initial;
   profiles: LidarrQualityProfile[];
   rootFolders: LidarrRootFolder[];
   lidarrReachable: boolean;
+  storage: StorageInfo | null;
   env: EnvFlags;
 }) {
   const router = useRouter();
@@ -337,6 +349,9 @@ export function SettingsForm({
         </CardContent>
       </Card>
 
+      {/* Storage */}
+      <StorageCard storage={storage} />
+
       {/* System info */}
       <Card>
         <CardHeader>
@@ -378,6 +393,144 @@ export function SettingsForm({
       </div>
     </form>
   );
+}
+
+function StorageCard({ storage }: { storage: StorageInfo | null }) {
+  if (!storage) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Storage</CardTitle>
+          <CardDescription>
+            Connect Lidarr above to see library size and free space.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  const { freeSpace, totalSpace, librarySize, rootFolderPath, diskPath } =
+    storage;
+  const usedSpace =
+    freeSpace !== null && totalSpace !== null ? totalSpace - freeSpace : null;
+  const usedPct =
+    usedSpace !== null && totalSpace !== null && totalSpace > 0
+      ? Math.min(100, (usedSpace / totalSpace) * 100)
+      : null;
+  const libraryPct =
+    librarySize !== null && totalSpace !== null && totalSpace > 0
+      ? Math.min(100, (librarySize / totalSpace) * 100)
+      : null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Storage</CardTitle>
+        <CardDescription>
+          {rootFolderPath ? (
+            <>
+              Library at <code className="font-mono text-xs">{rootFolderPath}</code>
+              {diskPath && diskPath !== rootFolderPath && (
+                <>
+                  {" "}
+                  on <code className="font-mono text-xs">{diskPath}</code>
+                </>
+              )}
+              .
+            </>
+          ) : (
+            "Reported by Lidarr."
+          )}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {totalSpace !== null && usedSpace !== null && (
+          <div className="space-y-1.5">
+            <div className="flex items-baseline justify-between text-sm">
+              <span className="text-muted-foreground">Disk usage</span>
+              <span>
+                {formatBytes(usedSpace)} used of {formatBytes(totalSpace)}
+              </span>
+            </div>
+            <div className="relative h-2 overflow-hidden rounded-full bg-muted">
+              {usedPct !== null && (
+                <div
+                  className="absolute inset-y-0 left-0 bg-muted-foreground/40"
+                  style={{ width: `${usedPct}%` }}
+                />
+              )}
+              {libraryPct !== null && (
+                <div
+                  className="absolute inset-y-0 left-0 bg-primary"
+                  style={{ width: `${libraryPct}%` }}
+                />
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="inline-block h-2 w-2 rounded-full bg-primary" />
+                Audioseerr library
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="inline-block h-2 w-2 rounded-full bg-muted-foreground/40" />
+                Other usage
+              </span>
+              {freeSpace !== null && (
+                <span className="ml-auto">{formatBytes(freeSpace)} free</span>
+              )}
+            </div>
+          </div>
+        )}
+
+        <dl className="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
+          <StorageStat
+            label="Library size"
+            value={librarySize !== null ? formatBytes(librarySize) : "—"}
+          />
+          <StorageStat
+            label="Free space"
+            value={freeSpace !== null ? formatBytes(freeSpace) : "—"}
+          />
+          <StorageStat
+            label="Artists"
+            value={
+              storage.artistCount !== null
+                ? storage.artistCount.toLocaleString()
+                : "—"
+            }
+          />
+          <StorageStat
+            label="Track files"
+            value={
+              storage.trackFileCount !== null
+                ? storage.trackFileCount.toLocaleString()
+                : "—"
+            }
+          />
+        </dl>
+      </CardContent>
+    </Card>
+  );
+}
+
+function StorageStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border px-3 py-2">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 font-medium tabular-nums">{value}</dd>
+    </div>
+  );
+}
+
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB", "PB"];
+  const i = Math.min(
+    units.length - 1,
+    Math.floor(Math.log(bytes) / Math.log(1024)),
+  );
+  const value = bytes / 1024 ** i;
+  return `${value >= 100 || i === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[i]}`;
 }
 
 function EnvRow({ label, set }: { label: string; set: boolean }) {

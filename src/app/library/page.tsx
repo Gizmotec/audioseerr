@@ -2,14 +2,21 @@ import { ArrowLeft, Disc3 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { ShuffleLibraryButton } from "@/components/ShuffleLibraryButton";
 import { prisma } from "@/lib/db";
 import type { LibraryStatus } from "@/lib/library";
 import { isSetupComplete } from "@/lib/settings";
-import { LibraryView } from "./LibraryView";
+import { LibraryView, type StatusFilter } from "./LibraryView";
 
 export const dynamic = "force-dynamic";
 
-export default async function LibraryPage() {
+type SearchParams = Promise<{ status?: string }>;
+
+export default async function LibraryPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
   if (!(await isSetupComplete())) {
     redirect("/setup");
   }
@@ -18,6 +25,8 @@ export default async function LibraryPage() {
     redirect("/login");
   }
   const isAdmin = (session.user as { role?: string }).role === "ADMIN";
+  const { status } = await searchParams;
+  const initialStatus = parseStatusFilter(status);
 
   // Reads straight from LibraryItem — kept up to date every 15 min by the
   // syncLibrary cron (see src/lib/jobs/syncLibrary.ts).
@@ -53,19 +62,22 @@ export default async function LibraryPage() {
         <ArrowLeft className="h-4 w-4" /> Home
       </Link>
 
-      <header className="mt-4 mb-8 flex items-end justify-between gap-4">
+      <header className="mt-4 mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Library</h1>
           <p className="text-sm text-muted-foreground">
             Albums in your Lidarr library.
           </p>
         </div>
-        {!isEmpty && (
-          <p className="text-sm text-muted-foreground">
-            {items.length.toLocaleString()}{" "}
-            {items.length === 1 ? "album" : "albums"}
-          </p>
-        )}
+        <div className="flex flex-wrap items-center gap-3 sm:justify-end">
+          {!isEmpty && <ShuffleLibraryButton variant="secondary" />}
+          {!isEmpty && (
+            <p className="text-sm text-muted-foreground">
+              {items.length.toLocaleString()}{" "}
+              {items.length === 1 ? "album" : "albums"}
+            </p>
+          )}
+        </div>
       </header>
 
       {isEmpty ? (
@@ -78,8 +90,23 @@ export default async function LibraryPage() {
           </p>
         </div>
       ) : (
-        <LibraryView items={items} canDelete={isAdmin} />
+        <LibraryView
+          items={items}
+          canDelete={isAdmin}
+          initialStatus={initialStatus}
+        />
       )}
     </main>
   );
+}
+
+function parseStatusFilter(status: string | undefined): StatusFilter {
+  if (
+    status === "downloaded" ||
+    status === "downloading" ||
+    status === "missing"
+  ) {
+    return status;
+  }
+  return "all";
 }

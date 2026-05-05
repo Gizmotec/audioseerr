@@ -22,6 +22,20 @@ export type LidarrArtist = {
   foreignArtistId: string;
   artistName: string;
   monitored?: boolean;
+  rootFolderPath?: string;
+  statistics?: {
+    albumCount?: number;
+    trackFileCount?: number;
+    totalTrackCount?: number;
+    sizeOnDisk?: number;
+  };
+};
+
+export type LidarrDiskSpace = {
+  path: string;
+  label?: string;
+  freeSpace: number;
+  totalSpace: number;
 };
 
 export type LidarrAlbum = {
@@ -127,6 +141,12 @@ export async function listRootFolders(
   config: LidarrConfig,
 ): Promise<LidarrRootFolder[]> {
   return lidarrFetch<LidarrRootFolder[]>(config, "/api/v1/rootfolder");
+}
+
+export async function getDiskSpace(
+  config: LidarrConfig,
+): Promise<LidarrDiskSpace[]> {
+  return lidarrFetch<LidarrDiskSpace[]>(config, "/api/v1/diskspace");
 }
 
 export async function findArtistByMbid(

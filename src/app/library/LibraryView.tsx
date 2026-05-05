@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import type { LibraryStatus } from "@/lib/library";
 import { LibraryAlbumTile, type LibraryTileItem } from "./LibraryAlbumTile";
 
-type StatusFilter = "all" | LibraryStatus;
+export type StatusFilter = "all" | LibraryStatus;
 
 const STATUS_TABS: { id: StatusFilter; label: string }[] = [
   { id: "all", label: "All" },
@@ -22,12 +22,14 @@ function normalize(s: string): string {
 export function LibraryView({
   items,
   canDelete,
+  initialStatus = "all",
 }: {
   items: LibraryTileItem[];
   canDelete: boolean;
+  initialStatus?: StatusFilter;
 }) {
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState<StatusFilter>("all");
+  const [status, setStatus] = useState<StatusFilter>(initialStatus);
 
   const counts = useMemo(() => {
     const c: Record<StatusFilter, number> = {

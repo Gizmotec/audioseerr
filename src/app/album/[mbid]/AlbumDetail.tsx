@@ -83,6 +83,23 @@ export function AlbumDetail({
   const year = album.firstReleaseDate?.slice(0, 4);
   const typeLabel = album.primaryType ?? "Album";
 
+  // Group tracks by disc, preserving each track's index in the full list so
+  // queue ids stay stable across the disc separators.
+  const discs = useMemo(() => {
+    const groups = new Map<number, { disc: number; items: { track: TrackWithPreview; idx: number }[] }>();
+    tracks.forEach((track, idx) => {
+      const disc = track.mediumNumber ?? 1;
+      let group = groups.get(disc);
+      if (!group) {
+        group = { disc, items: [] };
+        groups.set(disc, group);
+      }
+      group.items.push({ track, idx });
+    });
+    return Array.from(groups.values()).sort((a, b) => a.disc - b.disc);
+  }, [tracks]);
+  const showDiscHeaders = discs.length > 1;
+
   return (
     <div className="mt-6 flex flex-col gap-8">
       <header className="flex flex-col gap-6 md:flex-row md:items-end">
@@ -170,15 +187,25 @@ export function AlbumDetail({
           </p>
         ) : (
           <ol className="divide-y divide-border/50">
-            {tracks.map((t, idx) => {
-              const playUrl = t.streamUrl ?? t.previewUrl;
-              const playable = !!playUrl;
-              const queueId = trackQueueId(album.mbid, t, idx);
-              const isActive = playable && player.isCurrent(queueId);
-              const isFull = !!t.streamUrl;
-              return (
+            {discs.flatMap((group) => {
+              const header = showDiscHeaders ? (
                 <li
-                  key={`${t.position}-${t.title}`}
+                  key={`disc-${group.disc}`}
+                  className="flex items-center gap-2 pt-4 pb-2 text-sm font-medium text-muted-foreground"
+                >
+                  <Disc3 className="h-4 w-4" />
+                  <span>Disc {group.disc}</span>
+                </li>
+              ) : null;
+              const rows = group.items.map(({ track: t, idx }) => {
+                const playUrl = t.streamUrl ?? t.previewUrl;
+                const playable = !!playUrl;
+                const queueId = trackQueueId(album.mbid, t, idx);
+                const isActive = playable && player.isCurrent(queueId);
+                const isFull = !!t.streamUrl;
+                return (
+                <li
+                  key={`${group.disc}-${t.position}-${t.title}`}
                   className={`flex items-center gap-4 py-2.5 ${
                     isActive ? "bg-secondary/40" : ""
                   }`}
@@ -257,7 +284,9 @@ export function AlbumDetail({
                     {formatDuration(t.lengthMs)}
                   </span>
                 </li>
-              );
+                );
+              });
+              return header ? [header, ...rows] : rows;
             })}
           </ol>
         )}

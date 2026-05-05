@@ -1,4 +1,12 @@
-import { Home, Inbox, Library, ListMusic, Settings as SettingsIcon, ShieldCheck } from "lucide-react";
+import {
+  Compass,
+  Home,
+  Inbox,
+  Library,
+  ListMusic,
+  Settings as SettingsIcon,
+  ShieldCheck,
+} from "lucide-react";
 import Link from "next/link";
 import type { ComponentType } from "react";
 import { auth, signOut } from "@/auth";
@@ -18,21 +26,37 @@ export async function Sidebar() {
       </div>
 
       <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-2 py-4">
-        <SidebarLink href="/home" icon={Home}>Home</SidebarLink>
-        <SidebarLink href="/playlists" icon={ListMusic}>Playlists</SidebarLink>
-        <SidebarLink href="/library" icon={Library}>Library</SidebarLink>
-        <SidebarLink href="/requests" icon={Inbox}>My requests</SidebarLink>
+        <SidebarLink href="/home" icon={Home}>
+          Home
+        </SidebarLink>
+        <SidebarLink href="/discover" icon={Compass}>
+          Discover
+        </SidebarLink>
+        <SidebarLink href="/playlists" icon={ListMusic}>
+          Playlists
+        </SidebarLink>
+        <SidebarLink href="/library" icon={Library}>
+          Library
+        </SidebarLink>
+        <SidebarLink href="/requests" icon={Inbox}>
+          My requests
+        </SidebarLink>
         {role === "ADMIN" && (
           <>
-            <SidebarLink href="/admin/requests" icon={ShieldCheck}>Queue</SidebarLink>
-            <SidebarLink href="/admin/settings" icon={SettingsIcon}>Settings</SidebarLink>
+            <SidebarLink href="/admin/requests" icon={ShieldCheck}>
+              Queue
+            </SidebarLink>
+            <SidebarLink href="/admin/settings" icon={SettingsIcon}>
+              Settings
+            </SidebarLink>
           </>
         )}
       </nav>
 
       <div className="border-t border-border px-4 py-4">
         <p className="truncate text-xs text-muted-foreground">
-          Signed in as <span className="font-mono text-foreground">{session.user.name}</span>
+          Signed in as{" "}
+          <span className="font-mono text-foreground">{session.user.name}</span>
           {role === "ADMIN" ? " · admin" : ""}
         </p>
         <form
@@ -42,7 +66,12 @@ export async function Sidebar() {
           }}
           className="mt-2"
         >
-          <Button variant="ghost" size="sm" type="submit" className="w-full justify-start px-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            type="submit"
+            className="w-full justify-start px-2"
+          >
             Sign out
           </Button>
         </form>

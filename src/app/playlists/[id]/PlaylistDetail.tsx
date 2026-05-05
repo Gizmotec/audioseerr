@@ -14,6 +14,7 @@ import {
   Play,
   Plus,
   Search,
+  Shuffle,
   Square,
   SquareCheck,
   Trash2,
@@ -106,6 +107,14 @@ export function PlaylistDetail({
     player.playQueue(queueItems, 0);
   };
 
+  const shuffleAll = () => {
+    const playable = queueItems.filter(
+      (item) => item.streamUrl && !player.failedIds.has(item.id),
+    );
+    if (playable.length === 0) return;
+    player.playQueue(shuffle(playable), 0);
+  };
+
   const removeTrack = (rowId: string) => {
     setPendingRowId(rowId);
     startTransition(async () => {
@@ -183,6 +192,15 @@ export function PlaylistDetail({
           >
             <Play className="h-4 w-4" fill="currentColor" />
             Play
+          </button>
+          <button
+            type="button"
+            onClick={shuffleAll}
+            disabled={playableCount === 0}
+            className="inline-flex h-10 items-center gap-2 rounded-full border border-border px-4 text-sm font-semibold text-foreground transition-colors disabled:opacity-40 hover:border-foreground/40 hover:bg-secondary"
+          >
+            <Shuffle className="h-4 w-4" />
+            Shuffle
           </button>
           {!readOnly && (
             <DeletePlaylistButton playlistId={playlistId} name={initialName} />
@@ -366,6 +384,15 @@ export function PlaylistDetail({
       ) : null}
     </div>
   );
+}
+
+function shuffle<T>(items: T[]): T[] {
+  const out = [...items];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j]!, out[i]!];
+  }
+  return out;
 }
 
 function AddSongsButton({
