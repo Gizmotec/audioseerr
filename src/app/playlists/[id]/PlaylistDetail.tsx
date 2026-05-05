@@ -300,7 +300,10 @@ export function PlaylistDetail({
                       <>
                         {t.artistName} ·{" "}
                         <Link
-                          href={`/album/${t.albumMbid}`}
+                          href={{
+                            pathname: `/album/${t.albumMbid}`,
+                            query: { from: "playlists" },
+                          }}
                           className="hover:text-foreground hover:underline"
                         >
                           {t.albumTitle}

@@ -7,6 +7,7 @@ import type { LibraryStatus } from "@/lib/library";
 import { LibraryAlbumTile, type LibraryTileItem } from "./LibraryAlbumTile";
 
 export type StatusFilter = "all" | LibraryStatus;
+const DEFAULT_STATUS_FILTER: StatusFilter = "downloaded";
 
 const STATUS_TABS: { id: StatusFilter; label: string }[] = [
   { id: "all", label: "All" },
@@ -22,7 +23,7 @@ function normalize(s: string): string {
 export function LibraryView({
   items,
   canDelete,
-  initialStatus = "all",
+  initialStatus = DEFAULT_STATUS_FILTER,
 }: {
   items: LibraryTileItem[];
   canDelete: boolean;
@@ -111,7 +112,7 @@ export function LibraryView({
               type="button"
               onClick={() => {
                 setQuery("");
-                setStatus("all");
+                setStatus(DEFAULT_STATUS_FILTER);
               }}
               className="mt-2 text-foreground underline-offset-4 hover:underline"
             >

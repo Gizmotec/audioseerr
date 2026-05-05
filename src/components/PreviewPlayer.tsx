@@ -45,6 +45,11 @@ export type QueueItem = {
 };
 
 type PlaybackState = "idle" | "loading" | "playing" | "paused";
+type QueueControls = {
+  hasQueue: boolean;
+  hasNext: boolean;
+  hasPrev: boolean;
+};
 
 type ContextValue = {
   current: PreviewTrack | null;
@@ -65,6 +70,25 @@ type ContextValue = {
 };
 
 const PreviewPlayerContext = createContext<ContextValue | null>(null);
+const PREVIEW_PLAYER_BOTTOM_OFFSET = "7rem";
+const DEFAULT_QUEUE_CONTROLS: QueueControls = {
+  hasQueue: false,
+  hasNext: false,
+  hasPrev: false,
+};
+
+function readStoredVolume(): number {
+  if (typeof window === "undefined") return 1;
+  const stored = window.localStorage.getItem("audioseerr.volume");
+  if (stored === null) return 1;
+  const value = Number(stored);
+  return Number.isFinite(value) && value >= 0 && value <= 1 ? value : 1;
+}
+
+function readStoredMuted(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.localStorage.getItem("audioseerr.muted") === "true";
+}
 
 export function usePreviewPlayer(): ContextValue {
   const v = useContext(PreviewPlayerContext);
@@ -80,13 +104,17 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
   const [state, setState] = useState<PlaybackState>("idle");
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [volume, setVolumeState] = useState(readStoredVolume);
+  const [muted, setMutedState] = useState(readStoredMuted);
 
   // Queue state lives in refs so the audio element's "ended" / "error"
   // listeners (registered once when the element is created) read the latest
   // values. Mirroring into useState would make them stale.
   const queueRef = useRef<QueueItem[] | null>(null);
   const queueIndexRef = useRef<number>(-1);
-  const [queueVersion, setQueueVersion] = useState(0); // bump to re-render derived flags
+  const [queueControls, setQueueControls] = useState<QueueControls>(
+    DEFAULT_QUEUE_CONTROLS,
+  );
 
   // Items in the active queue whose audio failed to load (404, codec, etc).
   // Surfaced to consumers via context so playlist rows can render an
@@ -99,29 +127,24 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
   // Volume + mute, persisted to localStorage. Refs mirror the state so the
   // audio element (created lazily in ensureAudio) can read the latest value
   // at construction time without us having to re-create the listeners.
-  const volumeRef = useRef(1);
-  const mutedRef = useRef(false);
-  const [volume, setVolumeState] = useState(1);
-  const [muted, setMutedState] = useState(false);
+  const volumeRef = useRef(volume);
+  const mutedRef = useRef(muted);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const v = window.localStorage.getItem("audioseerr.volume");
-    if (v != null) {
-      const n = Number(v);
-      if (Number.isFinite(n) && n >= 0 && n <= 1) {
-        volumeRef.current = n;
-        setVolumeState(n);
-        if (audioRef.current) audioRef.current.volume = n;
-      }
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+    if (current) {
+      root.style.setProperty(
+        "--preview-player-bottom-offset",
+        PREVIEW_PLAYER_BOTTOM_OFFSET,
+      );
+    } else {
+      root.style.removeProperty("--preview-player-bottom-offset");
     }
-    const m = window.localStorage.getItem("audioseerr.muted");
-    if (m === "true") {
-      mutedRef.current = true;
-      setMutedState(true);
-      if (audioRef.current) audioRef.current.muted = true;
-    }
-  }, []);
+    return () => {
+      root.style.removeProperty("--preview-player-bottom-offset");
+    };
+  }, [current]);
 
   const setVolume = useCallback((v: number) => {
     const clamped = Math.max(0, Math.min(1, v));
@@ -169,18 +192,21 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
     });
   }, []);
 
-  const hasQueue = queueRef.current !== null;
-  const hasNext = useMemo(() => {
-    if (!queueRef.current) return false;
-    return findNextPlayable(queueRef.current, queueIndexRef.current) !== -1;
-    // queueVersion forces recompute when queue/index change
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queueVersion]);
-  const hasPrev = useMemo(() => {
-    if (!queueRef.current) return false;
-    return findPrevPlayable(queueRef.current, queueIndexRef.current) !== -1;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queueVersion]);
+  const refreshQueueControls = useCallback(() => {
+    const queue = queueRef.current;
+    const index = queueIndexRef.current;
+    setQueueControls(
+      queue
+        ? {
+            hasQueue: true,
+            hasNext: findNextPlayable(queue, index) !== -1,
+            hasPrev: findPrevPlayable(queue, index) !== -1,
+          }
+        : DEFAULT_QUEUE_CONTROLS,
+    );
+  }, []);
+
+  const { hasQueue, hasNext, hasPrev } = queueControls;
 
   const playUrlInElement = useCallback(
     (el: HTMLAudioElement, url: string) => {
@@ -235,11 +261,11 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
         return;
       }
       queueIndexRef.current = next;
-      setQueueVersion((v) => v + 1);
+      refreshQueueControls();
       const el = audioRef.current;
       if (el) playQueueItem(el, queue[next]!);
     },
-    [playQueueItem],
+    [playQueueItem, refreshQueueControls],
   );
 
   // Audio element is created lazily on the first play() so SSR doesn't trip,
@@ -312,11 +338,11 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
       }
       queueRef.current = null;
       queueIndexRef.current = -1;
-      setQueueVersion((v) => v + 1);
+      refreshQueueControls();
       setCurrent(track);
       playUrlInElement(el, track.previewUrl);
     },
-    [current, state, ensureAudio, playUrlInElement],
+    [current, state, ensureAudio, playUrlInElement, refreshQueueControls],
   );
 
   const playQueue = useCallback(
@@ -341,10 +367,10 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
       }
       queueRef.current = items;
       queueIndexRef.current = idx;
-      setQueueVersion((v) => v + 1);
+      refreshQueueControls();
       playQueueItem(el, items[idx]!);
     },
-    [ensureAudio, playQueueItem],
+    [ensureAudio, playQueueItem, refreshQueueControls],
   );
 
   const next = useCallback(() => advance(1), [advance]);
@@ -403,13 +429,13 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
     }
     queueRef.current = null;
     queueIndexRef.current = -1;
-    setQueueVersion((v) => v + 1);
+    refreshQueueControls();
     setFailedIds(new Set());
     setCurrent(null);
     setState("idle");
     setCurrentTime(0);
     setDuration(0);
-  }, []);
+  }, [refreshQueueControls]);
 
   const isCurrent = useCallback(
     (id: string) => current?.id === id,
@@ -522,113 +548,109 @@ function PreviewPlayerBar({
   const pct = safeDuration > 0 ? (currentTime / safeDuration) * 100 : 0;
 
   return (
-    <>
-      {/* Spacer keeps page content from sitting under the fixed bar. */}
-      <div className="h-20 shrink-0" aria-hidden />
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:left-56">
-        <div className="mx-auto flex w-full max-w-5xl items-center gap-3 px-4 py-3 md:gap-4 md:px-6">
-          <div className="flex min-w-0 flex-1 items-center gap-3 md:flex-none md:w-64">
-            <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded bg-secondary">
-              {coverOk && current.coverUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  key={current.coverUrl}
-                  src={current.coverUrl}
-                  alt=""
-                  referrerPolicy="no-referrer"
-                  className="h-full w-full object-cover"
-                  onError={() => setCoverOk(false)}
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center text-muted-foreground/40">
-                  <Disc3 className="h-1/2 w-1/2" />
-                </div>
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium" title={current.title}>
-                {current.title}
-              </p>
-              <p
-                className="truncate text-xs text-muted-foreground"
-                title={current.artistName}
-              >
-                {current.artistName}
-              </p>
-            </div>
-          </div>
-
-          <div className="hidden flex-1 items-center gap-3 md:flex">
-            {hasQueue && (
-              <SkipButton
-                direction="prev"
-                disabled={!hasPrev}
-                onClick={onPrev}
+    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:left-56">
+      <div className="mx-auto flex w-full max-w-5xl items-center gap-3 px-4 py-3 md:gap-4 md:px-6">
+        <div className="flex min-w-0 flex-1 items-center gap-3 md:flex-none md:w-64">
+          <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded bg-secondary">
+            {coverOk && current.coverUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={current.coverUrl}
+                src={current.coverUrl}
+                alt=""
+                referrerPolicy="no-referrer"
+                className="h-full w-full object-cover"
+                onError={() => setCoverOk(false)}
               />
-            )}
-            <PlayPauseButton state={state} onClick={onToggle} />
-            {hasQueue && (
-              <SkipButton
-                direction="next"
-                disabled={!hasNext}
-                onClick={onNext}
-              />
-            )}
-            <TimeText value={currentTime} />
-            <Scrubber
-              currentTime={currentTime}
-              duration={safeDuration}
-              pct={pct}
-              onSeek={onSeek}
-            />
-            <TimeText value={safeDuration} muted />
-            <VolumeControl
-              volume={volume}
-              muted={muted}
-              onVolumeChange={onVolumeChange}
-              onToggleMute={onToggleMute}
-            />
-          </div>
-
-          <div className="flex items-center gap-1 md:hidden">
-            {hasQueue && (
-              <SkipButton
-                direction="prev"
-                disabled={!hasPrev}
-                onClick={onPrev}
-              />
-            )}
-            <PlayPauseButton state={state} onClick={onToggle} />
-            {hasQueue && (
-              <SkipButton
-                direction="next"
-                disabled={!hasNext}
-                onClick={onNext}
-              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-muted-foreground/40">
+                <Disc3 className="h-1/2 w-1/2" />
+              </div>
             )}
           </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close preview"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium" title={current.title}>
+              {current.title}
+            </p>
+            <p
+              className="truncate text-xs text-muted-foreground"
+              title={current.artistName}
+            >
+              {current.artistName}
+            </p>
+          </div>
         </div>
 
-        <div className="md:hidden">
+        <div className="hidden flex-1 items-center gap-3 md:flex">
+          {hasQueue && (
+            <SkipButton
+              direction="prev"
+              disabled={!hasPrev}
+              onClick={onPrev}
+            />
+          )}
+          <PlayPauseButton state={state} onClick={onToggle} />
+          {hasQueue && (
+            <SkipButton
+              direction="next"
+              disabled={!hasNext}
+              onClick={onNext}
+            />
+          )}
+          <TimeText value={currentTime} />
           <Scrubber
             currentTime={currentTime}
             duration={safeDuration}
             pct={pct}
             onSeek={onSeek}
-            compact
+          />
+          <TimeText value={safeDuration} muted />
+          <VolumeControl
+            volume={volume}
+            muted={muted}
+            onVolumeChange={onVolumeChange}
+            onToggleMute={onToggleMute}
           />
         </div>
+
+        <div className="flex items-center gap-1 md:hidden">
+          {hasQueue && (
+            <SkipButton
+              direction="prev"
+              disabled={!hasPrev}
+              onClick={onPrev}
+            />
+          )}
+          <PlayPauseButton state={state} onClick={onToggle} />
+          {hasQueue && (
+            <SkipButton
+              direction="next"
+              disabled={!hasNext}
+              onClick={onNext}
+            />
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close preview"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
+        >
+          <X className="h-4 w-4" />
+        </button>
       </div>
-    </>
+
+      <div className="md:hidden">
+        <Scrubber
+          currentTime={currentTime}
+          duration={safeDuration}
+          pct={pct}
+          onSeek={onSeek}
+          compact
+        />
+      </div>
+    </div>
   );
 }
 

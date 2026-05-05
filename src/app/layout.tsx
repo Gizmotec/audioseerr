@@ -35,7 +35,14 @@ export default function RootLayout({
       <body className="min-h-full flex font-sans">
         <PreviewPlayerProvider>
           <Sidebar />
-          <div className="flex min-h-screen flex-1 flex-col">{children}</div>
+          <div
+            className="flex min-h-screen flex-1 flex-col transition-[padding-bottom] duration-200"
+            style={{
+              paddingBottom: "var(--preview-player-bottom-offset, 0px)",
+            }}
+          >
+            {children}
+          </div>
         </PreviewPlayerProvider>
       </body>
     </html>

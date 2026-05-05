@@ -102,11 +102,12 @@ export default async function LibraryPage({
 
 function parseStatusFilter(status: string | undefined): StatusFilter {
   if (
+    status === "all" ||
     status === "downloaded" ||
     status === "downloading" ||
     status === "missing"
   ) {
     return status;
   }
-  return "all";
+  return "downloaded";
 }
