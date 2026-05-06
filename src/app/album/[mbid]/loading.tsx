@@ -2,7 +2,7 @@
 // and the per-track Lidarr file map. Layout mirrors AlbumDetail.tsx so the
 // page doesn't shift when content swaps in.
 
-import { ArrowLeft } from "lucide-react";
+import { BackLink } from "@/components/BackLink";
 
 const SHIMMER = "animate-pulse bg-secondary/60";
 const TRACK_ROWS = 12;
@@ -10,9 +10,7 @@ const TRACK_ROWS = 12;
 export default function AlbumLoading() {
   return (
     <main className="relative isolate mx-auto w-full max-w-5xl flex-1 px-4 py-6 md:px-6">
-      <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-        <ArrowLeft className="h-4 w-4" /> Back to search
-      </span>
+      <BackLink fallbackHref="/home" />
 
       <div className="mt-6 flex flex-col gap-8" aria-busy="true">
         <header className="flex flex-col gap-6 md:flex-row md:items-end">

@@ -1,9 +1,10 @@
-import { ArrowLeft, User } from "lucide-react";
+import { User } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AlbumCard } from "@/app/search/AlbumCard";
 import { AmbientArtworkBackground } from "@/components/AmbientArtworkBackground";
+import { BackLink } from "@/components/BackLink";
 import { resolveAppleMusicUrl } from "@/lib/appleMusic";
 import { getDeezerArtistBundle } from "@/lib/deezer";
 import { getArtistInfo, getArtistTopTracks } from "@/lib/lastfm";
@@ -151,12 +152,7 @@ export default async function ArtistPage({ params }: { params: RouteParams }) {
     <main className="relative isolate mx-auto w-full max-w-5xl flex-1 px-4 py-6 md:px-6">
       <AmbientArtworkBackground imageUrl={bundle?.imageUrl} />
 
-      <Link
-        href="/home"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" /> Home
-      </Link>
+      <BackLink fallbackHref="/home" />
 
       <div className="mt-6">
         <ArtistDetail

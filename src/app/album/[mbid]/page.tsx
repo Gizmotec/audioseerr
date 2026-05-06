@@ -1,8 +1,7 @@
-import { ArrowLeft } from "lucide-react";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AmbientArtworkBackground } from "@/components/AmbientArtworkBackground";
+import { BackLink } from "@/components/BackLink";
 import { resolveAppleMusicUrl } from "@/lib/appleMusic";
 import { prisma } from "@/lib/db";
 import { findAlbumPreviews, normalizeTrackTitle } from "@/lib/deezer";
@@ -18,7 +17,6 @@ import type { ExistingRequestStatus } from "./RequestButton";
 export const dynamic = "force-dynamic";
 
 type RouteParams = Promise<{ mbid: string }>;
-type SearchParams = Promise<{ from?: string | string[] }>;
 
 export type TrackWithPreview = MbTrack & {
   previewUrl: string | null;
@@ -30,10 +28,8 @@ export type TrackWithPreview = MbTrack & {
 
 export default async function AlbumPage({
   params,
-  searchParams,
 }: {
   params: RouteParams;
-  searchParams: SearchParams;
 }) {
   if (!(await isSetupComplete())) {
     redirect("/setup");
@@ -46,10 +42,6 @@ export default async function AlbumPage({
   const isAdmin = (session?.user as { role?: string } | undefined)?.role === "ADMIN";
 
   const { mbid } = await params;
-  const from = (await searchParams).from;
-  const fromPlaylists = from === "playlists";
-  const backHref = fromPlaylists ? "/playlists" : "/search";
-  const backLabel = fromPlaylists ? "Back to playlists" : "Back to search";
   const album = await getAlbum(mbid);
   if (!album) notFound();
 
@@ -57,7 +49,7 @@ export default async function AlbumPage({
   // resolves it to the owning release-group. Send the user to the canonical
   // URL so requests/library lookups all key off the same id.
   if (album.mbid !== mbid) {
-    redirect(`/album/${album.mbid}${fromPlaylists ? "?from=playlists" : ""}`);
+    redirect(`/album/${album.mbid}`);
   }
 
   // Most-recent request by this user for this album, if any. Drives the
@@ -161,12 +153,7 @@ export default async function AlbumPage({
     <main className="relative isolate mx-auto w-full max-w-5xl flex-1 px-4 py-6 md:px-6">
       <AmbientArtworkBackground imageUrl={coverUrl} />
 
-      <Link
-        href={backHref}
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" /> {backLabel}
-      </Link>
+      <BackLink fallbackHref="/home" />
 
       <AlbumDetail
         album={{

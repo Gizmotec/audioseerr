@@ -1,8 +1,9 @@
-import { ArrowLeft, Disc3, User } from "lucide-react";
+import { Disc3, User } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AmbientArtworkBackground } from "@/components/AmbientArtworkBackground";
+import { BackLink } from "@/components/BackLink";
 import {
   getAllLikes,
   getLikedSongsPlaylist,
@@ -63,12 +64,7 @@ export default async function PlaylistPage({ params }: { params: RouteParams }) 
     <main className="relative isolate mx-auto w-full max-w-5xl flex-1 px-4 py-8 md:px-6">
       <AmbientArtworkBackground imageUrl={ambientCoverUrl} />
 
-      <Link
-        href="/playlists"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" /> All playlists
-      </Link>
+      <BackLink fallbackHref="/playlists" />
 
       <PlaylistDetail
         playlistId={playlist.id}
