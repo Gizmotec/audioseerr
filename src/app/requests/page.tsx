@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { StatusBadge } from "@/components/StatusBadge";
 import { prisma } from "@/lib/db";
 import { isSetupComplete } from "@/lib/settings";
+import { UnrequestButton } from "./UnrequestButton";
 
 export const dynamic = "force-dynamic";
 
@@ -103,7 +104,17 @@ export default async function RequestsPage() {
                     </p>
                   )}
                 </div>
-                <StatusBadge status={r.status} />
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                  <StatusBadge status={r.status} />
+                  <UnrequestButton
+                    request={{
+                      id: r.id,
+                      type: r.type,
+                      mbid: r.mbid,
+                      albumMbid: r.albumMbid,
+                    }}
+                  />
+                </div>
               </li>
             );
           })}
