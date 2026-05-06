@@ -15,6 +15,10 @@ export type ProwlarrRelease = {
   guid?: string;
 };
 
+export type ProwlarrStatus = {
+  version: string;
+};
+
 class ProwlarrError extends Error {
   constructor(public readonly status: number, message: string) {
     super(message);
@@ -63,9 +67,19 @@ export async function searchAudioReleases(
   );
   return releases.filter((release) => {
     const protocol = release.protocol?.toLowerCase();
-    const hasUrl = !!(release.magnetUrl || release.downloadUrl || release.guid);
+    const hasUrl = !!(
+      release.magnetUrl ||
+      release.downloadUrl ||
+      /^magnet:/i.test(release.guid ?? "")
+    );
     return hasUrl && (!protocol || protocol === "torrent");
   });
+}
+
+export async function testProwlarrConnection(
+  config: ProwlarrConfig,
+): Promise<ProwlarrStatus> {
+  return prowlarrFetch<ProwlarrStatus>(config, "/api/v1/system/status");
 }
 
 export async function downloadReleaseFile(
@@ -73,7 +87,8 @@ export async function downloadReleaseFile(
   release: ProwlarrRelease,
 ): Promise<Blob | null> {
   const url = release.downloadUrl ?? release.guid;
-  if (!url || url.startsWith("magnet:")) return null;
+  if (!url || /^magnet:/i.test(url)) return null;
+  if (!release.downloadUrl && release.guid) return null;
 
   const res = await fetch(resolveUrl(config.url, url), {
     headers: {

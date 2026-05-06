@@ -188,9 +188,14 @@ async function approveTrackRequest(
 
     const directUrl =
       release.magnetUrl ??
-      (release.guid?.startsWith("magnet:") ? release.guid : undefined);
+      (/^magnet:/i.test(release.downloadUrl ?? "")
+        ? release.downloadUrl
+        : undefined) ??
+      (/^magnet:/i.test(release.guid ?? "") ? release.guid : undefined);
     const torrentFile = directUrl ? null : await downloadReleaseFile(prowlarr, release);
     if (!directUrl && !torrentFile) {
+      await markFailed(request.id, "Prowlarr did not provide a usable torrent URL or file.");
+      revalidateTrackRequestPaths(request);
       return { ok: false, error: "Prowlarr did not provide a usable torrent." };
     }
     const addResult = await addTorrent(qbittorrent, {
@@ -214,6 +219,8 @@ async function approveTrackRequest(
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Track torrent push failed.";
+    await markFailed(request.id, msg);
+    revalidateTrackRequestPaths(request);
     return { ok: false, error: msg };
   }
 

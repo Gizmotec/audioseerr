@@ -11,6 +11,16 @@ import {
   listRootFolders,
   testConnection,
 } from "@/lib/lidarr";
+import {
+  ProwlarrError,
+  testProwlarrConnection,
+  type ProwlarrStatus,
+} from "@/lib/prowlarr";
+import {
+  QBittorrentError,
+  testQBittorrentConnection,
+  type QBittorrentConnectionStatus,
+} from "@/lib/qbittorrent";
 import { getSettings, saveSettings } from "@/lib/settings";
 import { parsePathMap } from "@/lib/streaming";
 // Sentinel constant for "API key unchanged". Lives in its own module because
@@ -157,6 +167,18 @@ export type LidarrProbeResult =
     }
   | { ok: false; error: string };
 
+export type ProwlarrProbeResult =
+  | { ok: true; status: ProwlarrStatus }
+  | { ok: false; error: string };
+
+export type QBittorrentProbeResult =
+  | {
+      ok: true;
+      status: QBittorrentConnectionStatus;
+      categoryExists: boolean | null;
+    }
+  | { ok: false; error: string };
+
 /**
  * Live-tests a Lidarr URL/key (used both when changing config and when the
  * dropdowns need refreshing — Lidarr profiles can be added later). Mirrors
@@ -201,6 +223,90 @@ export async function probeLidarrAction(input: {
   }
 }
 
+export async function probeProwlarrAction(input: {
+  url: string;
+  apiKey: string;
+}): Promise<ProwlarrProbeResult> {
+  await requireAdmin();
+
+  let apiKey = input.apiKey;
+  if (apiKey === KEY_UNCHANGED) {
+    const saved = await getSettings();
+    if (!saved.prowlarrApiKey) {
+      return { ok: false, error: "No saved Prowlarr API key — type one to test." };
+    }
+    apiKey = saved.prowlarrApiKey;
+  }
+
+  const parsed = z
+    .object({ url: z.string().url(), apiKey: z.string().min(1) })
+    .safeParse({ url: input.url, apiKey });
+  if (!parsed.success) {
+    return { ok: false, error: "Prowlarr URL and API key are required." };
+  }
+
+  try {
+    const status = await testProwlarrConnection(parsed.data);
+    return { ok: true, status };
+  } catch (err) {
+    return { ok: false, error: explainProwlarrError(err) };
+  }
+}
+
+export async function probeQBittorrentAction(input: {
+  url: string;
+  username: string;
+  password: string;
+  category: string;
+}): Promise<QBittorrentProbeResult> {
+  await requireAdmin();
+
+  let password = input.password;
+  if (password === KEY_UNCHANGED) {
+    const saved = await getSettings();
+    if (!saved.qbittorrentPassword) {
+      return {
+        ok: false,
+        error: "No saved qBittorrent password — type one to test.",
+      };
+    }
+    password = saved.qbittorrentPassword;
+  }
+
+  const parsed = z
+    .object({
+      url: z.string().url(),
+      username: z.string().min(1),
+      password: z.string().min(1),
+      category: z.string(),
+    })
+    .safeParse({ ...input, password });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: "qBittorrent URL, username, and password are required.",
+    };
+  }
+
+  try {
+    const status = await testQBittorrentConnection({
+      url: parsed.data.url,
+      username: parsed.data.username,
+      password: parsed.data.password,
+    });
+    const category = parsed.data.category.trim();
+    return {
+      ok: true,
+      status,
+      categoryExists: category
+        ? Object.prototype.hasOwnProperty.call(status.categories, category)
+        : null,
+    };
+  } catch (err) {
+    return { ok: false, error: explainQBittorrentError(err) };
+  }
+}
+
 function explainLidarrError(err: unknown): string {
   if (err instanceof LidarrError) {
     if (err.status === 401) return "API key was rejected by Lidarr.";
@@ -221,4 +327,44 @@ function explainLidarrError(err: unknown): string {
     }
   }
   return "Could not connect to Lidarr.";
+}
+
+function explainProwlarrError(err: unknown): string {
+  if (err instanceof ProwlarrError) {
+    if (err.status === 401) return "API key was rejected by Prowlarr.";
+    if (err.status === 404) return "Prowlarr responded 404 — check the URL path.";
+    return `Prowlarr returned HTTP ${err.status}.`;
+  }
+  return explainNetworkError(err, "Prowlarr");
+}
+
+function explainQBittorrentError(err: unknown): string {
+  if (err instanceof QBittorrentError) {
+    if (err.status === 403 || err.status === 401) {
+      return "qBittorrent rejected the login.";
+    }
+    if (err.status === 404) {
+      return "qBittorrent responded 404 — check the Web UI URL.";
+    }
+    return err.message || `qBittorrent returned HTTP ${err.status}.`;
+  }
+  return explainNetworkError(err, "qBittorrent");
+}
+
+function explainNetworkError(err: unknown, service: string): string {
+  if (err instanceof Error) {
+    const cause = (err as Error & { cause?: { code?: string; message?: string } }).cause;
+    const msg = cause?.message ?? err.message;
+    if (cause?.code === "ENOTFOUND" || /ENOTFOUND/.test(msg)) {
+      return `${service} hostname could not be resolved — check the URL.`;
+    }
+    if (cause?.code === "ECONNREFUSED" || /ECONNREFUSED/.test(msg)) {
+      return `Connection refused — is ${service} running on that URL?`;
+    }
+    if (cause?.code === "ETIMEDOUT" || /ETIMEDOUT/.test(msg)) {
+      return `${service} connection timed out.`;
+    }
+    return msg;
+  }
+  return `Could not connect to ${service}.`;
 }

@@ -39,6 +39,8 @@ export function AdminRequestRow({
   const [done, setDone] = useState<RequestStatus | null>(null);
 
   const status = done ?? request.status;
+  const canRetry = status === "FAILED" && !done;
+  const canAct = isPending || canRetry;
   const href = request.type === "TRACK" && request.albumMbid
     ? `/album/${request.albumMbid}`
     : `/album/${request.mbid}`;
@@ -111,14 +113,17 @@ export function AdminRequestRow({
             Torrent: {request.downloadTitle}
           </p>
         )}
-        {!isPending && status === "DECLINED" && request.declineReason && (
+        {!isPending &&
+          (status === "DECLINED" || status === "FAILED") &&
+          request.declineReason && (
           <p className="truncate text-xs text-muted-foreground">
-            Reason: {request.declineReason}
+            {status === "FAILED" ? "Failure" : "Reason"}:{" "}
+            {request.declineReason}
           </p>
         )}
       </div>
 
-      {isPending && !done ? (
+      {canAct && !done ? (
         <div className="flex flex-col gap-2 md:items-end">
           <div className="flex gap-2">
             <Button
@@ -132,17 +137,19 @@ export function AdminRequestRow({
               ) : (
                 <Check className="h-4 w-4" />
               )}
-              Approve
+              {canRetry ? "Retry" : "Approve"}
             </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setDeclineOpen((v) => !v)}
-              disabled={pending}
-              className="gap-1.5"
-            >
-              <X className="h-4 w-4" /> Decline
-            </Button>
+            {isPending && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setDeclineOpen((v) => !v)}
+                disabled={pending}
+                className="gap-1.5"
+              >
+                <X className="h-4 w-4" /> Decline
+              </Button>
+            )}
           </div>
           {declineOpen && (
             <div className="flex w-full flex-col gap-2 md:max-w-sm">

@@ -10,7 +10,11 @@ import { Label } from "@/components/ui/label";
 import type { LidarrQualityProfile, LidarrRootFolder } from "@/lib/lidarr";
 import {
   type LidarrProbeResult,
+  type ProwlarrProbeResult,
+  type QBittorrentProbeResult,
   probeLidarrAction,
+  probeProwlarrAction,
+  probeQBittorrentAction,
   saveAdminSettingsAction,
 } from "./actions";
 import { KEY_UNCHANGED_SENTINEL } from "./constants";
@@ -113,6 +117,12 @@ export function SettingsForm({
   const [trackTorrentMaxSizeMb, setTrackTorrentMaxSizeMb] = useState(
     initial.trackTorrentMaxSizeMb,
   );
+  const [prowlarrTesting, setProwlarrTesting] = useState(false);
+  const [prowlarrProbeMsg, setProwlarrProbeMsg] = useState<string | null>(null);
+  const [qbittorrentTesting, setQbittorrentTesting] = useState(false);
+  const [qbittorrentProbeMsg, setQbittorrentProbeMsg] = useState<string | null>(
+    null,
+  );
 
   // Other settings.
   const [lastFmApiKey, setLastFmApiKey] = useState(initial.lastFmApiKey);
@@ -148,6 +158,53 @@ export function SettingsForm({
     if (rootFolder && !res.rootFolders.find((r) => r.path === rootFolder)) {
       setRootFolder("");
     }
+  }
+
+  async function probeProwlarr() {
+    setProwlarrTesting(true);
+    setProwlarrProbeMsg(null);
+    const res: ProwlarrProbeResult = await probeProwlarrAction({
+      url: prowlarrUrl,
+      apiKey: prowlarrKeyEdited || !initial.prowlarrApiKeyMasked
+        ? prowlarrApiKey
+        : KEY_UNCHANGED_SENTINEL,
+    });
+    setProwlarrTesting(false);
+    if (!res.ok) {
+      setProwlarrProbeMsg(res.error);
+      return;
+    }
+    setProwlarrProbeMsg(`Connected to Prowlarr ${res.status.version}.`);
+  }
+
+  async function probeQBittorrent() {
+    setQbittorrentTesting(true);
+    setQbittorrentProbeMsg(null);
+    const res: QBittorrentProbeResult = await probeQBittorrentAction({
+      url: qbittorrentUrl,
+      username: qbittorrentUsername,
+      password:
+        qbittorrentPasswordEdited || !initial.qbittorrentPasswordMasked
+          ? qbittorrentPassword
+          : KEY_UNCHANGED_SENTINEL,
+      category: trackTorrentCategory,
+    });
+    setQbittorrentTesting(false);
+    if (!res.ok) {
+      setQbittorrentProbeMsg(res.error);
+      return;
+    }
+
+    const category = trackTorrentCategory.trim();
+    const categoryNote =
+      res.categoryExists === null
+        ? ""
+        : res.categoryExists
+          ? ` Category "${category}" exists.`
+          : ` Category "${category}" does not exist yet; Audioseerr will create it before adding a torrent.`;
+    setQbittorrentProbeMsg(
+      `Connected to qBittorrent ${res.status.version}.${categoryNote}`,
+    );
   }
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -427,6 +484,74 @@ export function SettingsForm({
               />
             </div>
           </div>
+
+          <div className="flex flex-col gap-2 rounded-md border border-border bg-secondary/15 p-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-medium text-foreground">Connection checks</p>
+              <p>
+                Test each service from the Audioseerr server using the values
+                above. Save first if you changed a masked secret.
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={probeProwlarr}
+                disabled={pending || prowlarrTesting}
+                className="gap-1.5"
+              >
+                {prowlarrTesting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4" />
+                )}
+                Test Prowlarr
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={probeQBittorrent}
+                disabled={pending || qbittorrentTesting}
+                className="gap-1.5"
+              >
+                {qbittorrentTesting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4" />
+                )}
+                Test qBittorrent
+              </Button>
+            </div>
+          </div>
+          {(prowlarrProbeMsg || qbittorrentProbeMsg) && (
+            <div className="space-y-1 text-sm">
+              {prowlarrProbeMsg && (
+                <p
+                  className={
+                    prowlarrProbeMsg.startsWith("Connected")
+                      ? "text-muted-foreground"
+                      : "text-destructive"
+                  }
+                  role="status"
+                >
+                  Prowlarr: {prowlarrProbeMsg}
+                </p>
+              )}
+              {qbittorrentProbeMsg && (
+                <p
+                  className={
+                    qbittorrentProbeMsg.startsWith("Connected")
+                      ? "text-muted-foreground"
+                      : "text-destructive"
+                  }
+                  role="status"
+                >
+                  qBittorrent: {qbittorrentProbeMsg}
+                </p>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 

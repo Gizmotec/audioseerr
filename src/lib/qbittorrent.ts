@@ -24,6 +24,17 @@ export type QBittorrentTorrent = {
   state: string;
 };
 
+export type QBittorrentCategory = {
+  name?: string;
+  savePath?: string;
+  save_path?: string;
+};
+
+export type QBittorrentConnectionStatus = {
+  version: string;
+  categories: Record<string, QBittorrentCategory>;
+};
+
 class QBittorrentError extends Error {
   constructor(public readonly status: number, message: string) {
     super(message);
@@ -61,11 +72,106 @@ async function login(config: QBittorrentConfig): Promise<string> {
   return sid;
 }
 
+async function qbittorrentFetch(
+  config: QBittorrentConfig,
+  path: string,
+  init: RequestInit = {},
+): Promise<Response> {
+  const sid = await login(config);
+  return fetch(buildUrl(config.url, path), {
+    ...init,
+    headers: {
+      Cookie: sid,
+      ...init.headers,
+    },
+  });
+}
+
+export async function testQBittorrentConnection(
+  config: QBittorrentConfig,
+): Promise<QBittorrentConnectionStatus> {
+  const [versionRes, categoriesRes] = await Promise.all([
+    qbittorrentFetch(config, "/api/v2/app/version"),
+    qbittorrentFetch(config, "/api/v2/torrents/categories", {
+      headers: { Accept: "application/json" },
+    }),
+  ]);
+  if (!versionRes.ok) {
+    throw new QBittorrentError(
+      versionRes.status,
+      `qBittorrent version -> HTTP ${versionRes.status}`,
+    );
+  }
+  if (!categoriesRes.ok) {
+    throw new QBittorrentError(
+      categoriesRes.status,
+      `qBittorrent categories -> HTTP ${categoriesRes.status}`,
+    );
+  }
+
+  return {
+    version: (await versionRes.text()).trim(),
+    categories: (await categoriesRes.json()) as Record<
+      string,
+      QBittorrentCategory
+    >,
+  };
+}
+
+async function ensureCategory(
+  config: QBittorrentConfig,
+  sid: string,
+  category: string | null | undefined,
+  savePath: string | null | undefined,
+): Promise<void> {
+  const trimmed = category?.trim();
+  if (!trimmed) return;
+
+  const categoriesRes = await fetch(
+    buildUrl(config.url, "/api/v2/torrents/categories"),
+    {
+      headers: { Cookie: sid, Accept: "application/json" },
+    },
+  );
+  if (!categoriesRes.ok) {
+    throw new QBittorrentError(
+      categoriesRes.status,
+      `qBittorrent categories -> HTTP ${categoriesRes.status}`,
+    );
+  }
+  const categories = (await categoriesRes.json()) as Record<
+    string,
+    QBittorrentCategory
+  >;
+  if (Object.prototype.hasOwnProperty.call(categories, trimmed)) return;
+
+  const body = new URLSearchParams({ category: trimmed });
+  if (savePath?.trim()) body.set("savePath", savePath.trim());
+  const createRes = await fetch(
+    buildUrl(config.url, "/api/v2/torrents/createCategory"),
+    {
+      method: "POST",
+      headers: {
+        Cookie: sid,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body,
+    },
+  );
+  if (!createRes.ok) {
+    throw new QBittorrentError(
+      createRes.status,
+      `qBittorrent create category -> HTTP ${createRes.status}`,
+    );
+  }
+}
+
 export async function addTorrent(
   config: QBittorrentConfig,
   input: AddTorrentInput,
 ): Promise<AddTorrentResult> {
   const sid = await login(config);
+  await ensureCategory(config, sid, input.category, input.savePath);
   const form = new FormData();
   if (input.url) {
     form.set("urls", input.url);
@@ -86,7 +192,11 @@ export async function addTorrent(
   });
   const text = await res.text();
   if (!res.ok || /fails/i.test(text)) {
-    throw new QBittorrentError(res.status, "qBittorrent could not add the torrent.");
+    const suffix = text.trim() ? ` Response: ${text.trim()}` : "";
+    throw new QBittorrentError(
+      res.status,
+      `qBittorrent could not add the torrent.${suffix}`,
+    );
   }
 
   try {
