@@ -50,6 +50,7 @@ Optional `.env` knobs:
 
 - `AUTH_URL` — set to your real public URL if you put Audioseerr behind a reverse proxy.
 - `YOUTUBE_API_KEY` — enables the in-app YouTube player.
+- `AUDIOSEERR_UPDATE_REPO` — GitHub `owner/repo` checked by the in-app update banner. Defaults to `Gizmotec/audioseerr`; set it to your fork if you publish your own tags/releases.
 
 ### Pushing updates from your laptop
 

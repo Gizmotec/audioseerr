@@ -271,14 +271,29 @@ export async function pollForAlbum(
 /**
  * Delete an album from Lidarr. With `deleteFiles=true` the underlying audio
  * files are removed from disk too — Lidarr is the file owner.
+ *
+ * Lidarr's `DELETE album?deleteFiles=true` drops the DB rows but doesn't
+ * reliably remove files from disk across versions. Bulk-delete the track
+ * files explicitly first via `trackfile/bulk` (Lidarr always honors that as
+ * a real on-disk delete), then remove the album record.
  */
 export async function deleteAlbum(
   config: LidarrConfig,
   albumId: number,
   options: { deleteFiles?: boolean; addImportListExclusion?: boolean } = {},
 ): Promise<void> {
+  const deleteFiles = options.deleteFiles ?? true;
+
+  if (deleteFiles) {
+    const files = await listTrackFilesByAlbum(config, albumId);
+    const ids = files.map((f) => f.id);
+    if (ids.length > 0) {
+      await bulkDeleteTrackFiles(config, ids);
+    }
+  }
+
   const params = new URLSearchParams({
-    deleteFiles: String(options.deleteFiles ?? true),
+    deleteFiles: "false",
     addImportListExclusion: String(options.addImportListExclusion ?? false),
   });
   const res = await fetch(buildUrl(config.url, `/api/v1/album/${albumId}?${params}`), {
@@ -287,6 +302,27 @@ export async function deleteAlbum(
   });
   if (!res.ok) {
     throw new LidarrError(res.status, `Lidarr DELETE album → HTTP ${res.status}`);
+  }
+}
+
+export async function bulkDeleteTrackFiles(
+  config: LidarrConfig,
+  trackFileIds: number[],
+): Promise<void> {
+  const res = await fetch(buildUrl(config.url, "/api/v1/trackfile/bulk"), {
+    method: "DELETE",
+    headers: {
+      "X-Api-Key": config.apiKey,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({ trackFileIds }),
+  });
+  if (!res.ok) {
+    throw new LidarrError(
+      res.status,
+      `Lidarr bulk DELETE trackfile → HTTP ${res.status}`,
+    );
   }
 }
 

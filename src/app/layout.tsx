@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Outfit, Geist_Mono } from "next/font/google";
 import { PreviewPlayerProvider } from "@/components/PreviewPlayer";
 import { Sidebar } from "@/components/Sidebar";
+import { VersionUpdateBanner } from "@/components/VersionUpdateBanner";
 import "./globals.css";
 
 // Outfit — geometric, rounded sans in the same family as Spotify's Circular.
@@ -41,6 +42,7 @@ export default function RootLayout({
               paddingBottom: "var(--preview-player-bottom-offset, 0px)",
             }}
           >
+            <VersionUpdateBanner />
             {children}
           </div>
         </PreviewPlayerProvider>

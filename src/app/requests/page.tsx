@@ -98,9 +98,11 @@ export default async function RequestsPage() {
                       Torrent: {r.downloadTitle}
                     </p>
                   )}
-                  {r.status === "DECLINED" && r.declineReason && (
+                  {(r.status === "DECLINED" || r.status === "FAILED") &&
+                    r.declineReason && (
                     <p className="truncate text-xs text-muted-foreground">
-                      Reason: {r.declineReason}
+                      {r.status === "FAILED" ? "Failure" : "Reason"}:{" "}
+                      {r.declineReason}
                     </p>
                   )}
                 </div>
