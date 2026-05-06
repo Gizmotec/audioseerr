@@ -8,6 +8,7 @@ export type AddTorrentInput = {
   url?: string;
   file?: Blob;
   fileName?: string;
+  expectedName?: string;
   category?: string | null;
   savePath?: string | null;
   tags?: string | null;
@@ -22,6 +23,8 @@ export type QBittorrentTorrent = {
   name: string;
   progress: number;
   state: string;
+  category?: string;
+  tags?: string;
 };
 
 export type QBittorrentCategory = {
@@ -201,10 +204,24 @@ export async function addTorrent(
 
   try {
     const parsed = JSON.parse(text) as { added_torrent_ids?: string[] };
-    return { hash: parsed.added_torrent_ids?.[0] ?? null };
+    const hash = parsed.added_torrent_ids?.[0] ?? null;
+    if (hash) return { hash };
   } catch {
-    return { hash: null };
+    // qBittorrent 4.x returns plain text "Ok." instead of JSON.
   }
+
+  const torrent = await waitForAddedTorrent(config, {
+    category: input.category,
+    tags: input.tags,
+    expectedName: input.expectedName ?? input.fileName,
+  });
+  if (!torrent) {
+    throw new QBittorrentError(
+      200,
+      "qBittorrent accepted the add request but no torrent appeared in the transfer list.",
+    );
+  }
+  return { hash: torrent.hash };
 }
 
 export async function getTorrent(
@@ -221,6 +238,61 @@ export async function getTorrent(
   }
   const torrents = (await res.json()) as QBittorrentTorrent[];
   return torrents[0] ?? null;
+}
+
+async function listTorrents(
+  config: QBittorrentConfig,
+  filter: { category?: string | null; tag?: string | null } = {},
+): Promise<QBittorrentTorrent[]> {
+  const sid = await login(config);
+  const params = new URLSearchParams();
+  if (filter.category?.trim()) params.set("category", filter.category.trim());
+  if (filter.tag?.trim()) params.set("tag", filter.tag.trim());
+  const suffix = params.size > 0 ? `?${params}` : "";
+  const res = await fetch(buildUrl(config.url, `/api/v2/torrents/info${suffix}`), {
+    headers: { Cookie: sid, Accept: "application/json" },
+  });
+  if (!res.ok) {
+    throw new QBittorrentError(res.status, `qBittorrent info -> HTTP ${res.status}`);
+  }
+  return (await res.json()) as QBittorrentTorrent[];
+}
+
+async function waitForAddedTorrent(
+  config: QBittorrentConfig,
+  input: {
+    category?: string | null;
+    tags?: string | null;
+    expectedName?: string | null;
+  },
+): Promise<QBittorrentTorrent | null> {
+  const tag = input.tags?.split(",").map((t) => t.trim()).find(Boolean) ?? null;
+  const expected = normalizeName(input.expectedName ?? "");
+
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const torrents = await listTorrents(config, {
+      category: input.category,
+      tag,
+    });
+    const matched =
+      torrents.find((torrent) => {
+        if (!expected) return false;
+        const name = normalizeName(torrent.name);
+        return name.includes(expected) || expected.includes(name);
+      }) ?? torrents.at(-1);
+    if (matched) return matched;
+    await new Promise((resolve) => setTimeout(resolve, 750));
+  }
+
+  return null;
+}
+
+function normalizeName(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/\.(torrent|mp3|flac|m4a|aac|ogg|opus|wav)$/i, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
 
 export { QBittorrentError };
