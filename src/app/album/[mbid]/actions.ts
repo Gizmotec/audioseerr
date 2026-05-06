@@ -42,3 +42,49 @@ export async function requestAlbumAction(input: {
   revalidatePath("/admin/requests");
   return { ok: true };
 }
+
+export async function requestTrackAction(input: {
+  albumMbid: string;
+  albumTitle: string;
+  artistName: string;
+  coverUrl: string | null;
+  recordingMbid: string | null;
+  trackTitle: string;
+  albumPosition: number;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) return { ok: false, error: "Not signed in." };
+
+  const mbid = input.recordingMbid ?? `${input.albumMbid}:${input.albumPosition}`;
+  const existing = await prisma.request.findFirst({
+    where: {
+      requestedById: userId,
+      type: "TRACK",
+      mbid,
+      status: { in: ["PENDING", "APPROVED", "DOWNLOADING", "AVAILABLE"] },
+    },
+  });
+  if (existing) return { ok: false, error: "You've already requested this track." };
+
+  await prisma.request.create({
+    data: {
+      type: "TRACK",
+      mbid,
+      title: input.trackTitle,
+      artistName: input.artistName,
+      coverUrl: input.coverUrl,
+      albumMbid: input.albumMbid,
+      albumTitle: input.albumTitle,
+      recordingMbid: input.recordingMbid,
+      albumPosition: input.albumPosition,
+      requestedById: userId,
+      status: "PENDING",
+    },
+  });
+
+  revalidatePath(`/album/${input.albumMbid}`);
+  revalidatePath("/requests");
+  revalidatePath("/admin/requests");
+  return { ok: true };
+}

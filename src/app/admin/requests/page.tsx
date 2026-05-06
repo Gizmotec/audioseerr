@@ -67,10 +67,14 @@ export default async function AdminRequestsPage() {
                 key={r.id}
                 request={{
                   id: r.id,
+                  type: r.type,
                   mbid: r.mbid,
                   title: r.title,
                   artistName: r.artistName,
                   coverUrl: r.coverUrl,
+                  albumMbid: r.albumMbid,
+                  albumTitle: r.albumTitle,
+                  downloadTitle: r.downloadTitle,
                   status: r.status,
                   declineReason: r.declineReason,
                   requestedBy: r.requestedBy.username,
@@ -98,10 +102,14 @@ export default async function AdminRequestsPage() {
                 key={r.id}
                 request={{
                   id: r.id,
+                  type: r.type,
                   mbid: r.mbid,
                   title: r.title,
                   artistName: r.artistName,
                   coverUrl: r.coverUrl,
+                  albumMbid: r.albumMbid,
+                  albumTitle: r.albumTitle,
+                  downloadTitle: r.downloadTitle,
                   status: r.status,
                   declineReason: r.declineReason,
                   requestedBy: r.requestedBy.username,

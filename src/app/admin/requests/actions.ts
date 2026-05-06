@@ -13,7 +13,15 @@ import {
   type LidarrConfig,
 } from "@/lib/lidarr";
 import { getAlbum } from "@/lib/musicbrainz";
-import { getSettings } from "@/lib/settings";
+import { addTorrent, type QBittorrentConfig } from "@/lib/qbittorrent";
+import {
+  downloadReleaseFile,
+  pickBestTrackRelease,
+  searchAudioReleases,
+  type ProwlarrConfig,
+} from "@/lib/prowlarr";
+import { getSettings, type SettingsView } from "@/lib/settings";
+import type { Request } from "@prisma/client";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -36,6 +44,10 @@ export async function approveRequestAction(requestId: string): Promise<ActionRes
   }
 
   const settings = await getSettings();
+  if (request.type === "TRACK") {
+    return approveTrackRequest(request, settings);
+  }
+
   if (
     !settings.lidarrUrl ||
     !settings.lidarrApiKey ||
@@ -127,6 +139,88 @@ export async function approveRequestAction(requestId: string): Promise<ActionRes
   return { ok: true };
 }
 
+async function approveTrackRequest(
+  request: Request,
+  settings: SettingsView,
+): Promise<ActionResult> {
+  if (
+    !settings.prowlarrUrl ||
+    !settings.prowlarrApiKey ||
+    !settings.qbittorrentUrl ||
+    !settings.qbittorrentUsername ||
+    !settings.qbittorrentPassword
+  ) {
+    return {
+      ok: false,
+      error: "Track torrent automation is not configured in Settings.",
+    };
+  }
+
+  const prowlarr: ProwlarrConfig = {
+    url: settings.prowlarrUrl,
+    apiKey: settings.prowlarrApiKey,
+  };
+  const qbittorrent: QBittorrentConfig = {
+    url: settings.qbittorrentUrl,
+    username: settings.qbittorrentUsername,
+    password: settings.qbittorrentPassword,
+  };
+
+  try {
+    const query = `${request.artistName} ${request.title}`;
+    const releases = await searchAudioReleases(prowlarr, query);
+    const release = pickBestTrackRelease(releases, {
+      artistName: request.artistName,
+      trackTitle: request.title,
+      albumTitle: request.albumTitle,
+      maxSizeMb: settings.trackTorrentMaxSizeMb,
+    });
+
+    if (!release) {
+      const maxSize = settings.trackTorrentMaxSizeMb;
+      await markFailed(
+        request.id,
+        `No matching audio torrent under ${maxSize} MB was found.`,
+      );
+      revalidateTrackRequestPaths(request);
+      return { ok: false, error: "No suitable track torrent found." };
+    }
+
+    const directUrl =
+      release.magnetUrl ??
+      (release.guid?.startsWith("magnet:") ? release.guid : undefined);
+    const torrentFile = directUrl ? null : await downloadReleaseFile(prowlarr, release);
+    if (!directUrl && !torrentFile) {
+      return { ok: false, error: "Prowlarr did not provide a usable torrent." };
+    }
+    const addResult = await addTorrent(qbittorrent, {
+      url: directUrl,
+      file: torrentFile ?? undefined,
+      fileName: `${safeFileName(release.title)}.torrent`,
+      category: settings.trackTorrentCategory ?? "audioseerr-tracks",
+      savePath: settings.trackTorrentSavePath,
+      tags: "audioseerr,track-request",
+    });
+
+    await prisma.request.update({
+      where: { id: request.id },
+      data: {
+        status: "DOWNLOADING",
+        approvedAt: new Date(),
+        declineReason: null,
+        torrentHash: addResult.hash,
+        downloadTitle: release.title,
+      },
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Track torrent push failed.";
+    return { ok: false, error: msg };
+  }
+
+  revalidateTrackRequestPaths(request);
+  return { ok: true };
+}
+
 export async function declineRequestAction(
   requestId: string,
   reason: string,
@@ -155,7 +249,7 @@ export async function declineRequestAction(
 
   revalidatePath("/admin/requests");
   revalidatePath("/requests");
-  revalidatePath(`/album/${request.mbid}`);
+  revalidatePath(`/album/${request.albumMbid ?? request.mbid}`);
   return { ok: true };
 }
 
@@ -164,6 +258,23 @@ async function markFailed(requestId: string, reason: string) {
     where: { id: requestId },
     data: { status: "FAILED", declineReason: reason },
   });
+}
+
+function revalidateTrackRequestPaths(request: {
+  mbid: string;
+  albumMbid: string | null;
+}) {
+  revalidatePath("/admin/requests");
+  revalidatePath("/requests");
+  if (request.albumMbid) {
+    revalidatePath(`/album/${request.albumMbid}`);
+  } else {
+    revalidatePath(`/album/${request.mbid}`);
+  }
+}
+
+function safeFileName(value: string): string {
+  return value.replace(/[^a-z0-9._-]+/gi, "_").slice(0, 120) || "release";
 }
 
 export async function syncNowAction(): Promise<

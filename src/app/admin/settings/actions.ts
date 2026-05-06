@@ -30,6 +30,18 @@ const saveInput = z.object({
   lidarrApiKey: z.string().min(1, "Lidarr API key is required"),
   lidarrDefaultProfileId: z.coerce.number().int().positive(),
   lidarrRootFolderPath: z.string().min(1, "Root folder is required"),
+  prowlarrUrl: z.string(),
+  prowlarrApiKey: z.string(),
+  qbittorrentUrl: z.string(),
+  qbittorrentUsername: z.string(),
+  qbittorrentPassword: z.string(),
+  trackTorrentCategory: z.string(),
+  trackTorrentSavePath: z.string(),
+  trackTorrentMaxSizeMb: z.coerce
+    .number()
+    .int()
+    .min(10, "Track torrent size cap must be at least 10 MB.")
+    .max(2000, "Track torrent size cap must be 2000 MB or lower."),
   lastFmApiKey: z.string(),
   mediaPathMap: z.string(),
   registrationMode: z.enum(["CLOSED", "OPEN"]),
@@ -51,6 +63,34 @@ export async function saveAdminSettingsAction(
   }
   const data = parsed.data;
 
+  for (const [label, value] of [
+    ["Prowlarr URL", data.prowlarrUrl],
+    ["qBittorrent URL", data.qbittorrentUrl],
+  ] as const) {
+    if (value.trim()) {
+      const url = z.string().url(`${label} must be a valid URL`).safeParse(value);
+      if (!url.success) {
+        return { ok: false, error: url.error.issues[0]?.message ?? "Invalid URL" };
+      }
+    }
+  }
+
+  const prowlarrConfigured =
+    data.prowlarrUrl.trim() && data.prowlarrApiKey.trim();
+  const qbittorrentConfigured =
+    data.qbittorrentUrl.trim() &&
+    data.qbittorrentUsername.trim() &&
+    data.qbittorrentPassword.trim();
+  if (prowlarrConfigured || qbittorrentConfigured) {
+    if (!prowlarrConfigured || !qbittorrentConfigured) {
+      return {
+        ok: false,
+        error:
+          "Track torrents need Prowlarr URL/key and qBittorrent URL/user/password.",
+      };
+    }
+  }
+
   // Validate the path-map syntax up front so the user gets a helpful error
   // instead of seeing playback fail silently on the next request.
   if (data.mediaPathMap.trim()) {
@@ -70,6 +110,34 @@ export async function saveAdminSettingsAction(
     ...(data.lidarrApiKey === KEY_UNCHANGED ? {} : { lidarrApiKey: data.lidarrApiKey }),
     lidarrDefaultProfileId: data.lidarrDefaultProfileId,
     lidarrRootFolderPath: data.lidarrRootFolderPath,
+    prowlarrUrl: data.prowlarrUrl.trim() ? data.prowlarrUrl.trim() : null,
+    ...(data.prowlarrApiKey === KEY_UNCHANGED
+      ? {}
+      : {
+          prowlarrApiKey: data.prowlarrApiKey.trim()
+            ? data.prowlarrApiKey.trim()
+            : null,
+        }),
+    qbittorrentUrl: data.qbittorrentUrl.trim()
+      ? data.qbittorrentUrl.trim()
+      : null,
+    qbittorrentUsername: data.qbittorrentUsername.trim()
+      ? data.qbittorrentUsername.trim()
+      : null,
+    ...(data.qbittorrentPassword === KEY_UNCHANGED
+      ? {}
+      : {
+          qbittorrentPassword: data.qbittorrentPassword.trim()
+            ? data.qbittorrentPassword.trim()
+            : null,
+        }),
+    trackTorrentCategory: data.trackTorrentCategory.trim()
+      ? data.trackTorrentCategory.trim()
+      : "audioseerr-tracks",
+    trackTorrentSavePath: data.trackTorrentSavePath.trim()
+      ? data.trackTorrentSavePath.trim()
+      : null,
+    trackTorrentMaxSizeMb: data.trackTorrentMaxSizeMb,
     lastFmApiKey: data.lastFmApiKey.trim() ? data.lastFmApiKey.trim() : null,
     mediaPathMap: data.mediaPathMap.trim() ? data.mediaPathMap.trim() : null,
     registrationMode: data.registrationMode,
@@ -154,4 +222,3 @@ function explainLidarrError(err: unknown): string {
   }
   return "Could not connect to Lidarr.";
 }
-

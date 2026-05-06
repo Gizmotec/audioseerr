@@ -22,6 +22,7 @@ enum Role {
 enum RequestType {
   ALBUM
   ARTIST
+  TRACK
 }
 
 enum RequestStatus {
@@ -62,6 +63,10 @@ model Request {
   title            String
   artistName       String
   coverUrl         String?
+  albumMbid        String?
+  albumTitle       String?
+  recordingMbid    String?
+  albumPosition    Int?
   status           RequestStatus @default(PENDING)
   requestedById    String
   requestedBy      User          @relation(fields: [requestedById], references: [id])
@@ -70,9 +75,12 @@ model Request {
   declineReason    String?
   lidarrId         Int?
   qualityProfileId Int?
+  torrentHash      String?
+  downloadTitle    String?
 
   @@index([status])
   @@index([requestedById])
+  @@index([type, mbid])
 }
 
 model LibraryItem {
@@ -92,6 +100,14 @@ model Settings {
   lidarrApiKey           String?
   lidarrDefaultProfileId Int?
   lidarrRootFolderPath   String?
+  prowlarrUrl            String?
+  prowlarrApiKey         String?
+  qbittorrentUrl         String?
+  qbittorrentUsername    String?
+  qbittorrentPassword    String?
+  trackTorrentCategory   String?
+  trackTorrentSavePath   String?
+  trackTorrentMaxSizeMb  Int     @default(200)
   lastFmApiKey           String?
   // Comma-separated `lidarrPath:localPath` pairs for bridging filesystem
   // differences between the Lidarr container and Audioseerr (e.g. when

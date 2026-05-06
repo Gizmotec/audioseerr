@@ -1,20 +1,24 @@
 "use client";
 
-import { Check, Disc3, Loader2, X } from "lucide-react";
+import { Check, Disc3, Loader2, Music2, X } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/StatusBadge";
-import type { RequestStatus } from "@prisma/client";
+import type { RequestStatus, RequestType } from "@prisma/client";
 import { approveRequestAction, declineRequestAction } from "./actions";
 
 type RowData = {
   id: string;
+  type: RequestType;
   mbid: string;
   title: string;
   artistName: string;
   coverUrl: string | null;
+  albumMbid: string | null;
+  albumTitle: string | null;
+  downloadTitle: string | null;
   status: RequestStatus;
   declineReason: string | null;
   requestedBy: string;
@@ -35,12 +39,16 @@ export function AdminRequestRow({
   const [done, setDone] = useState<RequestStatus | null>(null);
 
   const status = done ?? request.status;
+  const href = request.type === "TRACK" && request.albumMbid
+    ? `/album/${request.albumMbid}`
+    : `/album/${request.mbid}`;
+  const requestKind = request.type.toLowerCase();
 
   const approve = () => {
     setError(null);
     startTransition(async () => {
       const r = await approveRequestAction(request.id);
-      if (r.ok) setDone("APPROVED");
+      if (r.ok) setDone(request.type === "TRACK" ? "DOWNLOADING" : "APPROVED");
       else setError(r.error);
     });
   };
@@ -61,7 +69,7 @@ export function AdminRequestRow({
   return (
     <li className="flex flex-col gap-3 py-4 md:flex-row md:items-center md:gap-4">
       <Link
-        href={`/album/${request.mbid}`}
+        href={href}
         className="flex h-14 w-14 shrink-0 overflow-hidden rounded bg-secondary"
       >
         {request.coverUrl ? (
@@ -74,23 +82,35 @@ export function AdminRequestRow({
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-muted-foreground/40">
-            <Disc3 className="h-6 w-6" />
+            {request.type === "TRACK" ? (
+              <Music2 className="h-6 w-6" />
+            ) : (
+              <Disc3 className="h-6 w-6" />
+            )}
           </div>
         )}
       </Link>
 
       <div className="min-w-0 flex-1">
         <Link
-          href={`/album/${request.mbid}`}
+          href={href}
           className="block truncate font-medium hover:underline"
         >
           {request.title}
         </Link>
         <p className="truncate text-xs text-muted-foreground">
-          {request.artistName} · requested by{" "}
+          {request.type === "TRACK" && request.albumTitle
+            ? `${request.artistName} · ${request.albumTitle}`
+            : request.artistName}{" "}
+          · {requestKind} requested by{" "}
           <span className="font-mono">{request.requestedBy}</span> ·{" "}
           {formatRelative(new Date(request.requestedAt))}
         </p>
+        {request.downloadTitle && (
+          <p className="truncate text-xs text-muted-foreground">
+            Torrent: {request.downloadTitle}
+          </p>
+        )}
         {!isPending && status === "DECLINED" && request.declineReason && (
           <p className="truncate text-xs text-muted-foreground">
             Reason: {request.declineReason}

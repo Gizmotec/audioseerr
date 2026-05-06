@@ -21,6 +21,14 @@ type Initial = {
   lidarrApiKeyMasked: string;
   lidarrDefaultProfileId: number | null;
   lidarrRootFolderPath: string;
+  prowlarrUrl: string;
+  prowlarrApiKeyMasked: string;
+  qbittorrentUrl: string;
+  qbittorrentUsername: string;
+  qbittorrentPasswordMasked: string;
+  trackTorrentCategory: string;
+  trackTorrentSavePath: string;
+  trackTorrentMaxSizeMb: number;
   lastFmApiKey: string;
   mediaPathMap: string;
   registrationMode: string;
@@ -80,6 +88,32 @@ export function SettingsForm({
   const [probing, setProbing] = useState(false);
   const [probeMsg, setProbeMsg] = useState<string | null>(null);
 
+  // Track torrent controls. These are independent from Lidarr: Prowlarr finds
+  // candidate audio releases, qBittorrent receives the selected torrent.
+  const [prowlarrUrl, setProwlarrUrl] = useState(initial.prowlarrUrl);
+  const [prowlarrApiKey, setProwlarrApiKey] = useState(
+    initial.prowlarrApiKeyMasked,
+  );
+  const [prowlarrKeyEdited, setProwlarrKeyEdited] = useState(false);
+  const [qbittorrentUrl, setQbittorrentUrl] = useState(initial.qbittorrentUrl);
+  const [qbittorrentUsername, setQbittorrentUsername] = useState(
+    initial.qbittorrentUsername,
+  );
+  const [qbittorrentPassword, setQbittorrentPassword] = useState(
+    initial.qbittorrentPasswordMasked,
+  );
+  const [qbittorrentPasswordEdited, setQbittorrentPasswordEdited] =
+    useState(false);
+  const [trackTorrentCategory, setTrackTorrentCategory] = useState(
+    initial.trackTorrentCategory,
+  );
+  const [trackTorrentSavePath, setTrackTorrentSavePath] = useState(
+    initial.trackTorrentSavePath,
+  );
+  const [trackTorrentMaxSizeMb, setTrackTorrentMaxSizeMb] = useState(
+    initial.trackTorrentMaxSizeMb,
+  );
+
   // Other settings.
   const [lastFmApiKey, setLastFmApiKey] = useState(initial.lastFmApiKey);
   const [mediaPathMap, setMediaPathMap] = useState(initial.mediaPathMap);
@@ -136,6 +170,19 @@ export function SettingsForm({
         lidarrApiKey: keyEdited ? lidarrApiKey : KEY_UNCHANGED_SENTINEL,
         lidarrDefaultProfileId: profileId,
         lidarrRootFolderPath: rootFolder,
+        prowlarrUrl,
+        prowlarrApiKey: prowlarrKeyEdited || !initial.prowlarrApiKeyMasked
+          ? prowlarrApiKey
+          : KEY_UNCHANGED_SENTINEL,
+        qbittorrentUrl,
+        qbittorrentUsername,
+        qbittorrentPassword:
+          qbittorrentPasswordEdited || !initial.qbittorrentPasswordMasked
+          ? qbittorrentPassword
+          : KEY_UNCHANGED_SENTINEL,
+        trackTorrentCategory,
+        trackTorrentSavePath,
+        trackTorrentMaxSizeMb,
         lastFmApiKey,
         mediaPathMap,
         registrationMode,
@@ -147,7 +194,11 @@ export function SettingsForm({
       }
       setSaved(true);
       setKeyEdited(false);
+      setProwlarrKeyEdited(false);
+      setQbittorrentPasswordEdited(false);
       setLidarrApiKey(initial.lidarrApiKeyMasked || "••••••••");
+      if (prowlarrApiKey) setProwlarrApiKey("••••••••");
+      if (qbittorrentPassword) setQbittorrentPassword("••••••••");
       router.refresh();
     });
   }
@@ -259,6 +310,121 @@ export function SettingsForm({
                   <option value={rootFolder}>{rootFolder} (Lidarr unreachable)</option>
                 )}
               </select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Track torrents */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Track torrents</CardTitle>
+          <CardDescription>
+            Optional automation for individual track requests. Album and artist
+            requests still go through Lidarr.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="prowlarrUrl">Prowlarr URL</Label>
+              <Input
+                id="prowlarrUrl"
+                value={prowlarrUrl}
+                onChange={(e) => setProwlarrUrl(e.target.value)}
+                placeholder="http://prowlarr:9696"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="prowlarrApiKey">Prowlarr API key</Label>
+              <Input
+                id="prowlarrApiKey"
+                type="password"
+                value={prowlarrApiKey}
+                onChange={(e) => {
+                  setProwlarrApiKey(e.target.value);
+                  setProwlarrKeyEdited(true);
+                }}
+                onFocus={() => {
+                  if (!prowlarrKeyEdited && prowlarrApiKey.startsWith("••")) {
+                    setProwlarrApiKey("");
+                  }
+                }}
+                placeholder="From Prowlarr → Settings → General → API Key"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="qbittorrentUrl">qBittorrent URL</Label>
+              <Input
+                id="qbittorrentUrl"
+                value={qbittorrentUrl}
+                onChange={(e) => setQbittorrentUrl(e.target.value)}
+                placeholder="http://qbittorrent:8080"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="qbittorrentUsername">Username</Label>
+              <Input
+                id="qbittorrentUsername"
+                value={qbittorrentUsername}
+                onChange={(e) => setQbittorrentUsername(e.target.value)}
+                placeholder="admin"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="qbittorrentPassword">Password</Label>
+              <Input
+                id="qbittorrentPassword"
+                type="password"
+                value={qbittorrentPassword}
+                onChange={(e) => {
+                  setQbittorrentPassword(e.target.value);
+                  setQbittorrentPasswordEdited(true);
+                }}
+                onFocus={() => {
+                  if (
+                    !qbittorrentPasswordEdited &&
+                    qbittorrentPassword.startsWith("••")
+                  ) {
+                    setQbittorrentPassword("");
+                  }
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="trackTorrentCategory">Category</Label>
+              <Input
+                id="trackTorrentCategory"
+                value={trackTorrentCategory}
+                onChange={(e) => setTrackTorrentCategory(e.target.value)}
+                placeholder="audioseerr-tracks"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="trackTorrentSavePath">Save path</Label>
+              <Input
+                id="trackTorrentSavePath"
+                value={trackTorrentSavePath}
+                onChange={(e) => setTrackTorrentSavePath(e.target.value)}
+                placeholder="Optional"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="trackTorrentMaxSizeMb">Max size MB</Label>
+              <Input
+                id="trackTorrentMaxSizeMb"
+                type="number"
+                min={10}
+                max={2000}
+                value={trackTorrentMaxSizeMb}
+                onChange={(e) => setTrackTorrentMaxSizeMb(Number(e.target.value))}
+              />
             </div>
           </div>
         </CardContent>

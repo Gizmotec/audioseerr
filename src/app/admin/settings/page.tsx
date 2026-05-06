@@ -153,6 +153,17 @@ export default async function AdminSettingsPage() {
           lidarrApiKeyMasked: settings.lidarrApiKey ? "••••••••" : "",
           lidarrDefaultProfileId: settings.lidarrDefaultProfileId ?? null,
           lidarrRootFolderPath: settings.lidarrRootFolderPath ?? "",
+          prowlarrUrl: settings.prowlarrUrl ?? "",
+          prowlarrApiKeyMasked: settings.prowlarrApiKey ? "••••••••" : "",
+          qbittorrentUrl: settings.qbittorrentUrl ?? "",
+          qbittorrentUsername: settings.qbittorrentUsername ?? "",
+          qbittorrentPasswordMasked: settings.qbittorrentPassword
+            ? "••••••••"
+            : "",
+          trackTorrentCategory:
+            settings.trackTorrentCategory ?? "audioseerr-tracks",
+          trackTorrentSavePath: settings.trackTorrentSavePath ?? "",
+          trackTorrentMaxSizeMb: settings.trackTorrentMaxSizeMb,
           lastFmApiKey: settings.lastFmApiKey ?? "",
           mediaPathMap: settings.mediaPathMap ?? "",
           registrationMode: settings.registrationMode,

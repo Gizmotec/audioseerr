@@ -6,6 +6,7 @@ import {
   type LidarrAlbumState,
   type LidarrConfig,
 } from "@/lib/lidarr";
+import { getTorrent, type QBittorrentConfig } from "@/lib/qbittorrent";
 import { getSettings } from "@/lib/settings";
 import type { RequestStatus } from "@prisma/client";
 
@@ -24,42 +25,66 @@ export async function syncActiveRequests(): Promise<{
   running = true;
   try {
     const settings = await getSettings();
-    if (
-      !settings.lidarrUrl ||
-      !settings.lidarrApiKey ||
-      !settings.setupComplete
-    ) {
+    if (!settings.setupComplete) {
       return { scanned: 0, changed: 0 };
     }
-    const config: LidarrConfig = {
-      url: settings.lidarrUrl,
-      apiKey: settings.lidarrApiKey,
-    };
+    const lidarrConfig: LidarrConfig | null =
+      settings.lidarrUrl && settings.lidarrApiKey
+        ? { url: settings.lidarrUrl, apiKey: settings.lidarrApiKey }
+        : null;
+    const qbittorrentConfig: QBittorrentConfig | null =
+      settings.qbittorrentUrl &&
+      settings.qbittorrentUsername &&
+      settings.qbittorrentPassword
+        ? {
+            url: settings.qbittorrentUrl,
+            username: settings.qbittorrentUsername,
+            password: settings.qbittorrentPassword,
+          }
+        : null;
 
-    const requests = await prisma.request.findMany({
+    const albumRequests = lidarrConfig ? await prisma.request.findMany({
       where: {
         status: { in: ["APPROVED", "DOWNLOADING"] },
         type: "ALBUM",
         lidarrId: { not: null },
       },
-    });
-    if (requests.length === 0) return { scanned: 0, changed: 0 };
+    }) : [];
+    const trackRequests = qbittorrentConfig ? await prisma.request.findMany({
+      where: {
+        status: { in: ["APPROVED", "DOWNLOADING"] },
+        type: "TRACK",
+        torrentHash: { not: null },
+      },
+    }) : [];
+    if (albumRequests.length === 0 && trackRequests.length === 0) {
+      return { scanned: 0, changed: 0 };
+    }
 
     let queueAlbumIds = new Set<number>();
-    try {
-      const queue = await getQueue(config);
-      queueAlbumIds = new Set(
-        queue.map((q) => q.albumId).filter((id): id is number => typeof id === "number"),
-      );
-    } catch {
-      // If the queue endpoint hiccups, treat queue as empty — we'll still
-      // catch completions via track counts.
+    if (lidarrConfig) {
+      try {
+        const queue = await getQueue(lidarrConfig);
+        queueAlbumIds = new Set(
+          queue
+            .map((q) => q.albumId)
+            .filter((id): id is number => typeof id === "number"),
+        );
+      } catch {
+        // If the queue endpoint hiccups, treat queue as empty — we'll still
+        // catch completions via track counts.
+      }
     }
 
     let changed = 0;
-    for (const req of requests) {
+    for (const req of albumRequests) {
       try {
-        const album = await findAlbumByForeignId(config, req.lidarrId!, req.mbid);
+        if (!lidarrConfig) continue;
+        const album = await findAlbumByForeignId(
+          lidarrConfig,
+          req.lidarrId!,
+          req.mbid,
+        );
         if (!album) continue;
 
         const state: LidarrAlbumState = classifyAlbum(album, queueAlbumIds);
@@ -81,7 +106,25 @@ export async function syncActiveRequests(): Promise<{
       }
     }
 
-    return { scanned: requests.length, changed };
+    for (const req of trackRequests) {
+      try {
+        if (!qbittorrentConfig || !req.torrentHash) continue;
+        const torrent = await getTorrent(qbittorrentConfig, req.torrentHash);
+        if (!torrent) continue;
+        const done = torrent.progress >= 1 || /uploading|stalledUP|pausedUP/i.test(torrent.state);
+        if (done && req.status !== "AVAILABLE") {
+          await prisma.request.update({
+            where: { id: req.id },
+            data: { status: "AVAILABLE" },
+          });
+          changed++;
+        }
+      } catch {
+        // Per-request errors don't fail the whole cycle.
+      }
+    }
+
+    return { scanned: albumRequests.length + trackRequests.length, changed };
   } finally {
     running = false;
   }

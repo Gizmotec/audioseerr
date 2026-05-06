@@ -63,11 +63,28 @@ export default async function AlbumPage({
   // Most-recent request by this user for this album, if any. Drives the
   // request button's disabled state.
   const existingRequest = await prisma.request.findFirst({
-    where: { requestedById: userId, mbid: album.mbid },
+    where: { requestedById: userId, type: "ALBUM", mbid: album.mbid },
     orderBy: { requestedAt: "desc" },
     select: { status: true },
   });
   const existingStatus = (existingRequest?.status as ExistingRequestStatus) ?? null;
+
+  const trackRequestIds = album.tracks.map(
+    (t) => t.recordingMbid ?? `${album.mbid}:${t.absolutePosition}`,
+  );
+  const existingTrackRequests = await prisma.request.findMany({
+    where: {
+      requestedById: userId,
+      type: "TRACK",
+      mbid: { in: trackRequestIds },
+    },
+    orderBy: { requestedAt: "desc" },
+    select: { mbid: true, status: true },
+  });
+  const existingTrackStatuses: Record<string, ExistingRequestStatus> = {};
+  for (const request of existingTrackRequests) {
+    existingTrackStatuses[request.mbid] ??= request.status as ExistingRequestStatus;
+  }
 
   // Whether Lidarr already knows about this album for any reason (added
   // manually, or via a previous Audioseerr request from another user).
@@ -166,6 +183,7 @@ export default async function AlbumPage({
         libraryStatus={libraryStatus}
         albumLiked={albumLiked}
         likedRecordingMbids={Array.from(likedTrackSet)}
+        existingTrackStatuses={existingTrackStatuses}
         playlists={playlistOptions}
         appleMusicUrl={appleMusicUrl}
         canRemoveFromLibrary={isAdmin}

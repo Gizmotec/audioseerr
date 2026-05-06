@@ -15,6 +15,7 @@ import { YouTubeButton } from "@/components/YouTubeButton";
 import type { LibraryStatus } from "@/lib/library";
 import type { TrackWithPreview } from "./page";
 import { type ExistingRequestStatus, RequestButton } from "./RequestButton";
+import { RequestTrackButton } from "./RequestTrackButton";
 
 type AlbumHero = {
   mbid: string;
@@ -33,6 +34,7 @@ export function AlbumDetail({
   libraryStatus,
   albumLiked,
   likedRecordingMbids,
+  existingTrackStatuses,
   playlists,
   appleMusicUrl,
   canRemoveFromLibrary = false,
@@ -43,6 +45,7 @@ export function AlbumDetail({
   libraryStatus: LibraryStatus | null;
   albumLiked: boolean;
   likedRecordingMbids: string[];
+  existingTrackStatuses: Record<string, ExistingRequestStatus>;
   playlists: PlaylistOption[];
   appleMusicUrl: string;
   canRemoveFromLibrary?: boolean;
@@ -241,6 +244,23 @@ export function AlbumDetail({
                   <span className="flex-1 truncate" title={t.title}>
                     {t.title}
                   </span>
+                  <RequestTrackButton
+                    track={{
+                      albumMbid: album.mbid,
+                      albumTitle: album.title,
+                      artistName: album.artistName,
+                      coverUrl: album.coverUrl,
+                      recordingMbid: t.recordingMbid,
+                      trackTitle: t.title,
+                      albumPosition: t.absolutePosition,
+                    }}
+                    existingStatus={
+                      existingTrackStatuses[
+                        trackRequestKey(album.mbid, t)
+                      ] ?? null
+                    }
+                    inLibrary={!!t.streamUrl}
+                  />
                   <YouTubeButton
                     artistName={album.artistName}
                     trackTitle={t.title}
@@ -304,6 +324,10 @@ function trackQueueId(
   // idx disambiguates multi-disc releases where t.position is per-disc and
   // collisions otherwise highlight two rows as "currently playing".
   return `${albumMbid}:${idx}:${t.position}:${t.recordingMbid ?? t.title}`;
+}
+
+function trackRequestKey(albumMbid: string, t: TrackWithPreview): string {
+  return t.recordingMbid ?? `${albumMbid}:${t.absolutePosition}`;
 }
 
 function formatDuration(ms: number | null): string {
