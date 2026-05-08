@@ -27,30 +27,36 @@ export async function Sidebar() {
       </div>
 
       <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-2 py-4">
-        <SidebarLink href="/home" icon={Home}>
+        <SidebarLink href="/home" icon={<Home className="h-4 w-4" />}>
           Home
         </SidebarLink>
-        <SidebarLink href="/discover" icon={Compass}>
+        <SidebarLink href="/discover" icon={<Compass className="h-4 w-4" />}>
           Discover
         </SidebarLink>
-        <SidebarLink href="/playlists" icon={ListMusic}>
+        <SidebarLink href="/playlists" icon={<ListMusic className="h-4 w-4" />}>
           Playlists
         </SidebarLink>
-        <SidebarLink href="/library" icon={Library}>
+        <SidebarLink href="/library" icon={<Library className="h-4 w-4" />}>
           Library
         </SidebarLink>
-        <SidebarLink href="/requests" icon={Inbox}>
+        <SidebarLink href="/requests" icon={<Inbox className="h-4 w-4" />}>
           My requests
         </SidebarLink>
-        <SidebarLink href="/bug-report" icon={Bug}>
+        <SidebarLink href="/bug-report" icon={<Bug className="h-4 w-4" />}>
           Bug report
         </SidebarLink>
         {role === "ADMIN" && (
           <>
-            <SidebarLink href="/admin/requests" icon={ShieldCheck}>
+            <SidebarLink
+              href="/admin/requests"
+              icon={<ShieldCheck className="h-4 w-4" />}
+            >
               Queue
             </SidebarLink>
-            <SidebarLink href="/admin/settings" icon={SettingsIcon}>
+            <SidebarLink
+              href="/admin/settings"
+              icon={<SettingsIcon className="h-4 w-4" />}
+            >
               Settings
             </SidebarLink>
           </>
