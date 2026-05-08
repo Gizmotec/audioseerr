@@ -47,11 +47,13 @@ model User {
   passwordHash String
   role         Role      @default(USER)
   requestQuota Int       @default(20)
+  personalizedSuggestionsEnabled Boolean @default(true)
   createdAt    DateTime  @default(now())
   requests     Request[]
   likes        Like[]
   recentSearches RecentSearch[]
   playlists      Playlist[]
+  playEvents     PlayEvent[]
   invitesCreated Invite[] @relation("InvitesCreated")
   invitesUsed    Invite[] @relation("InvitesUsed")
 }
@@ -218,4 +220,23 @@ model PlaylistTrack {
   addedAt       DateTime @default(now())
 
   @@index([playlistId, position])
+}
+
+// Listening history feeding personalized recommendations on /discover.
+// Inserted by POST /api/plays after the player's 30s-or-halfway threshold;
+// previews never insert (only items with full streamUrl + tracking context).
+// Server dedupes the same trackFileId within 60s so a seek-and-replay doesn't
+// double-count.
+model PlayEvent {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recordingMbid String
+  albumMbid     String
+  artistName    String
+  trackFileId   Int
+  playedAt      DateTime @default(now())
+
+  @@index([userId, playedAt])
+  @@index([userId, artistName])
 }

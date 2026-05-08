@@ -68,6 +68,18 @@ export function AlbumDetail({
         artistName: album.artistName,
         coverUrl: album.coverUrl,
         streamUrl: t.streamUrl ?? t.previewUrl,
+        // Tracking only attaches when we're playing the full local stream
+        // (t.streamUrl present) and the recordingMbid is known. Falling back
+        // to a 30s Deezer preview must NOT count toward recommendations.
+        tracking:
+          t.streamUrl && t.trackFileId && t.recordingMbid
+            ? {
+                recordingMbid: t.recordingMbid,
+                albumMbid: album.mbid,
+                artistName: album.artistName,
+                trackFileId: t.trackFileId,
+              }
+            : undefined,
       })),
     [tracks, album.mbid, album.artistName, album.coverUrl],
   );

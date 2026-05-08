@@ -1,4 +1,4 @@
-import { Library, Search } from "lucide-react";
+import { Library, Search, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
@@ -9,8 +9,16 @@ import {
 } from "@/components/ChartList";
 import { DiscoveryRow } from "@/components/DiscoveryRow";
 import { enrichArtistArtwork, enrichTrackArtwork } from "@/lib/chartArtwork";
+import { prisma } from "@/lib/db";
 import { buildLibraryIndex } from "@/lib/library";
 import { getMostLoved } from "@/lib/mostLoved";
+import {
+  blendRecommendedForYou,
+  getMoreFromLibraryArtists,
+  getNewReleasesFromLibraryArtists,
+  getSimilarAlbumsForLikedArtists,
+  type PersonalizedAlbum,
+} from "@/lib/personalized";
 import { getSettings, isSetupComplete } from "@/lib/settings";
 import { getDeezerChartAlbums, getDeezerNewReleaseAlbums } from "@/lib/deezer";
 import { getGlobalTopArtists, getGlobalTopTracks } from "@/lib/lastfm";
@@ -45,8 +53,24 @@ export default async function DiscoverPage() {
 
   const settings = await getSettings();
   const lastFmKey = settings.lastFmApiKey;
+  const lastFmConfig = lastFmKey ? { apiKey: lastFmKey } : null;
+  const lidarrConfig =
+    settings.lidarrUrl && settings.lidarrApiKey
+      ? { url: settings.lidarrUrl, apiKey: settings.lidarrApiKey }
+      : null;
 
-  const [settled, newReleases, topTracks, topArtists, mostLoved, library] =
+  const userId = session.user.id;
+  const userPrefs = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { personalizedSuggestionsEnabled: true },
+  });
+  const personalizationOn = userPrefs?.personalizedSuggestionsEnabled ?? true;
+
+  // Library index is needed by both global rows (to badge "in library") and
+  // by the personalized generators (to filter out albums the user has).
+  const library = await buildLibraryIndex();
+
+  const [settled, newReleases, topTracks, topArtists, mostLoved, personalized] =
     await Promise.all([
       Promise.all(
         DISCOVER_TAGS.map(async (tag) => {
@@ -69,7 +93,9 @@ export default async function DiscoverPage() {
             .catch(() => [])
         : Promise.resolve([]),
       getMostLoved(10),
-      buildLibraryIndex(),
+      personalizationOn
+        ? loadPersonalizedSections(userId, lastFmConfig, lidarrConfig, library)
+        : Promise.resolve(null),
     ]);
   const rows = settled.filter((r) => r.albums.length > 0);
 
@@ -102,6 +128,45 @@ export default async function DiscoverPage() {
         <h2 className="text-lg font-medium">Find an album</h2>
         <SearchBar initialQuery="" />
       </section>
+
+      {personalized && hasAnyPersonalizedRow(personalized) && (
+        <section className="space-y-6">
+          <header className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-muted-foreground" />
+            <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              For you
+            </p>
+          </header>
+          {personalized.recommended.length > 0 && (
+            <DiscoveryRow
+              title="Recommended for you"
+              albums={personalized.recommended}
+              library={library}
+            />
+          )}
+          {personalized.similar.albums.length > 0 && (
+            <DiscoveryRow
+              title={`Because you liked ${personalized.similar.seedArtistName}`}
+              albums={personalized.similar.albums}
+              library={library}
+            />
+          )}
+          {personalized.more.length > 0 && (
+            <DiscoveryRow
+              title="More from artists in your library"
+              albums={personalized.more}
+              library={library}
+            />
+          )}
+          {personalized.newReleases.length > 0 && (
+            <DiscoveryRow
+              title="New releases from your library artists"
+              albums={personalized.newReleases}
+              library={library}
+            />
+          )}
+        </section>
+      )}
 
       <DiscoveryRow
         title="Top new releases"
@@ -141,5 +206,40 @@ export default async function DiscoverPage() {
         </ul>
       </section>
     </main>
+  );
+}
+
+type PersonalizedSections = {
+  similar: { seedArtistName: string | null; albums: PersonalizedAlbum[] };
+  more: PersonalizedAlbum[];
+  newReleases: PersonalizedAlbum[];
+  recommended: PersonalizedAlbum[];
+};
+
+async function loadPersonalizedSections(
+  userId: string,
+  lastFm: { apiKey: string } | null,
+  lidarr: { url: string; apiKey: string } | null,
+  library: Awaited<ReturnType<typeof buildLibraryIndex>>,
+): Promise<PersonalizedSections> {
+  const [similar, more, newReleases] = await Promise.all([
+    getSimilarAlbumsForLikedArtists(userId, lastFm, library),
+    getMoreFromLibraryArtists(userId, lidarr, library),
+    getNewReleasesFromLibraryArtists(userId, lidarr, library),
+  ]);
+  const recommended = blendRecommendedForYou({
+    similar: similar.albums,
+    more,
+    newReleases,
+  });
+  return { similar, more, newReleases, recommended };
+}
+
+function hasAnyPersonalizedRow(p: PersonalizedSections): boolean {
+  return (
+    p.recommended.length > 0 ||
+    p.similar.albums.length > 0 ||
+    p.more.length > 0 ||
+    p.newReleases.length > 0
   );
 }

@@ -94,6 +94,19 @@ export function PlaylistDetail({
         artistName: t.artistName,
         coverUrl: t.coverUrl,
         streamUrl: t.streamUrl,
+        // Only attach tracking when the row will actually stream the local
+        // file (currentTrackFileId resolved). Some playlist rows store a
+        // synthetic recordingMbid like "lidarr:1234" — that's fine to log;
+        // it's a per-user signal we'd just group by artistName anyway.
+        tracking:
+          t.streamUrl && t.currentTrackFileId
+            ? {
+                recordingMbid: t.recordingMbid,
+                albumMbid: t.albumMbid,
+                artistName: t.artistName,
+                trackFileId: t.currentTrackFileId,
+              }
+            : undefined,
       })),
     [tracks],
   );
