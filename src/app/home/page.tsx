@@ -1,8 +1,10 @@
 import {
   ArrowRight,
   CheckCircle2,
+  Clock,
   Compass,
   Disc3,
+  Flame,
   Library,
   ListMusic,
   Music2,
@@ -19,6 +21,11 @@ import { SearchBar } from "@/app/search/SearchBar";
 import { ShuffleLibraryButton } from "@/components/ShuffleLibraryButton";
 import { prisma } from "@/lib/db";
 import { getLikedSongsPlaylistSummary } from "@/lib/likes";
+import {
+  getMostPlayedAlbums,
+  getRecentlyPlayedAlbums,
+  type PlayedAlbumItem,
+} from "@/lib/playHistory";
 import { listPlaylists } from "@/lib/playlists";
 import { isSetupComplete } from "@/lib/settings";
 
@@ -41,23 +48,26 @@ export default async function HomePage() {
     redirect("/login");
   }
 
-  const [libraryRows, likedSongs, playlists] = await Promise.all([
-    prisma.libraryItem.findMany({
-      where: { status: "downloaded" },
-      select: {
-        mbid: true,
-        status: true,
-        artistName: true,
-        title: true,
-        trackFileCount: true,
-        totalTrackCount: true,
-        lastSyncedAt: true,
-      },
-      orderBy: [{ artistName: "asc" }, { title: "asc" }],
-    }),
-    getLikedSongsPlaylistSummary(userId),
-    listPlaylists(userId),
-  ]);
+  const [libraryRows, likedSongs, playlists, recentlyPlayed, mostPlayed] =
+    await Promise.all([
+      prisma.libraryItem.findMany({
+        where: { status: "downloaded" },
+        select: {
+          mbid: true,
+          status: true,
+          artistName: true,
+          title: true,
+          trackFileCount: true,
+          totalTrackCount: true,
+          lastSyncedAt: true,
+        },
+        orderBy: [{ artistName: "asc" }, { title: "asc" }],
+      }),
+      getLikedSongsPlaylistSummary(userId),
+      listPlaylists(userId),
+      getRecentlyPlayedAlbums(userId, 10),
+      getMostPlayedAlbums(userId, 10),
+    ]);
 
   const libraryItems: (LibraryTileItem & { lastSyncedAt: Date })[] =
     libraryRows.map((row) => ({
@@ -198,6 +208,26 @@ export default async function HomePage() {
               ))}
             </ul>
           </section>
+
+          {recentlyPlayed.length > 0 && (
+            <PlayedAlbumsSection
+              title="Recently played"
+              icon={Clock}
+              albums={recentlyPlayed}
+              caption={(item) => formatRelativeTime(item.lastPlayedAt)}
+            />
+          )}
+
+          {mostPlayed.length > 0 && (
+            <PlayedAlbumsSection
+              title="Most played"
+              icon={Flame}
+              albums={mostPlayed}
+              caption={(item) =>
+                `${item.playCount} ${item.playCount === 1 ? "play" : "plays"}`
+              }
+            />
+          )}
 
           <section className="grid gap-8 lg:grid-cols-2">
             <div className="space-y-3">
@@ -451,6 +481,59 @@ function EmptyLibrary() {
       </div>
     </section>
   );
+}
+
+function PlayedAlbumsSection({
+  title,
+  icon: Icon,
+  albums,
+  caption,
+}: {
+  title: string;
+  icon: React.ComponentType<{ className?: string }>;
+  albums: PlayedAlbumItem[];
+  caption: (item: PlayedAlbumItem) => string;
+}) {
+  return (
+    <section className="space-y-3">
+      <header className="flex items-baseline gap-2">
+        <Icon className="h-4 w-4 text-muted-foreground" />
+        <h2 className="text-lg font-medium">{title}</h2>
+      </header>
+      <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        {albums.map((item) => (
+          <li key={item.mbid} className="flex flex-col gap-1.5">
+            <LibraryAlbumTile item={item} />
+            <p className="px-0.5 text-xs text-muted-foreground">
+              {caption(item)}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+// Compact "5m ago" / "2d ago" / "3w ago" formatter — keeps tile captions short
+// without pulling in a date library. Falls back to a date for anything older
+// than a year.
+function formatRelativeTime(when: Date): string {
+  const diffMs = Date.now() - when.getTime();
+  if (diffMs < 60_000) return "just now";
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `${weeks}w ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return when.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+  });
 }
 
 function topArtists(

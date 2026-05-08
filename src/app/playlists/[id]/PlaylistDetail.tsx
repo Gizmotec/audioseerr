@@ -94,6 +94,9 @@ export function PlaylistDetail({
         artistName: t.artistName,
         coverUrl: t.coverUrl,
         streamUrl: t.streamUrl,
+        recordingMbid: t.recordingMbid,
+        albumMbid: t.albumMbid,
+        durationMs: t.durationMs ?? undefined,
       })),
     [tracks],
   );

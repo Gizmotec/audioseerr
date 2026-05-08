@@ -68,6 +68,13 @@ export function AlbumDetail({
         artistName: album.artistName,
         coverUrl: album.coverUrl,
         streamUrl: t.streamUrl ?? t.previewUrl,
+        // Only attach scrobble metadata for full-library streams. Deezer
+        // previews are 30s auditions and shouldn't count toward play history.
+        recordingMbid: t.streamUrl
+          ? (t.recordingMbid ?? (t.trackFileId ? `lidarr:${t.trackFileId}` : undefined))
+          : undefined,
+        albumMbid: t.streamUrl ? album.mbid : undefined,
+        durationMs: t.lengthMs ?? undefined,
       })),
     [tracks, album.mbid, album.artistName, album.coverUrl],
   );

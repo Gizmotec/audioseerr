@@ -21,7 +21,21 @@ import {
   useRef,
   useState,
 } from "react";
+import { recordPlayAction } from "@/lib/actions/plays";
 import { cn } from "@/lib/utils";
+
+/**
+ * Identifying metadata used to record a play in PlayHistory. Omit (or pass
+ * recordingMbid as undefined) for ephemeral previews that shouldn't scrobble —
+ * e.g. 30-second Deezer auditions on the artist page.
+ */
+type ScrobbleMeta = {
+  recordingMbid: string;
+  albumMbid?: string | null;
+  artistName: string;
+  title: string;
+  durationMs?: number | null;
+};
 
 export type PreviewTrack = {
   /** Stable per-track id used to highlight the active row. previewUrl works. */
@@ -30,6 +44,10 @@ export type PreviewTrack = {
   artistName: string;
   coverUrl: string | null;
   previewUrl: string;
+  /** Recording MBID (or `lidarr:<id>` pseudo-id). Required for scrobbling. */
+  recordingMbid?: string;
+  albumMbid?: string | null;
+  durationMs?: number | null;
 };
 
 /**
@@ -42,7 +60,30 @@ export type QueueItem = {
   artistName: string;
   coverUrl: string | null;
   streamUrl: string | null;
+  /** Recording MBID (or `lidarr:<id>` pseudo-id). Required for scrobbling. */
+  recordingMbid?: string;
+  albumMbid?: string | null;
+  durationMs?: number | null;
 };
+
+// Last.fm-style threshold: a play counts after 50% of the track OR 4 minutes,
+// whichever is sooner. Tracks shorter than 30s never count. Mirrored on the
+// server (src/lib/playHistory.ts) for documentation; the client decides.
+const SCROBBLE_MIN_DURATION_S = 30;
+const SCROBBLE_MAX_THRESHOLD_S = 4 * 60;
+
+function scrobbleMetaFor(
+  source: PreviewTrack | QueueItem | null,
+): ScrobbleMeta | null {
+  if (!source?.recordingMbid) return null;
+  return {
+    recordingMbid: source.recordingMbid,
+    albumMbid: source.albumMbid ?? null,
+    artistName: source.artistName,
+    title: source.title,
+    durationMs: source.durationMs ?? null,
+  };
+}
 
 type PlaybackState = "idle" | "loading" | "playing" | "paused";
 type QueueControls = {
@@ -130,6 +171,14 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
   const volumeRef = useRef(volume);
   const mutedRef = useRef(muted);
 
+  // Per-track scrobble state. Reset whenever a new track starts; cleared on
+  // close. The "scrobbled" flag prevents double-recording when the user
+  // scrubs back and re-crosses the threshold within the same playthrough.
+  const scrobbleRef = useRef<{
+    meta: ScrobbleMeta;
+    scrobbled: boolean;
+  } | null>(null);
+
   useEffect(() => {
     if (typeof document === "undefined") return;
     const root = document.documentElement;
@@ -209,12 +258,13 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
   const { hasQueue, hasNext, hasPrev } = queueControls;
 
   const playUrlInElement = useCallback(
-    (el: HTMLAudioElement, url: string) => {
+    (el: HTMLAudioElement, url: string, meta: ScrobbleMeta | null) => {
       el.src = url;
       el.currentTime = 0;
       setCurrentTime(0);
       setDuration(0);
       setState("loading");
+      scrobbleRef.current = meta ? { meta, scrobbled: false } : null;
       el.play().catch(() => {
         // Errors here trip the "error" event below, which handles auto-advance
         // in queue mode. Swallow so React doesn't show an unhandled rejection.
@@ -231,9 +281,12 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
         artistName: item.artistName,
         coverUrl: item.coverUrl,
         previewUrl: item.streamUrl ?? "",
+        recordingMbid: item.recordingMbid,
+        albumMbid: item.albumMbid ?? null,
+        durationMs: item.durationMs ?? null,
       });
       // Caller is responsible for ensuring item.streamUrl is non-null.
-      playUrlInElement(el, item.streamUrl!);
+      playUrlInElement(el, item.streamUrl!, scrobbleMetaFor(item));
     },
     [playUrlInElement],
   );
@@ -299,7 +352,23 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
         setCurrentTime(0);
       }
     });
-    el.addEventListener("timeupdate", () => setCurrentTime(el.currentTime));
+    el.addEventListener("timeupdate", () => {
+      setCurrentTime(el.currentTime);
+      const entry = scrobbleRef.current;
+      if (!entry || entry.scrobbled) return;
+      const dur = el.duration;
+      if (!Number.isFinite(dur) || dur < SCROBBLE_MIN_DURATION_S) return;
+      const played = el.currentTime;
+      if (played < dur * 0.5 && played < SCROBBLE_MAX_THRESHOLD_S) return;
+      entry.scrobbled = true;
+      void recordPlayAction({
+        ...entry.meta,
+        playedMs: Math.round(played * 1000),
+      }).catch(() => {
+        // Don't break playback if the server hiccups — the play just isn't
+        // recorded for this session.
+      });
+    });
     el.addEventListener("loadedmetadata", () =>
       setDuration(Number.isFinite(el.duration) ? el.duration : 0),
     );
@@ -340,7 +409,7 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
       queueIndexRef.current = -1;
       refreshQueueControls();
       setCurrent(track);
-      playUrlInElement(el, track.previewUrl);
+      playUrlInElement(el, track.previewUrl, scrobbleMetaFor(track));
     },
     [current, state, ensureAudio, playUrlInElement, refreshQueueControls],
   );
@@ -429,6 +498,7 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
     }
     queueRef.current = null;
     queueIndexRef.current = -1;
+    scrobbleRef.current = null;
     refreshQueueControls();
     setFailedIds(new Set());
     setCurrent(null);

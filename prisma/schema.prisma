@@ -52,6 +52,7 @@ model User {
   likes        Like[]
   recentSearches RecentSearch[]
   playlists      Playlist[]
+  plays          PlayHistory[]
   invitesCreated Invite[] @relation("InvitesCreated")
   invitesUsed    Invite[] @relation("InvitesUsed")
 }
@@ -191,6 +192,33 @@ model Playlist {
   tracks      PlaylistTrack[]
 
   @@index([userId])
+}
+
+// One play counted per track per "playthrough." A play is recorded once
+// playback crosses the Last.fm-style threshold (50% of the track or 4 minutes,
+// whichever is sooner; tracks shorter than 30s never count). The threshold
+// match means we can later compare against Last.fm scrobbles apples-to-apples.
+//
+// recordingMbid follows the same convention as PlaylistTrack — a real
+// MusicBrainz recording MBID where we have one, otherwise a `lidarr:<id>`
+// pseudo-id (Lidarr doesn't expose recording MBIDs). albumMbid + artistName
+// are denormalized so we can render "most-played albums/artists" without
+// joining against external metadata.
+model PlayHistory {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recordingMbid String
+  albumMbid     String?
+  artistName    String
+  title         String
+  durationMs    Int?
+  playedMs      Int
+  playedAt      DateTime @default(now())
+
+  @@index([userId, playedAt])
+  @@index([userId, recordingMbid])
+  @@index([userId, albumMbid])
 }
 
 // One row per track in a playlist. Duplicates of the same recordingMbid are
