@@ -152,8 +152,8 @@ function InviteRow({
   };
 
   return (
-    <li className="flex flex-col gap-2 px-4 py-3 md:flex-row md:items-center md:gap-3">
-      <div className="min-w-0 flex-1">
+    <li className="flex flex-col gap-2 px-4 py-3">
+      <div className="flex items-center gap-2">
         <input
           type="text"
           readOnly
@@ -161,19 +161,8 @@ function InviteRow({
           aria-label="Invite link"
           autoFocus={defaultExpanded}
           onFocus={(e) => e.currentTarget.select()}
-          className="w-full rounded bg-secondary/40 px-2.5 py-1.5 font-mono text-xs text-foreground outline-none focus:bg-secondary/60"
+          className="min-w-0 flex-1 rounded bg-secondary/40 px-2.5 py-1.5 font-mono text-xs text-foreground outline-none focus:bg-secondary/60"
         />
-        <p className="mt-1.5 text-xs text-muted-foreground">
-          Created by <span className="font-mono">{invite.createdByUsername}</span> ·
-          expires {formatRelative(invite.expiresAt)}
-        </p>
-        {error && (
-          <p className="mt-1 text-xs text-destructive" role="alert">
-            {error}
-          </p>
-        )}
-      </div>
-      <div className="flex shrink-0 gap-2">
         <Button size="sm" variant="secondary" onClick={copy} className="gap-1.5">
           {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
           {copied ? "Copied" : "Copy"}
@@ -189,6 +178,15 @@ function InviteRow({
           Revoke
         </Button>
       </div>
+      <p className="text-xs text-muted-foreground">
+        Created by <span className="font-mono">{invite.createdByUsername}</span> ·
+        expires {formatRelative(invite.expiresAt)}
+      </p>
+      {error && (
+        <p className="text-xs text-destructive" role="alert">
+          {error}
+        </p>
+      )}
     </li>
   );
 }
@@ -341,6 +339,7 @@ function AutoApproveChip({
       disabled={pending}
       aria-pressed={on}
       title={`${label}: ${on ? "auto-approve" : "manual approval required"}`}
+      className={on ? undefined : "text-muted-foreground"}
     >
       {label}
     </Button>
