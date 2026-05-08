@@ -23,6 +23,19 @@ import {
 } from "react";
 import { cn } from "@/lib/utils";
 
+/**
+ * Per-track context used to log the play to /api/plays once the user has
+ * listened past the threshold (30s or halfway, whichever comes first). Only
+ * present for full streams from /api/stream/[trackFileId] — Deezer previews
+ * deliberately don't carry it so they never feed personalized recommendations.
+ */
+export type PlayTracking = {
+  recordingMbid: string;
+  albumMbid: string;
+  artistName: string;
+  trackFileId: number;
+};
+
 export type PreviewTrack = {
   /** Stable per-track id used to highlight the active row. previewUrl works. */
   id: string;
@@ -30,6 +43,7 @@ export type PreviewTrack = {
   artistName: string;
   coverUrl: string | null;
   previewUrl: string;
+  tracking?: PlayTracking;
 };
 
 /**
@@ -42,6 +56,7 @@ export type QueueItem = {
   artistName: string;
   coverUrl: string | null;
   streamUrl: string | null;
+  tracking?: PlayTracking;
 };
 
 type PlaybackState = "idle" | "loading" | "playing" | "paused";
@@ -129,6 +144,19 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
   // at construction time without us having to re-create the listeners.
   const volumeRef = useRef(volume);
   const mutedRef = useRef(muted);
+
+  // Mirror the active track so the audio element's `timeupdate` listener
+  // (registered once in ensureAudio) can read tracking context without going
+  // stale. `playLoggedIdsRef` remembers which queue item ids we've already
+  // counted in this player session so we don't double-log when the user
+  // scrubs back across the threshold or when the browser fires a redundant
+  // `playing` event after a seek.
+  const currentTrackRef = useRef<PreviewTrack | null>(null);
+  const playLoggedIdsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    currentTrackRef.current = current;
+  }, [current]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -231,6 +259,7 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
         artistName: item.artistName,
         coverUrl: item.coverUrl,
         previewUrl: item.streamUrl ?? "",
+        tracking: item.tracking,
       });
       // Caller is responsible for ensuring item.streamUrl is non-null.
       playUrlInElement(el, item.streamUrl!);
@@ -268,6 +297,33 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
     [playQueueItem, refreshQueueControls],
   );
 
+  // Fire-and-forget POST to /api/plays once the user has listened past the
+  // threshold (30s OR halfway, whichever first). Server is responsible for
+  // 60s dedupe and for honoring the personalization opt-out. Errors are
+  // swallowed — a failed play log is never worth surfacing to the user.
+  const maybeLogPlay = useCallback((el: HTMLAudioElement) => {
+    const track = currentTrackRef.current;
+    if (!track || !track.tracking) return;
+    if (playLoggedIdsRef.current.has(track.id)) return;
+    const duration = Number.isFinite(el.duration) ? el.duration : 0;
+    if (duration <= 0) return;
+    const threshold = Math.min(30, duration / 2);
+    if (el.currentTime < threshold) return;
+    playLoggedIdsRef.current.add(track.id);
+    const payload = {
+      recordingMbid: track.tracking.recordingMbid,
+      albumMbid: track.tracking.albumMbid,
+      artistName: track.tracking.artistName,
+      trackFileId: track.tracking.trackFileId,
+    };
+    void fetch("/api/plays", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      keepalive: true,
+    }).catch(() => {});
+  }, []);
+
   // Audio element is created lazily on the first play() so SSR doesn't trip,
   // and so we don't construct one for users who never preview anything.
   const ensureAudio = useCallback(() => {
@@ -299,7 +355,10 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
         setCurrentTime(0);
       }
     });
-    el.addEventListener("timeupdate", () => setCurrentTime(el.currentTime));
+    el.addEventListener("timeupdate", () => {
+      setCurrentTime(el.currentTime);
+      maybeLogPlay(el);
+    });
     el.addEventListener("loadedmetadata", () =>
       setDuration(Number.isFinite(el.duration) ? el.duration : 0),
     );
@@ -321,7 +380,7 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
     });
     audioRef.current = el;
     return el;
-  }, [advance, markFailed, clearFailed]);
+  }, [advance, markFailed, clearFailed, maybeLogPlay]);
 
   const safePlay = (el: HTMLAudioElement) => {
     el.play().catch(() => {});

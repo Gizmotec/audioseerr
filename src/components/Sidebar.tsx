@@ -7,6 +7,7 @@ import {
   ListMusic,
   Settings as SettingsIcon,
   ShieldCheck,
+  UserCog,
 } from "lucide-react";
 import Link from "next/link";
 import type { ComponentType } from "react";
@@ -41,6 +42,9 @@ export async function Sidebar() {
         </SidebarLink>
         <SidebarLink href="/requests" icon={Inbox}>
           My requests
+        </SidebarLink>
+        <SidebarLink href="/account" icon={UserCog}>
+          Preferences
         </SidebarLink>
         <SidebarLink href="/bug-report" icon={Bug}>
           Bug report

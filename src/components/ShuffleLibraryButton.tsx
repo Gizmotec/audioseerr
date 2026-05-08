@@ -35,6 +35,12 @@ export function ShuffleLibraryButton({
           artistName: track.artistName,
           coverUrl: track.coverUrl ?? null,
           streamUrl: `/api/stream/${track.trackFileId}`,
+          tracking: {
+            recordingMbid: track.recordingMbid,
+            albumMbid: track.albumMbid,
+            artistName: track.artistName,
+            trackFileId: track.trackFileId,
+          },
         })),
       );
 

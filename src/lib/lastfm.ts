@@ -300,6 +300,109 @@ export async function getArtistInfo(
   });
 }
 
+type LastFmArtistTopAlbumsResponse = {
+  topalbums?: {
+    album?: Array<{
+      name?: string;
+      mbid?: string;
+      playcount?: string;
+      artist?: { name?: string; mbid?: string };
+      image?: LastFmImage[];
+    }>;
+  };
+};
+
+export type LastFmArtistTopAlbum = {
+  title: string;
+  mbid: string | null;
+  artistName: string;
+  artistMbid: string | null;
+  playcount: number;
+  coverUrl: string | null;
+};
+
+export async function getArtistTopAlbums(
+  config: LastFmConfig,
+  mbid: string | null,
+  name: string,
+  limit = 5,
+): Promise<LastFmArtistTopAlbum[]> {
+  const cacheKey = `lastfm:artist.gettopalbums:${(mbid ?? name).toLowerCase()}:${limit}`;
+  return withCache<LastFmArtistTopAlbum[]>(cacheKey, 24 * 60 * 60, async () => {
+    const params: Record<string, string> = mbid
+      ? { method: "artist.gettopalbums", mbid, limit: String(limit) }
+      : { method: "artist.gettopalbums", artist: name, limit: String(limit) };
+    let data: LastFmArtistTopAlbumsResponse;
+    try {
+      data = await lastFmFetch<LastFmArtistTopAlbumsResponse>(config, params);
+    } catch {
+      return [];
+    }
+    return (data.topalbums?.album ?? [])
+      .map((a) => {
+        const albumMbid = a.mbid && a.mbid.length > 0 ? a.mbid : null;
+        return {
+          title: a.name ?? "",
+          mbid: albumMbid,
+          artistName: a.artist?.name ?? "Unknown artist",
+          artistMbid:
+            a.artist?.mbid && a.artist.mbid.length > 0 ? a.artist.mbid : null,
+          playcount: a.playcount ? Number(a.playcount) || 0 : 0,
+          coverUrl: pickCoverUrl(a.image, albumMbid),
+        };
+      })
+      .filter((a) => a.title.length > 0);
+  });
+}
+
+type LastFmSimilarArtistsResponse = {
+  similarartists?: {
+    artist?: Array<{
+      name?: string;
+      mbid?: string;
+      match?: string;
+      url?: string;
+      image?: LastFmImage[];
+    }>;
+  };
+};
+
+export type LastFmSimilarArtist = {
+  name: string;
+  mbid: string | null;
+  /** 0..1 similarity score from Last.fm. */
+  match: number;
+  imageUrl: string | null;
+};
+
+export async function getSimilarArtists(
+  config: LastFmConfig,
+  mbid: string | null,
+  name: string,
+  limit = 20,
+): Promise<LastFmSimilarArtist[]> {
+  const cacheKey = `lastfm:artist.getsimilar:${(mbid ?? name).toLowerCase()}:${limit}`;
+  return withCache<LastFmSimilarArtist[]>(cacheKey, 24 * 60 * 60, async () => {
+    const params: Record<string, string> = mbid
+      ? { method: "artist.getsimilar", mbid, limit: String(limit) }
+      : { method: "artist.getsimilar", artist: name, limit: String(limit) };
+    let data: LastFmSimilarArtistsResponse;
+    try {
+      data = await lastFmFetch<LastFmSimilarArtistsResponse>(config, params);
+    } catch {
+      return [];
+    }
+    return (data.similarartists?.artist ?? [])
+      .map((a) => ({
+        name: a.name ?? "",
+        mbid: a.mbid && a.mbid.length > 0 ? a.mbid : null,
+        match: a.match ? Number(a.match) || 0 : 0,
+        imageUrl: pickLastFmImage(a.image),
+      }))
+      .filter((a) => a.name.length > 0);
+  });
+}
+
 type LastFmTopTracksResponse = {
   toptracks?: {
     track?: Array<{
