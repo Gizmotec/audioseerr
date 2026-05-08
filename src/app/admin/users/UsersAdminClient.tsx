@@ -121,11 +121,14 @@ function InviteRow({
   const url = origin ? `${origin}/invite/${invite.token}` : `/invite/${invite.token}`;
 
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(url);
+    // navigator.clipboard requires a secure context (HTTPS or localhost). On
+    // a plain-HTTP LAN/Tailscale IP it's undefined, so we fall back to the
+    // legacy execCommand path via a hidden textarea.
+    const ok = (await tryClipboardApi(url)) || tryExecCommandCopy(url);
+    if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    } catch {
+    } else {
       setError("Could not copy — select the link manually.");
     }
   };
@@ -302,6 +305,39 @@ function UserRowItem({
       </div>
     </li>
   );
+}
+
+async function tryClipboardApi(text: string): Promise<boolean> {
+  if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+    return false;
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function tryExecCommandCopy(text: string): boolean {
+  if (typeof document === "undefined") return false;
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  // Off-screen but selectable — some browsers refuse copy on display:none.
+  textarea.style.position = "fixed";
+  textarea.style.top = "0";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+  let ok = false;
+  try {
+    ok = document.execCommand("copy");
+  } catch {
+    ok = false;
+  }
+  document.body.removeChild(textarea);
+  return ok;
 }
 
 function formatRelative(iso: string): string {
