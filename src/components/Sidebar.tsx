@@ -9,8 +9,8 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import Link from "next/link";
-import type { ComponentType } from "react";
 import { auth, signOut } from "@/auth";
+import { SidebarLink } from "@/components/SidebarLink";
 import { Button } from "@/components/ui/button";
 
 export async function Sidebar() {
@@ -84,21 +84,3 @@ export async function Sidebar() {
   );
 }
 
-function SidebarLink({
-  href,
-  icon: Icon,
-  children,
-}: {
-  href: string;
-  icon: ComponentType<{ className?: string }>;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
-    >
-      <Icon className="h-4 w-4" /> {children}
-    </Link>
-  );
-}
