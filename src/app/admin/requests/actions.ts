@@ -202,7 +202,6 @@ async function approveTrackRequest(
       url: directUrl,
       file: torrentFile ?? undefined,
       fileName: `${safeFileName(release.title)}.torrent`,
-      expectedName: release.title,
       category: settings.trackTorrentCategory ?? "audioseerr-tracks",
       savePath: settings.trackTorrentSavePath,
       tags: "audioseerr,track-request",
