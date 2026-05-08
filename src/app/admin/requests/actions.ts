@@ -18,6 +18,7 @@ import {
   downloadReleaseFile,
   pickBestTrackRelease,
   searchAudioReleases,
+  type AudioSearchResult,
   type ProwlarrConfig,
 } from "@/lib/prowlarr";
 import { getSettings, type SettingsView } from "@/lib/settings";
@@ -190,8 +191,8 @@ async function approveTrackRequest(
 
   try {
     const query = `${request.artistName} ${request.title}`;
-    const releases = await searchAudioReleases(prowlarr, query);
-    const release = pickBestTrackRelease(releases, {
+    const search = await searchAudioReleases(prowlarr, query);
+    const release = pickBestTrackRelease(search.usable, {
       artistName: request.artistName,
       trackTitle: request.title,
       albumTitle: request.albumTitle,
@@ -200,12 +201,10 @@ async function approveTrackRequest(
 
     if (!release) {
       const maxSize = settings.trackTorrentMaxSizeMb;
-      await markFailed(
-        request.id,
-        `No matching audio torrent under ${maxSize} MB was found.`,
-      );
+      const reason = buildNoMatchReason(query, search, maxSize);
+      await markFailed(request.id, reason);
       revalidateTrackRequestPaths(request);
-      return { ok: false, error: "No suitable track torrent found." };
+      return { ok: false, error: reason };
     }
 
     const directUrl =
@@ -288,6 +287,27 @@ async function markFailed(requestId: string, reason: string) {
     where: { id: requestId },
     data: { status: "FAILED", declineReason: reason },
   });
+}
+
+function buildNoMatchReason(
+  query: string,
+  search: AudioSearchResult,
+  maxSizeMb: number,
+): string {
+  if (search.raw === 0) {
+    return `Prowlarr returned no results for "${query}".`;
+  }
+  if (search.usable.length === 0) {
+    return `Prowlarr returned ${search.raw} results for "${query}" but none were torrents with a usable URL.`;
+  }
+  const maxBytes = maxSizeMb * 1024 * 1024;
+  const oversized = search.usable.filter(
+    (release) => release.size && release.size > maxBytes,
+  ).length;
+  if (oversized === search.usable.length) {
+    return `Prowlarr returned ${search.usable.length} torrents for "${query}" but all exceeded ${maxSizeMb} MB.`;
+  }
+  return `Prowlarr returned ${search.usable.length} torrents for "${query}" but none matched the artist/track tokens (max ${maxSizeMb} MB).`;
 }
 
 function revalidateTrackRequestPaths(request: {

@@ -52,20 +52,33 @@ async function prowlarrFetch<T>(
   return (await res.json()) as T;
 }
 
+export type AudioSearchResult = {
+  raw: number;
+  usable: ProwlarrRelease[];
+};
+
 export async function searchAudioReleases(
   config: ProwlarrConfig,
   query: string,
-): Promise<ProwlarrRelease[]> {
+): Promise<AudioSearchResult> {
   const params = new URLSearchParams({
     query,
     type: "search",
   });
   params.append("categories", "3000");
-  const releases = await prowlarrFetch<ProwlarrRelease[]>(
-    config,
-    `/api/v1/search?${params}`,
-  );
-  return releases.filter((release) => {
+  const path = `/api/v1/search?${params}`;
+  const fullUrl = buildUrl(config.url, path);
+  console.log(`[prowlarr] search query=${JSON.stringify(query)} url=${fullUrl}`);
+  let releases: ProwlarrRelease[];
+  try {
+    releases = await prowlarrFetch<ProwlarrRelease[]>(config, path);
+  } catch (err) {
+    console.log(
+      `[prowlarr] search FAILED query=${JSON.stringify(query)} error=${err instanceof Error ? err.message : String(err)}`,
+    );
+    throw err;
+  }
+  const usable = releases.filter((release) => {
     const protocol = release.protocol?.toLowerCase();
     const hasUrl = !!(
       release.magnetUrl ||
@@ -74,6 +87,10 @@ export async function searchAudioReleases(
     );
     return hasUrl && (!protocol || protocol === "torrent");
   });
+  console.log(
+    `[prowlarr] search query=${JSON.stringify(query)} raw=${releases.length} usable=${usable.length}`,
+  );
+  return { raw: releases.length, usable };
 }
 
 export async function testProwlarrConnection(
