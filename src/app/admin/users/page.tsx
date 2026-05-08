@@ -27,7 +27,9 @@ export default async function AdminUsersPage() {
         username: true,
         email: true,
         role: true,
-        autoApprove: true,
+        autoApproveArtist: true,
+        autoApproveAlbum: true,
+        autoApproveTrack: true,
         createdAt: true,
       },
     }),
@@ -64,7 +66,9 @@ export default async function AdminUsersPage() {
           username: u.username,
           email: u.email,
           role: u.role,
-          autoApprove: u.autoApprove,
+          autoApproveArtist: u.autoApproveArtist,
+          autoApproveAlbum: u.autoApproveAlbum,
+          autoApproveTrack: u.autoApproveTrack,
           createdAt: u.createdAt.toISOString(),
         }))}
         invites={invites.map((i) => ({

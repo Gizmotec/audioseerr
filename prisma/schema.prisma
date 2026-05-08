@@ -46,10 +46,12 @@ model User {
   username     String    @unique
   passwordHash String
   role         Role      @default(USER)
-  // When true, requests from this user skip the admin approval queue and go
-  // straight to APPROVED/DOWNLOADING. Admin toggles per-user from /admin/users.
-  // Phase 1 adds the column; Phase 2 wires it into the request flow.
-  autoApprove  Boolean   @default(false)
+  // When true for a given request type, requests of that type from this user
+  // skip the admin approval queue and go straight to APPROVED/DOWNLOADING.
+  // Admin toggles per-user-per-type from /admin/users.
+  autoApproveArtist Boolean @default(false)
+  autoApproveAlbum  Boolean @default(false)
+  autoApproveTrack  Boolean @default(false)
   requestQuota Int       @default(20)
   createdAt    DateTime  @default(now())
   requests     Request[]

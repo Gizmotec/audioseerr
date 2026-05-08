@@ -4,6 +4,7 @@ import { Check, Copy, Loader2, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import {
+  type AutoApproveType,
   createInviteAction,
   deleteUserAction,
   revokeInviteAction,
@@ -15,9 +16,17 @@ type UserRow = {
   username: string;
   email: string;
   role: string;
-  autoApprove: boolean;
+  autoApproveArtist: boolean;
+  autoApproveAlbum: boolean;
+  autoApproveTrack: boolean;
   createdAt: string;
 };
+
+const AUTO_APPROVE_TYPES: { type: AutoApproveType; label: string; field: "autoApproveArtist" | "autoApproveAlbum" | "autoApproveTrack" }[] = [
+  { type: "ARTIST", label: "Artists", field: "autoApproveArtist" },
+  { type: "ALBUM", label: "Albums", field: "autoApproveAlbum" },
+  { type: "TRACK", label: "Tracks", field: "autoApproveTrack" },
+];
 
 type InviteRow = {
   token: string;
@@ -223,23 +232,6 @@ function UserRowItem({
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  // Local optimistic state — server revalidates the page on success, so this
-  // value will be replaced on the next render. Keeping it in state lets the
-  // toggle feel instant without waiting for a round-trip.
-  const [autoApprove, setAutoApprove] = useState(user.autoApprove);
-
-  const toggleAutoApprove = () => {
-    const next = !autoApprove;
-    setAutoApprove(next);
-    setError(null);
-    startTransition(async () => {
-      const r = await setUserAutoApproveAction(user.id, next);
-      if (!r.ok) {
-        setAutoApprove(!next);
-        setError(r.error);
-      }
-    });
-  };
 
   const remove = () => {
     if (!confirm(`Remove ${user.username}? Their playlists, likes, and history will be deleted.`)) {
@@ -281,17 +273,20 @@ function UserRowItem({
         )}
       </div>
 
-      <div className="flex shrink-0 items-center gap-2">
-        <Button
-          size="sm"
-          variant={autoApprove ? "default" : "outline"}
-          onClick={toggleAutoApprove}
-          disabled={pending}
-          aria-pressed={autoApprove}
-          title="When on, this user's requests skip the approval queue."
-        >
-          Auto-approve {autoApprove ? "on" : "off"}
-        </Button>
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <span className="text-xs text-muted-foreground" title="Toggle auto-approve per request type">
+          Auto-approve:
+        </span>
+        {AUTO_APPROVE_TYPES.map(({ type, label, field }) => (
+          <AutoApproveChip
+            key={type}
+            userId={user.id}
+            type={type}
+            label={label}
+            initialOn={user[field]}
+            onError={setError}
+          />
+        ))}
         <Button
           size="sm"
           variant="destructive"
@@ -299,11 +294,56 @@ function UserRowItem({
           disabled={pending || !canDelete}
           title={deleteHint ?? "Remove user"}
           aria-label={`Remove ${user.username}`}
+          className="ml-1"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
       </div>
     </li>
+  );
+}
+
+function AutoApproveChip({
+  userId,
+  type,
+  label,
+  initialOn,
+  onError,
+}: {
+  userId: string;
+  type: AutoApproveType;
+  label: string;
+  initialOn: boolean;
+  onError: (msg: string | null) => void;
+}) {
+  const [pending, startTransition] = useTransition();
+  // Optimistic: flip immediately, revert if the server rejects.
+  const [on, setOn] = useState(initialOn);
+
+  const toggle = () => {
+    const next = !on;
+    setOn(next);
+    onError(null);
+    startTransition(async () => {
+      const r = await setUserAutoApproveAction(userId, type, next);
+      if (!r.ok) {
+        setOn(!next);
+        onError(r.error);
+      }
+    });
+  };
+
+  return (
+    <Button
+      size="sm"
+      variant={on ? "default" : "outline"}
+      onClick={toggle}
+      disabled={pending}
+      aria-pressed={on}
+      title={`${label}: ${on ? "auto-approve" : "manual approval required"}`}
+    >
+      {label}
+    </Button>
   );
 }
 

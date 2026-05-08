@@ -58,19 +58,31 @@ export async function revokeInviteAction(token: string): Promise<ActionResult> {
   return { ok: true };
 }
 
+export type AutoApproveType = "ARTIST" | "ALBUM" | "TRACK";
+
+const AUTO_APPROVE_FIELDS: Record<AutoApproveType, "autoApproveArtist" | "autoApproveAlbum" | "autoApproveTrack"> = {
+  ARTIST: "autoApproveArtist",
+  ALBUM: "autoApproveAlbum",
+  TRACK: "autoApproveTrack",
+};
+
 export async function setUserAutoApproveAction(
   userId: string,
+  type: AutoApproveType,
   value: boolean,
 ): Promise<ActionResult> {
   const guard = await requireAdmin();
   if (!guard.ok) return guard;
+
+  const field = AUTO_APPROVE_FIELDS[type];
+  if (!field) return { ok: false, error: "Bad type." };
 
   const target = await prisma.user.findUnique({ where: { id: userId } });
   if (!target) return { ok: false, error: "User not found." };
 
   await prisma.user.update({
     where: { id: userId },
-    data: { autoApprove: value },
+    data: { [field]: value },
   });
   revalidatePath("/admin/users");
   return { ok: true };

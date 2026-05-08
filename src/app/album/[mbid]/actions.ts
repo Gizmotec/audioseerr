@@ -12,7 +12,13 @@ type ActionResult = { ok: true } | { ok: false; error: string };
 async function loadRequester(userId: string) {
   return prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, role: true, autoApprove: true },
+    select: {
+      id: true,
+      role: true,
+      autoApproveArtist: true,
+      autoApproveAlbum: true,
+      autoApproveTrack: true,
+    },
   });
 }
 
@@ -98,7 +104,7 @@ export async function requestAlbumAction(input: {
     },
   });
 
-  if (requester.autoApprove) {
+  if (requester.autoApproveAlbum) {
     const settings = await getSettings();
     const result = await executeRequestApproval(created, settings);
     if (!result.ok) {
@@ -185,7 +191,7 @@ export async function requestTrackAction(input: {
     },
   });
 
-  if (requester.autoApprove) {
+  if (requester.autoApproveTrack) {
     const settings = await getSettings();
     const result = await executeRequestApproval(created, settings);
     if (!result.ok) {

@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
+import { executeRequestApproval } from "@/app/admin/requests/actions";
 import { prisma } from "@/lib/db";
+import { getSettings } from "@/lib/settings";
 
 export async function requestArtistAction(input: {
   mbid: string;
@@ -25,7 +27,13 @@ export async function requestArtistAction(input: {
   });
   if (existing) return { ok: false, error: "You've already requested this artist." };
 
-  await prisma.request.create({
+  const requester = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { autoApproveArtist: true },
+  });
+  if (!requester) return { ok: false, error: "User record missing." };
+
+  const created = await prisma.request.create({
     data: {
       type: "ARTIST",
       mbid: input.mbid,
@@ -38,6 +46,17 @@ export async function requestArtistAction(input: {
       status: "PENDING",
     },
   });
+
+  if (requester.autoApproveArtist) {
+    const settings = await getSettings();
+    const result = await executeRequestApproval(created, settings);
+    if (!result.ok) {
+      revalidatePath(`/artist/${input.mbid}`);
+      revalidatePath("/requests");
+      revalidatePath("/admin/requests");
+      return result;
+    }
+  }
 
   revalidatePath(`/artist/${input.mbid}`);
   revalidatePath("/requests");
