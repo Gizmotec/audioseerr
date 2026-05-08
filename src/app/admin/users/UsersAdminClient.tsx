@@ -152,7 +152,7 @@ function InviteRow({
           aria-label="Invite link"
           autoFocus={defaultExpanded}
           onFocus={(e) => e.currentTarget.select()}
-          className="w-full rounded-md border border-border/60 bg-background px-2.5 py-1.5 font-mono text-xs text-foreground"
+          className="w-full rounded bg-secondary/40 px-2.5 py-1.5 font-mono text-xs text-foreground outline-none focus:bg-secondary/60"
         />
         <p className="mt-1.5 text-xs text-muted-foreground">
           Created by <span className="font-mono">{invite.createdByUsername}</span> ·
