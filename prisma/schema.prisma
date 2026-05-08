@@ -46,6 +46,10 @@ model User {
   username     String    @unique
   passwordHash String
   role         Role      @default(USER)
+  // When true, requests from this user skip the admin approval queue and go
+  // straight to APPROVED/DOWNLOADING. Admin toggles per-user from /admin/users.
+  // Phase 1 adds the column; Phase 2 wires it into the request flow.
+  autoApprove  Boolean   @default(false)
   requestQuota Int       @default(20)
   createdAt    DateTime  @default(now())
   requests     Request[]
@@ -55,6 +59,7 @@ model User {
   plays          PlayHistory[]
   invitesCreated Invite[] @relation("InvitesCreated")
   invitesUsed    Invite[] @relation("InvitesUsed")
+  libraryItems   UserLibraryItem[]
 }
 
 model Request {
@@ -70,7 +75,7 @@ model Request {
   albumPosition    Int?
   status           RequestStatus @default(PENDING)
   requestedById    String
-  requestedBy      User          @relation(fields: [requestedById], references: [id])
+  requestedBy      User          @relation(fields: [requestedById], references: [id], onDelete: Cascade)
   requestedAt      DateTime      @default(now())
   approvedAt       DateTime?
   declineReason    String?
@@ -93,6 +98,23 @@ model LibraryItem {
   trackFileCount   Int      @default(0)
   totalTrackCount  Int      @default(0)
   lastSyncedAt     DateTime
+  users            UserLibraryItem[]
+}
+
+// Per-user view onto LibraryItem. The Lidarr-synced LibraryItem table is the
+// global source of truth for what's on disk; UserLibraryItem partitions
+// visibility so each invited user sees their own collection. Admin's row set
+// is backfilled from the existing library on migration.
+model UserLibraryItem {
+  id          String      @id @default(cuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mbid        String
+  libraryItem LibraryItem @relation(fields: [mbid], references: [mbid], onDelete: Cascade)
+  addedAt     DateTime    @default(now())
+
+  @@unique([userId, mbid])
+  @@index([userId])
 }
 
 model Settings {
@@ -170,11 +192,13 @@ model RecentSearch {
 model Invite {
   token       String    @id
   createdById String
-  createdBy   User      @relation("InvitesCreated", fields: [createdById], references: [id])
+  createdBy   User      @relation("InvitesCreated", fields: [createdById], references: [id], onDelete: Cascade)
   expiresAt   DateTime
   usedAt      DateTime?
   usedById    String?
-  usedBy      User?     @relation("InvitesUsed", fields: [usedById], references: [id])
+  usedBy      User?     @relation("InvitesUsed", fields: [usedById], references: [id], onDelete: SetNull)
+
+  @@index([expiresAt])
 }
 
 // User-curated ordered list of tracks the user has in their Lidarr library.
@@ -187,11 +211,17 @@ model Playlist {
   name        String
   description String?
   coverUrl    String?
+  // Owner-controlled visibility flag. When true, any signed-in user can view
+  // (read-only) the playlist via /playlists/[id] and it appears in their
+  // "Shared with you" section. Tracks the viewer doesn't have library
+  // coverage for stay listed but won't stream (Phase 2 stream gate).
+  isShared    Boolean         @default(false)
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
   tracks      PlaylistTrack[]
 
   @@index([userId])
+  @@index([isShared])
 }
 
 // One play counted per track per "playthrough." A play is recorded once

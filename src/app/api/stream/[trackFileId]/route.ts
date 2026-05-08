@@ -13,6 +13,7 @@ import { promises as fs, createReadStream } from "node:fs";
 import { Readable } from "node:stream";
 import type { NextRequest } from "next/server";
 import { auth } from "@/auth";
+import { prisma } from "@/lib/db";
 import { getTrackFile } from "@/lib/lidarr";
 import { getSettings } from "@/lib/settings";
 import {
@@ -22,6 +23,7 @@ import {
   parsePathMap,
   parseRange,
 } from "@/lib/streaming";
+import { viewerCanStreamAlbum } from "@/lib/userLibrary";
 
 export const dynamic = "force-dynamic";
 // Force Node runtime — we use node:fs / node:stream which the edge runtime
@@ -44,9 +46,14 @@ async function handle(
   method: "GET" | "HEAD",
 ): Promise<Response> {
   const session = await auth();
-  if (!session?.user) {
+  const userId = session?.user?.id;
+  if (!userId) {
     return new Response("Unauthorized", { status: 401 });
   }
+  const viewer = {
+    id: userId,
+    role: (session.user as { role?: string }).role ?? null,
+  };
 
   const { trackFileId: rawId } = await ctx.params;
   const trackFileId = Number.parseInt(rawId, 10);
@@ -68,6 +75,21 @@ async function handle(
   } catch {
     // Hide whether the id exists; both forged and deleted look the same.
     return new Response("Not found", { status: 404 });
+  }
+
+  // Per-user library gate: resolve the track file to its parent album mbid
+  // (via LibraryItem.lidarrId) and confirm the viewer has UserLibraryItem
+  // coverage. Admins always pass. If the LibraryItem hasn't synced yet, fail
+  // closed for non-admins — there's no safe way to confirm membership.
+  const albumRow = await prisma.libraryItem.findUnique({
+    where: { lidarrId: trackFile.albumId },
+    select: { mbid: true },
+  });
+  if (!albumRow) {
+    return new Response("Forbidden", { status: 403 });
+  }
+  if (!(await viewerCanStreamAlbum(viewer, albumRow.mbid))) {
+    return new Response("Forbidden", { status: 403 });
   }
 
   let mappings;

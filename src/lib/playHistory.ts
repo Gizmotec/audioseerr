@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import type { LibraryTileItem } from "@/app/library/LibraryAlbumTile";
 import type { LibraryStatus } from "@/lib/library";
+import { libraryWhereForViewer, type LibraryViewer } from "@/lib/userLibrary";
 
 // Last.fm-style scrobble threshold. A "play" is recorded once playback crosses
 // 50% of the track OR 4 minutes, whichever happens first. Tracks shorter than
@@ -45,15 +46,20 @@ export type PlayedAlbumItem = LibraryTileItem & {
 
 /**
  * Joins PlayHistory aggregates against LibraryItem so we can render the
- * existing tile component. Albums no longer in the library (e.g. removed
- * after being played) are filtered out — there's nothing to navigate to.
+ * existing tile component. Albums no longer in the viewer's library (removed
+ * after being played, or never in their slice) are filtered out — there's
+ * nothing to navigate to.
  */
 async function joinPlayedAlbumsWithLibrary(
   rows: { albumMbid: string; lastPlayedAt: Date; playCount: number }[],
+  viewer: LibraryViewer,
 ): Promise<PlayedAlbumItem[]> {
   if (rows.length === 0) return [];
   const items = await prisma.libraryItem.findMany({
-    where: { mbid: { in: rows.map((r) => r.albumMbid) } },
+    where: {
+      ...libraryWhereForViewer(viewer),
+      mbid: { in: rows.map((r) => r.albumMbid) },
+    },
     select: {
       mbid: true,
       status: true,
@@ -85,6 +91,7 @@ async function joinPlayedAlbumsWithLibrary(
 export async function getRecentlyPlayedAlbums(
   userId: string,
   limit = 12,
+  viewer: LibraryViewer = { id: userId },
 ): Promise<PlayedAlbumItem[]> {
   const groups = await prisma.playHistory.groupBy({
     by: ["albumMbid"],
@@ -104,12 +111,13 @@ export async function getRecentlyPlayedAlbums(
       },
     ];
   });
-  return joinPlayedAlbumsWithLibrary(rows);
+  return joinPlayedAlbumsWithLibrary(rows, viewer);
 }
 
 export async function getMostPlayedAlbums(
   userId: string,
   limit = 12,
+  viewer: LibraryViewer = { id: userId },
 ): Promise<PlayedAlbumItem[]> {
   const groups = await prisma.playHistory.groupBy({
     by: ["albumMbid"],
@@ -129,5 +137,5 @@ export async function getMostPlayedAlbums(
       },
     ];
   });
-  return joinPlayedAlbumsWithLibrary(rows);
+  return joinPlayedAlbumsWithLibrary(rows, viewer);
 }

@@ -28,6 +28,8 @@ export default async function SearchPage({
     redirect("/login");
   }
   const userId = session.user.id;
+  const role = (session.user as { role?: string }).role;
+  const viewer = { id: userId, role };
 
   const { q } = await searchParams;
   const query = q?.trim() ?? "";
@@ -44,7 +46,7 @@ export default async function SearchPage({
   }
 
   const [library, recent, likedAlbums] = await Promise.all([
-    buildLibraryIndex(),
+    buildLibraryIndex(viewer),
     query ? Promise.resolve([]) : getRecentSearches(userId),
     getLikedSet(
       userId,

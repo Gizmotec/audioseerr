@@ -7,6 +7,7 @@ import {
   ListMusic,
   Settings as SettingsIcon,
   ShieldCheck,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { auth, signOut } from "@/auth";
@@ -52,6 +53,12 @@ export async function Sidebar() {
               icon={<ShieldCheck className="h-4 w-4" />}
             >
               Queue
+            </SidebarLink>
+            <SidebarLink
+              href="/admin/users"
+              icon={<Users className="h-4 w-4" />}
+            >
+              Users
             </SidebarLink>
             <SidebarLink
               href="/admin/settings"

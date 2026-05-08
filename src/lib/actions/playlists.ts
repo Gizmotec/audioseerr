@@ -17,6 +17,7 @@ import {
   moveTrack,
   removeTrackFromPlaylist,
   setPlaylistCover,
+  setPlaylistShared,
   updatePlaylist,
 } from "@/lib/playlists";
 
@@ -147,6 +148,22 @@ export async function deletePlaylistAction(
   try {
     await deletePlaylist(auth.userId, playlistId);
     revalidatePath("/playlists");
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: errorMessage(err) };
+  }
+}
+
+export async function setPlaylistSharedAction(
+  playlistId: string,
+  isShared: boolean,
+): Promise<Result> {
+  const auth = await requireUserId();
+  if (!auth.ok) return auth;
+  try {
+    await setPlaylistShared(auth.userId, playlistId, isShared);
+    revalidatePath("/playlists");
+    revalidatePath(`/playlists/${playlistId}`);
     return { ok: true };
   } catch (err) {
     return { ok: false, error: errorMessage(err) };

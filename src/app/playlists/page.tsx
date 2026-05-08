@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { getLikedSongsPlaylistSummary } from "@/lib/likes";
-import { listPlaylists } from "@/lib/playlists";
+import { listPlaylists, listSharedPlaylists } from "@/lib/playlists";
 import { isSetupComplete } from "@/lib/settings";
 import { CreatePlaylistInline } from "./CreatePlaylistInline";
 import { PlaylistTile } from "./PlaylistTile";
@@ -20,11 +20,12 @@ export default async function PlaylistsPage() {
     redirect("/login");
   }
 
-  const [likedSongs, playlists] = await Promise.all([
+  const [likedSongs, playlists, sharedPlaylists] = await Promise.all([
     getLikedSongsPlaylistSummary(userId),
     listPlaylists(userId),
+    listSharedPlaylists(userId),
   ]);
-  const allPlaylists = [likedSongs, ...playlists];
+  const ownPlaylists = [likedSongs, ...playlists];
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 md:px-6">
@@ -45,7 +46,7 @@ export default async function PlaylistsPage() {
         <CreatePlaylistInline />
       </header>
 
-      {allPlaylists.length === 0 ? (
+      {ownPlaylists.length === 0 ? (
         <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
           <ListMusic className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" />
           <p>No playlists yet.</p>
@@ -55,12 +56,33 @@ export default async function PlaylistsPage() {
         </div>
       ) : (
         <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-          {allPlaylists.map((p) => (
+          {ownPlaylists.map((p) => (
             <li key={p.id}>
               <PlaylistTile playlist={p} />
             </li>
           ))}
         </ul>
+      )}
+
+      {sharedPlaylists.length > 0 && (
+        <section className="mt-12 space-y-3">
+          <header>
+            <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
+              Shared with you
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Read-only — tracks you don&apos;t have in your library are listed
+              but won&apos;t play.
+            </p>
+          </header>
+          <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            {sharedPlaylists.map((p) => (
+              <li key={p.id}>
+                <PlaylistTile playlist={p} />
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
     </main>
   );

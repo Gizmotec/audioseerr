@@ -9,11 +9,13 @@ import {
   ImagePlus,
   Loader2,
   ListMusic,
+  Lock,
   Pause,
   Pencil,
   Play,
   Plus,
   Search,
+  Share2,
   Shuffle,
   Square,
   SquareCheck,
@@ -37,6 +39,7 @@ import {
   listAvailablePlaylistTracksAction,
   moveTrackAction,
   removeTrackAction,
+  setPlaylistSharedAction,
   uploadPlaylistCoverAction,
   updatePlaylistAction,
 } from "@/lib/actions/playlists";
@@ -60,6 +63,12 @@ type Props = {
   tracks: DetailTrack[];
   readOnly?: boolean;
   showEmptyState?: boolean;
+  /** Owner's username when the viewer isn't the owner — drives attribution line. */
+  ownerUsername?: string | null;
+  /** Show the Share toggle (true only for the real owner of a non-system playlist). */
+  canManageSharing?: boolean;
+  /** Initial shared flag for the toggle. */
+  initialShared?: boolean;
 };
 
 export function PlaylistDetail({
@@ -70,6 +79,9 @@ export function PlaylistDetail({
   tracks,
   readOnly = false,
   showEmptyState = true,
+  ownerUsername = null,
+  canManageSharing = false,
+  initialShared = false,
 }: Props) {
   const player = usePreviewPlayer();
   const router = useRouter();
@@ -162,6 +174,12 @@ export function PlaylistDetail({
               />
             )}
             <p className="text-sm text-muted-foreground">
+              {ownerUsername && (
+                <>
+                  by <span className="font-mono">{ownerUsername}</span>
+                  {" · "}
+                </>
+              )}
               {tracks.length} {tracks.length === 1 ? "track" : "tracks"}
               {tracks.length > playableCount && (
                 <>
@@ -205,6 +223,12 @@ export function PlaylistDetail({
             <Shuffle className="h-4 w-4" />
             Shuffle
           </button>
+          {canManageSharing && (
+            <ShareToggleButton
+              playlistId={playlistId}
+              initialShared={initialShared}
+            />
+          )}
           {!readOnly && (
             <DeletePlaylistButton playlistId={playlistId} name={initialName} />
           )}
@@ -933,6 +957,60 @@ function PlaylistTitle({
     >
       {initialName}
       <Pencil className="h-4 w-4 text-muted-foreground/0 transition-colors group-hover:text-muted-foreground" />
+    </button>
+  );
+}
+
+function ShareToggleButton({
+  playlistId,
+  initialShared,
+}: {
+  playlistId: string;
+  initialShared: boolean;
+}) {
+  const router = useRouter();
+  const [shared, setShared] = useState(initialShared);
+  const [pending, startTransition] = useTransition();
+
+  const toggle = () => {
+    const next = !shared;
+    setShared(next);
+    startTransition(async () => {
+      const res = await setPlaylistSharedAction(playlistId, next);
+      if (!res.ok) {
+        setShared(!next);
+        return;
+      }
+      router.refresh();
+    });
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      disabled={pending}
+      aria-pressed={shared}
+      title={
+        shared
+          ? "Shared — anyone signed in can view this playlist."
+          : "Private — only you can view this playlist."
+      }
+      className={cn(
+        "inline-flex h-10 items-center gap-1.5 rounded-md border px-3 text-sm transition-colors",
+        shared
+          ? "border-primary/40 bg-primary/10 text-foreground hover:bg-primary/15"
+          : "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground",
+      )}
+    >
+      {pending ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : shared ? (
+        <Share2 className="h-4 w-4" />
+      ) : (
+        <Lock className="h-4 w-4" />
+      )}
+      {shared ? "Shared" : "Private"}
     </button>
   );
 }

@@ -39,7 +39,9 @@ export default async function ArtistPage({ params }: { params: RouteParams }) {
   if (!userId) {
     redirect("/login");
   }
-  const isAdmin = (session.user as { role?: string }).role === "ADMIN";
+  const role = (session.user as { role?: string }).role;
+  const isAdmin = role === "ADMIN";
+  const viewer = { id: userId, role };
 
   const { mbid } = await params;
   const artist = await getArtist(mbid);
@@ -75,7 +77,7 @@ export default async function ArtistPage({ params }: { params: RouteParams }) {
           50,
         ).catch(() => [])
       : Promise.resolve([]),
-    buildLibraryIndex(),
+    buildLibraryIndex(viewer),
     prisma.request.findFirst({
       where: { requestedById: userId, mbid, type: "ARTIST" },
       orderBy: { requestedAt: "desc" },

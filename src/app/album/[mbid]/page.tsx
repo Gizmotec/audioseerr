@@ -39,7 +39,9 @@ export default async function AlbumPage({
   if (!userId) {
     redirect("/login");
   }
-  const isAdmin = (session?.user as { role?: string } | undefined)?.role === "ADMIN";
+  const role = (session?.user as { role?: string } | undefined)?.role;
+  const isAdmin = role === "ADMIN";
+  const viewer = { id: userId, role };
 
   const { mbid } = await params;
   const album = await getAlbum(mbid);
@@ -78,13 +80,13 @@ export default async function AlbumPage({
     existingTrackStatuses[request.mbid] ??= request.status as ExistingRequestStatus;
   }
 
-  // Whether Lidarr already knows about this album for any reason (added
-  // manually, or via a previous Audioseerr request from another user).
+  // Whether the viewer's slice of the library covers this album. Admin sees
+  // everything; regular users only see albums in their UserLibraryItem rows.
   // MBID first, then artist+title fallback because release-group MBIDs
   // diverge across MB / Last.fm / Lidarr for the same nominal album.
   const libraryHit =
-    (await getLibraryHit(album.mbid)) ??
-    (await getLibraryHitByName(album.artistName, album.title));
+    (await getLibraryHit(album.mbid, viewer)) ??
+    (await getLibraryHitByName(album.artistName, album.title, viewer));
   const libraryStatus = libraryHit?.status ?? null;
 
   // Deezer match runs in parallel-ish (MB call already happened), best-effort.

@@ -6,6 +6,7 @@ import { ShuffleLibraryButton } from "@/components/ShuffleLibraryButton";
 import { prisma } from "@/lib/db";
 import type { LibraryStatus } from "@/lib/library";
 import { isSetupComplete } from "@/lib/settings";
+import { libraryWhereForViewer } from "@/lib/userLibrary";
 import { LibraryView, type StatusFilter } from "./LibraryView";
 
 export const dynamic = "force-dynamic";
@@ -21,16 +22,20 @@ export default async function LibraryPage({
     redirect("/setup");
   }
   const session = await auth();
-  if (!session?.user) {
+  const userId = session?.user?.id;
+  if (!userId) {
     redirect("/login");
   }
-  const isAdmin = (session.user as { role?: string }).role === "ADMIN";
+  const role = (session.user as { role?: string }).role;
+  const isAdmin = role === "ADMIN";
   const { status } = await searchParams;
   const initialStatus = parseStatusFilter(status);
 
-  // Reads straight from LibraryItem — kept up to date every 15 min by the
-  // syncLibrary cron (see src/lib/jobs/syncLibrary.ts).
+  // Reads from LibraryItem (Lidarr-synced every 15 min) but scoped to the
+  // viewer's UserLibraryItem rows — admin sees everything, regular users see
+  // only what they've requested or had assigned to them.
   const rows = await prisma.libraryItem.findMany({
+    where: libraryWhereForViewer({ id: userId, role }),
     select: {
       mbid: true,
       status: true,

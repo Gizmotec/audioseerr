@@ -3,6 +3,7 @@ import { getLibraryHit, getLibraryHitByName } from "@/lib/library";
 import { listTracksByAlbum, type LidarrConfig } from "@/lib/lidarr";
 import { buildTrackFileLookup, type TrackFileLookup } from "@/lib/playback";
 import { getSettings } from "@/lib/settings";
+import type { LibraryViewer } from "@/lib/userLibrary";
 
 export type PlaylistSummary = {
   id: string;
@@ -12,6 +13,9 @@ export type PlaylistSummary = {
   coverUrls: string[];
   coverUrl: string | null;
   updatedAt: Date;
+  isShared: boolean;
+  ownerUsername: string | null;
+  isOwner: boolean;
   system?: "liked-songs";
 };
 
@@ -37,6 +41,9 @@ export type PlaylistDetail = {
   createdAt: Date;
   updatedAt: Date;
   tracks: PlaylistTrackRow[];
+  isShared: boolean;
+  ownerUsername: string | null;
+  isOwner: boolean;
   system?: "liked-songs";
 };
 
@@ -72,6 +79,7 @@ export async function listPlaylists(userId: string): Promise<PlaylistSummary[]> 
       description: true,
       coverUrl: true,
       updatedAt: true,
+      isShared: true,
       tracks: {
         select: { albumMbid: true, coverUrl: true },
         orderBy: { position: "asc" },
@@ -80,42 +88,94 @@ export async function listPlaylists(userId: string): Promise<PlaylistSummary[]> 
       _count: { select: { tracks: true } },
     },
   });
-  return rows.map((r) => {
-    const coverUrls: string[] = [];
-    const seen = new Set<string>();
-    for (const track of r.tracks) {
-      const url = track.coverUrl ?? coverUrlForReleaseGroup(track.albumMbid);
-      if (seen.has(url)) continue;
-      seen.add(url);
-      coverUrls.push(url);
-      if (coverUrls.length === 4) break;
-    }
-
-    return {
-      id: r.id,
-      name: r.name,
-      description: r.description,
-      trackCount: r._count.tracks,
-      coverUrls,
-      coverUrl: r.coverUrl ?? coverUrls[0] ?? null,
-      updatedAt: r.updatedAt,
-    };
-  });
+  return rows.map((r) => summarizePlaylist(r, { isOwner: true, ownerUsername: null }));
 }
 
-export async function getPlaylist(
-  userId: string,
-  playlistId: string,
-): Promise<PlaylistDetail | null> {
-  const row = await prisma.playlist.findFirst({
-    where: { id: playlistId, userId },
+/**
+ * Lists playlists shared by *other* users. Used for the "Shared with you"
+ * section on /playlists. Liked Songs is intentionally excluded (synthetic,
+ * per-user collection that doesn't have an owner relation).
+ */
+export async function listSharedPlaylists(
+  viewerUserId: string,
+): Promise<PlaylistSummary[]> {
+  const rows = await prisma.playlist.findMany({
+    where: { isShared: true, userId: { not: viewerUserId } },
+    orderBy: { updatedAt: "desc" },
     select: {
       id: true,
       name: true,
       description: true,
       coverUrl: true,
+      updatedAt: true,
+      isShared: true,
+      user: { select: { username: true } },
+      tracks: {
+        select: { albumMbid: true, coverUrl: true },
+        orderBy: { position: "asc" },
+        take: 24,
+      },
+      _count: { select: { tracks: true } },
+    },
+  });
+  return rows.map((r) =>
+    summarizePlaylist(r, { isOwner: false, ownerUsername: r.user.username }),
+  );
+}
+
+function summarizePlaylist(
+  r: {
+    id: string;
+    name: string;
+    description: string | null;
+    coverUrl: string | null;
+    updatedAt: Date;
+    isShared: boolean;
+    tracks: { albumMbid: string; coverUrl: string | null }[];
+    _count: { tracks: number };
+  },
+  ctx: { isOwner: boolean; ownerUsername: string | null },
+): PlaylistSummary {
+  const coverUrls: string[] = [];
+  const seen = new Set<string>();
+  for (const track of r.tracks) {
+    const url = track.coverUrl ?? coverUrlForReleaseGroup(track.albumMbid);
+    if (seen.has(url)) continue;
+    seen.add(url);
+    coverUrls.push(url);
+    if (coverUrls.length === 4) break;
+  }
+
+  return {
+    id: r.id,
+    name: r.name,
+    description: r.description,
+    trackCount: r._count.tracks,
+    coverUrls,
+    coverUrl: r.coverUrl ?? coverUrls[0] ?? null,
+    updatedAt: r.updatedAt,
+    isShared: r.isShared,
+    isOwner: ctx.isOwner,
+    ownerUsername: ctx.ownerUsername,
+  };
+}
+
+export async function getPlaylist(
+  viewerUserId: string,
+  playlistId: string,
+): Promise<PlaylistDetail | null> {
+  const row = await prisma.playlist.findUnique({
+    where: { id: playlistId },
+    select: {
+      id: true,
+      userId: true,
+      name: true,
+      description: true,
+      coverUrl: true,
       createdAt: true,
       updatedAt: true,
+      isShared: true,
+      user: { select: { username: true } },
       tracks: {
         orderBy: { position: "asc" },
         select: {
@@ -135,6 +195,10 @@ export async function getPlaylist(
     },
   });
   if (!row) return null;
+  // Visibility: owner always sees their playlist; non-owner only when the
+  // playlist is shared.
+  const isOwner = row.userId === viewerUserId;
+  if (!isOwner && !row.isShared) return null;
   return {
     id: row.id,
     name: row.name,
@@ -142,6 +206,9 @@ export async function getPlaylist(
     coverUrl: row.coverUrl,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+    isShared: row.isShared,
+    isOwner,
+    ownerUsername: isOwner ? null : row.user.username,
     tracks: row.tracks.map((track) => ({
       ...track,
       coverUrl: track.coverUrl ?? coverUrlForReleaseGroup(track.albumMbid),
@@ -223,6 +290,21 @@ export async function deletePlaylist(
   // Scope by userId so a forged id from another user does nothing.
   const result = await prisma.playlist.deleteMany({
     where: { id: playlistId, userId },
+  });
+  if (result.count === 0) throw new Error("Playlist not found.");
+}
+
+/**
+ * Toggle the share flag on a playlist. Only the owner can change it.
+ */
+export async function setPlaylistShared(
+  userId: string,
+  playlistId: string,
+  isShared: boolean,
+): Promise<void> {
+  const result = await prisma.playlist.updateMany({
+    where: { id: playlistId, userId },
+    data: { isShared },
   });
   if (result.count === 0) throw new Error("Playlist not found.");
 }
@@ -497,6 +579,7 @@ export async function listAvailablePlaylistTracks(): Promise<
  */
 export async function resolvePlaylistTrackFiles(
   rows: Pick<PlaylistTrackRow, "id" | "albumMbid" | "albumPosition" | "trackFileId" | "artistName" | "albumTitle">[],
+  viewer?: LibraryViewer,
 ): Promise<Map<string, number | null>> {
   const out = new Map<string, number | null>();
   if (rows.length === 0) return out;
@@ -530,10 +613,12 @@ export async function resolvePlaylistTrackFiles(
   await Promise.all(
     Array.from(albumKeys.values()).map(async (info) => {
       try {
+        // Pass viewer through so a shared playlist played by someone without
+        // UserLibraryItem coverage gets a null lookup → row renders unplayable.
         const hit =
-          (await getLibraryHit(info.albumMbid)) ??
+          (await getLibraryHit(info.albumMbid, viewer)) ??
           (info.albumTitle
-            ? await getLibraryHitByName(info.artistName, info.albumTitle)
+            ? await getLibraryHitByName(info.artistName, info.albumTitle, viewer)
             : null);
         if (!hit) {
           albumLookups.set(info.albumMbid, null);

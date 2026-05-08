@@ -28,6 +28,7 @@ import {
 } from "@/lib/playHistory";
 import { listPlaylists } from "@/lib/playlists";
 import { isSetupComplete } from "@/lib/settings";
+import { libraryWhereForViewer } from "@/lib/userLibrary";
 
 export const dynamic = "force-dynamic";
 
@@ -47,11 +48,13 @@ export default async function HomePage() {
   if (!userId) {
     redirect("/login");
   }
+  const role = (session.user as { role?: string }).role;
+  const viewer = { id: userId, role };
 
   const [libraryRows, likedSongs, playlists, recentlyPlayed, mostPlayed] =
     await Promise.all([
       prisma.libraryItem.findMany({
-        where: { status: "downloaded" },
+        where: { ...libraryWhereForViewer(viewer), status: "downloaded" },
         select: {
           mbid: true,
           status: true,
@@ -65,8 +68,8 @@ export default async function HomePage() {
       }),
       getLikedSongsPlaylistSummary(userId),
       listPlaylists(userId),
-      getRecentlyPlayedAlbums(userId, 10),
-      getMostPlayedAlbums(userId, 10),
+      getRecentlyPlayedAlbums(userId, 10, viewer),
+      getMostPlayedAlbums(userId, 10, viewer),
     ]);
 
   const libraryItems: (LibraryTileItem & { lastSyncedAt: Date })[] =

@@ -1,4 +1,4 @@
-import { Heart, ListMusic } from "lucide-react";
+import { Heart, ListMusic, Share2 } from "lucide-react";
 import Link from "next/link";
 import type { PlaylistSummary } from "@/lib/playlists";
 
@@ -50,10 +50,19 @@ export function PlaylistTile({ playlist }: { playlist: PlaylistSummary }) {
         )}
       </div>
       <div className="space-y-0.5">
-        <p className="truncate text-sm font-medium leading-snug" title={playlist.name}>
+        <p className="flex items-center gap-1.5 truncate text-sm font-medium leading-snug" title={playlist.name}>
           {playlist.name}
+          {playlist.isOwner && playlist.isShared && (
+            <Share2
+              className="h-3 w-3 shrink-0 text-muted-foreground"
+              aria-label="Shared"
+            />
+          )}
         </p>
         <p className="truncate text-xs text-muted-foreground">
+          {playlist.ownerUsername ? (
+            <>by <span className="font-mono">{playlist.ownerUsername}</span> · </>
+          ) : null}
           {playlist.trackCount} {playlist.trackCount === 1 ? "track" : "tracks"}
         </p>
       </div>

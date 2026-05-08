@@ -131,6 +131,9 @@ export async function getLikedSongsPlaylistSummary(
     coverUrls,
     coverUrl: coverUrls[0] ?? null,
     updatedAt: rows[0]?.createdAt ?? new Date(0),
+    isShared: false,
+    isOwner: true,
+    ownerUsername: null,
     system: "liked-songs",
   };
 }
@@ -198,6 +201,9 @@ export async function getLikedSongsPlaylist(
     createdAt: rows.at(-1)?.createdAt ?? new Date(0),
     updatedAt: rows[0]?.createdAt ?? new Date(0),
     tracks,
+    isShared: false,
+    isOwner: true,
+    ownerUsername: null,
     system: "liked-songs",
   };
 }

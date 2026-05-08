@@ -8,6 +8,7 @@ import {
 } from "@/lib/lidarr";
 import { getTorrent, type QBittorrentConfig } from "@/lib/qbittorrent";
 import { getSettings } from "@/lib/settings";
+import { attachLibraryItemToUser } from "@/lib/userLibrary";
 import type { RequestStatus } from "@prisma/client";
 
 let running = false;
@@ -99,6 +100,16 @@ export async function syncActiveRequests(): Promise<{
             where: { id: req.id },
             data: { status: next },
           });
+          // Album just became playable — attach the requester to it so the
+          // album shows up in their /library and unlocks streaming. The
+          // syncLibrary job upserts LibraryItem before this runs, so the FK
+          // target exists.
+          if (next === "AVAILABLE") {
+            await attachLibraryItemToUser(req.requestedById, req.mbid).catch(() => {
+              // Don't fail the cycle if the LibraryItem hasn't been synced
+              // yet on this tick — next sync will catch up.
+            });
+          }
           changed++;
         }
       } catch {
@@ -117,6 +128,12 @@ export async function syncActiveRequests(): Promise<{
             where: { id: req.id },
             data: { status: "AVAILABLE" },
           });
+          // Track download landed — attach the requester to the parent album
+          // so it shows up in their library. albumMbid is set by track
+          // requests; if it's missing (legacy rows), skip silently.
+          if (req.albumMbid) {
+            await attachLibraryItemToUser(req.requestedById, req.albumMbid).catch(() => {});
+          }
           changed++;
         }
       } catch {

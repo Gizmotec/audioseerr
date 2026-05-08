@@ -44,10 +44,35 @@ export async function approveRequestAction(requestId: string): Promise<ActionRes
   }
 
   const settings = await getSettings();
+  const result = await executeRequestApproval(request, settings);
+  if (result.ok) {
+    revalidatePath("/admin/requests");
+    revalidatePath("/requests");
+    revalidatePath(`/album/${request.albumMbid ?? request.mbid}`);
+  }
+  return result;
+}
+
+/**
+ * Push a request through to Lidarr/Prowlarr without admin gating. Used by
+ * `approveRequestAction` (admin path) and by the user-side request flow when
+ * `user.autoApprove` is on. Mutates request.status to APPROVED/DOWNLOADING/
+ * FAILED depending on the outcome.
+ */
+export async function executeRequestApproval(
+  request: Request,
+  settings: SettingsView,
+): Promise<ActionResult> {
   if (request.type === "TRACK") {
     return approveTrackRequest(request, settings);
   }
+  return pushAlbumOrArtistToLidarr(request, settings);
+}
 
+async function pushAlbumOrArtistToLidarr(
+  request: Request,
+  settings: SettingsView,
+): Promise<ActionResult> {
   if (
     !settings.lidarrUrl ||
     !settings.lidarrApiKey ||
@@ -133,9 +158,6 @@ export async function approveRequestAction(requestId: string): Promise<ActionRes
     return { ok: false, error: msg };
   }
 
-  revalidatePath("/admin/requests");
-  revalidatePath("/requests");
-  revalidatePath(`/album/${request.mbid}`);
   return { ok: true };
 }
 

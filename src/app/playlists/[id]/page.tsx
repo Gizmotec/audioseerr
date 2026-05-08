@@ -30,6 +30,8 @@ export default async function PlaylistPage({ params }: { params: RouteParams }) 
   if (!userId) {
     redirect("/login");
   }
+  const role = (session.user as { role?: string }).role;
+  const viewer = { id: userId, role };
 
   const { id } = await params;
   const allLikes =
@@ -45,10 +47,11 @@ export default async function PlaylistPage({ params }: { params: RouteParams }) 
       : await getPlaylist(userId, id);
   if (!playlist) notFound();
 
-  // Resolve every row to a current Lidarr trackFileId once at SSR. The client
-  // uses this to render unavailable rows greyed out and to feed the player a
-  // queue of correct stream URLs without per-click round-trips.
-  const resolved = await resolvePlaylistTrackFiles(playlist.tracks);
+  // Resolve every row to a current Lidarr trackFileId once at SSR. Pass the
+  // viewer so a shared playlist played by a non-owner only resolves rows
+  // covered by their UserLibraryItem; other rows get null and render
+  // unplayable. The client also renders that as "unavailable."
+  const resolved = await resolvePlaylistTrackFiles(playlist.tracks, viewer);
   const tracksWithStream = playlist.tracks.map((t) => {
     const fileId = resolved.get(t.id) ?? null;
     return {
@@ -72,8 +75,11 @@ export default async function PlaylistPage({ params }: { params: RouteParams }) 
         description={playlist.description}
         coverUrl={playlist.coverUrl}
         tracks={tracksWithStream}
-        readOnly={playlist.system === "liked-songs"}
+        readOnly={playlist.system === "liked-songs" || !playlist.isOwner}
         showEmptyState={!hasLikedCollections}
+        ownerUsername={playlist.ownerUsername}
+        canManageSharing={playlist.isOwner && playlist.system !== "liked-songs"}
+        initialShared={playlist.isShared}
       />
 
       {likedAlbums.length > 0 && (

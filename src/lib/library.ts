@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { prisma } from "@/lib/db";
+import { libraryWhereForViewer, type LibraryViewer } from "@/lib/userLibrary";
 
 export type LibraryStatus = "downloaded" | "downloading" | "missing";
 
@@ -49,19 +50,27 @@ export type LibraryIndex = {
  * Last.fm and Lidarr frequently disagree on which release-group MBID is
  * canonical (e.g. Taylor Swift's "1989" exists as several release-groups),
  * so we fall back to a normalized artist+title key whenever the MBID misses.
+ *
+ * Pass `viewer` to scope the index to that user's library; omit (or pass an
+ * admin viewer) to get the global view. Discover/recommendations use the
+ * unscoped form so new users still see informational "in library" badges
+ * for things on the server.
  */
-export const buildLibraryIndex = cache(async (): Promise<LibraryIndex> => {
-  const rows = await prisma.libraryItem.findMany({
-    select: {
-      mbid: true,
-      lidarrId: true,
-      artistName: true,
-      title: true,
-      status: true,
-      trackFileCount: true,
-      totalTrackCount: true,
-    },
-  });
+export const buildLibraryIndex = cache(
+  async (viewer?: LibraryViewer): Promise<LibraryIndex> => {
+    const where = viewer ? libraryWhereForViewer(viewer) : {};
+    const rows = await prisma.libraryItem.findMany({
+      where,
+      select: {
+        mbid: true,
+        lidarrId: true,
+        artistName: true,
+        title: true,
+        status: true,
+        trackFileCount: true,
+        totalTrackCount: true,
+      },
+    });
 
   const byMbid = new Map<string, LibraryHit>();
   const byName = new Map<string, LibraryHit>();
@@ -79,20 +88,27 @@ export const buildLibraryIndex = cache(async (): Promise<LibraryIndex> => {
     byName.set(key, existing ? preferHit(hit, existing) : hit);
   }
 
-  return {
-    lookup({ mbid, artistName, title }) {
-      if (mbid) {
-        const direct = byMbid.get(mbid);
-        if (direct) return direct;
-      }
-      return byName.get(nameKey(artistName, title)) ?? null;
-    },
-  };
-});
+    return {
+      lookup({ mbid, artistName, title }) {
+        if (mbid) {
+          const direct = byMbid.get(mbid);
+          if (direct) return direct;
+        }
+        return byName.get(nameKey(artistName, title)) ?? null;
+      },
+    };
+  },
+);
 
-export async function getLibraryHit(mbid: string): Promise<LibraryHit | null> {
-  const row = await prisma.libraryItem.findUnique({
-    where: { mbid },
+export async function getLibraryHit(
+  mbid: string,
+  viewer?: LibraryViewer,
+): Promise<LibraryHit | null> {
+  const where = viewer
+    ? { ...libraryWhereForViewer(viewer), mbid }
+    : { mbid };
+  const row = await prisma.libraryItem.findFirst({
+    where,
     select: {
       lidarrId: true,
       status: true,
@@ -113,8 +129,11 @@ export async function getLibraryHit(mbid: string): Promise<LibraryHit | null> {
 export async function getLibraryHitByName(
   artistName: string,
   title: string,
+  viewer?: LibraryViewer,
 ): Promise<LibraryHit | null> {
+  const where = viewer ? libraryWhereForViewer(viewer) : {};
   const rows = await prisma.libraryItem.findMany({
+    where,
     select: {
       lidarrId: true,
       artistName: true,
