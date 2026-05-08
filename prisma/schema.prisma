@@ -139,8 +139,6 @@ model Settings {
   // Lidarr writes to /music but Audioseerr mounts the library at /data).
   // Empty/null means no remapping.
   mediaPathMap           String?
-  requireApproval        Boolean @default(true)
-  registrationMode       String  @default("CLOSED")
   setupComplete          Boolean @default(false)
 }
 

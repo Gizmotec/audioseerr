@@ -35,8 +35,6 @@ type Initial = {
   trackTorrentMaxSizeMb: number;
   lastFmApiKey: string;
   mediaPathMap: string;
-  registrationMode: string;
-  requireApproval: boolean;
 };
 
 type EnvFlags = {
@@ -127,8 +125,6 @@ export function SettingsForm({
   // Other settings.
   const [lastFmApiKey, setLastFmApiKey] = useState(initial.lastFmApiKey);
   const [mediaPathMap, setMediaPathMap] = useState(initial.mediaPathMap);
-  const [registrationMode, setRegistrationMode] = useState(initial.registrationMode);
-  const [requireApproval, setRequireApproval] = useState(initial.requireApproval);
 
   async function probe() {
     setProbing(true);
@@ -242,8 +238,6 @@ export function SettingsForm({
         trackTorrentMaxSizeMb,
         lastFmApiKey,
         mediaPathMap,
-        registrationMode,
-        requireApproval,
       });
       if (!res.ok) {
         setError(res.error);
@@ -595,48 +589,6 @@ export function SettingsForm({
             onChange={(e) => setLastFmApiKey(e.target.value)}
             placeholder="Optional — enables tag charts and genre browsing"
           />
-        </CardContent>
-      </Card>
-
-      {/* Requests */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Requests &amp; users</CardTitle>
-          <CardDescription>
-            How requests get approved and who can sign up.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <div className="flex items-start gap-3">
-            <input
-              type="checkbox"
-              id="requireApproval"
-              className="mt-1"
-              checked={requireApproval}
-              onChange={(e) => setRequireApproval(e.target.checked)}
-            />
-            <div>
-              <Label htmlFor="requireApproval" className="cursor-pointer">
-                Require admin approval for requests
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                When off, requests are auto-approved and sent straight to Lidarr.
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="registrationMode">Registration</Label>
-            <select
-              id="registrationMode"
-              className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm dark:bg-input/30 md:w-64"
-              value={registrationMode}
-              onChange={(e) => setRegistrationMode(e.target.value)}
-            >
-              <option value="CLOSED">Closed (admin creates accounts)</option>
-              <option value="OPEN">Open (anyone with the URL)</option>
-            </select>
-          </div>
         </CardContent>
       </Card>
 

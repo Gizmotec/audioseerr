@@ -54,10 +54,6 @@ const saveInput = z.object({
     .max(2000, "Track torrent size cap must be 2000 MB or lower."),
   lastFmApiKey: z.string(),
   mediaPathMap: z.string(),
-  registrationMode: z.enum(["CLOSED", "OPEN"]),
-  requireApproval: z.union([z.boolean(), z.literal("on"), z.literal("")]).transform(
-    (v) => v === true || v === "on",
-  ),
 });
 
 export type SaveResult = { ok: true } | { ok: false; error: string };
@@ -150,8 +146,6 @@ export async function saveAdminSettingsAction(
     trackTorrentMaxSizeMb: data.trackTorrentMaxSizeMb,
     lastFmApiKey: data.lastFmApiKey.trim() ? data.lastFmApiKey.trim() : null,
     mediaPathMap: data.mediaPathMap.trim() ? data.mediaPathMap.trim() : null,
-    registrationMode: data.registrationMode,
-    requireApproval: data.requireApproval,
   });
 
   revalidatePath("/admin/settings");

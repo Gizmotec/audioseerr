@@ -347,7 +347,6 @@ function LidarrStep({
 
 const finishSchema = z.object({
   lastFmApiKey: z.string().optional(),
-  registrationMode: z.enum(["CLOSED", "OPEN"]),
 });
 
 type FinishForm = z.infer<typeof finishSchema>;
@@ -369,7 +368,7 @@ function FinishStep({
     formState: { isSubmitting },
   } = useForm<FinishForm>({
     resolver: zodResolver(finishSchema),
-    defaultValues: { lastFmApiKey: "", registrationMode: "CLOSED" },
+    defaultValues: { lastFmApiKey: "" },
   });
 
   const onSubmit = handleSubmit(async (values) => {
@@ -383,7 +382,6 @@ function FinishStep({
         rootFolderPath: lidarr.rootFolderPath,
       },
       lastFmApiKey: values.lastFmApiKey,
-      registrationMode: values.registrationMode,
     });
     if (!result.ok) {
       setServerError(result.error);
@@ -396,10 +394,11 @@ function FinishStep({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Last.fm and access</CardTitle>
+        <CardTitle>Last.fm</CardTitle>
         <CardDescription>
           Last.fm powers charts and similar-artist data. Optional, but discovery is much
-          better with it.
+          better with it. After setup, you can invite additional users from
+          /admin/users.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -410,18 +409,6 @@ function FinishStep({
               Get one free at last.fm/api/account/create.
             </p>
           </Field>
-
-          <div className="space-y-2">
-            <Label htmlFor="registrationMode">Who can sign up?</Label>
-            <select
-              id="registrationMode"
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-              {...register("registrationMode")}
-            >
-              <option value="CLOSED">Closed — admin creates accounts</option>
-              <option value="OPEN">Open — anyone can register</option>
-            </select>
-          </div>
 
           {serverError && (
             <p className="text-sm text-destructive" role="alert">

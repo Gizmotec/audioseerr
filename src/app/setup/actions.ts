@@ -87,7 +87,6 @@ const finalizeInput = z.object({
     rootFolderPath: z.string().min(1),
   }),
   lastFmApiKey: z.string().optional().or(z.literal("")),
-  registrationMode: z.enum(["CLOSED", "OPEN"]),
 });
 
 export async function finalizeSetupAction(
@@ -101,7 +100,7 @@ export async function finalizeSetupAction(
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
-  const { admin, lidarr, lastFmApiKey, registrationMode } = parsed.data;
+  const { admin, lidarr, lastFmApiKey } = parsed.data;
 
   const usernameTaken = await prisma.user.findUnique({ where: { username: admin.username } });
   if (usernameTaken) return { ok: false, error: "Username already in use." };
@@ -128,7 +127,6 @@ export async function finalizeSetupAction(
     lidarrDefaultProfileId: lidarr.qualityProfileId,
     lidarrRootFolderPath: lidarr.rootFolderPath,
     lastFmApiKey: lastFmApiKey?.trim() ? lastFmApiKey.trim() : null,
-    registrationMode,
     setupComplete: true,
   });
 

@@ -3,8 +3,6 @@ import { decrypt, encrypt } from "@/lib/encryption";
 
 export type SettingsView = {
   setupComplete: boolean;
-  requireApproval: boolean;
-  registrationMode: string;
   lidarrUrl: string | null;
   lidarrApiKey: string | null;
   lidarrDefaultProfileId: number | null;
@@ -30,8 +28,6 @@ export async function getSettings(): Promise<SettingsView> {
 
   return {
     setupComplete: row.setupComplete,
-    requireApproval: row.requireApproval,
-    registrationMode: row.registrationMode,
     lidarrUrl: row.lidarrUrl,
     lidarrApiKey: row.lidarrApiKey ? decrypt(row.lidarrApiKey) : null,
     lidarrDefaultProfileId: row.lidarrDefaultProfileId,
@@ -66,8 +62,6 @@ export type SettingsUpdate = {
   trackTorrentMaxSizeMb?: number;
   lastFmApiKey?: string | null;
   mediaPathMap?: string | null;
-  registrationMode?: string;
-  requireApproval?: boolean;
   setupComplete?: boolean;
 };
 

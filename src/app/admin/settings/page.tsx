@@ -142,8 +142,8 @@ export default async function AdminSettingsPage() {
       <header className="mt-4 mb-8">
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
         <p className="text-sm text-muted-foreground">
-          Lidarr connection, library paths, registration policy, and discovery
-          API keys. Changes apply immediately — no restart needed.
+          Lidarr connection, library paths, and discovery API keys. Changes
+          apply immediately — no restart needed.
         </p>
       </header>
 
@@ -166,8 +166,6 @@ export default async function AdminSettingsPage() {
           trackTorrentMaxSizeMb: settings.trackTorrentMaxSizeMb,
           lastFmApiKey: settings.lastFmApiKey ?? "",
           mediaPathMap: settings.mediaPathMap ?? "",
-          registrationMode: settings.registrationMode,
-          requireApproval: settings.requireApproval,
         }}
         profiles={profiles}
         rootFolders={rootFolders}
