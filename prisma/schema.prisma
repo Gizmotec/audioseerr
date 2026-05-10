@@ -53,6 +53,15 @@ model User {
   autoApproveAlbum  Boolean @default(false)
   autoApproveTrack  Boolean @default(false)
   requestQuota Int       @default(20)
+  // Per-user Spotify OAuth credentials. Each user registers their own Spotify
+  // app (sidesteps the 25-user dev-mode cap that a single shared app would
+  // hit) and pastes its Client ID here, then completes the OAuth dance.
+  // PKCE flow — no client secret needed. Tokens are AES-256-GCM encrypted
+  // via src/lib/encryption.ts.
+  spotifyClientId       String?
+  spotifyAccessToken    String?
+  spotifyRefreshToken   String?
+  spotifyTokenExpiresAt DateTime?
   createdAt    DateTime  @default(now())
   requests     Request[]
   likes        Like[]
@@ -62,6 +71,7 @@ model User {
   invitesCreated Invite[] @relation("InvitesCreated")
   invitesUsed    Invite[] @relation("InvitesUsed")
   libraryItems   UserLibraryItem[]
+  spotifyImports SpotifyPlaylistImport[]
 }
 
 model Request {
@@ -140,6 +150,21 @@ model Settings {
   // Empty/null means no remapping.
   mediaPathMap           String?
   setupComplete          Boolean @default(false)
+}
+
+// Snapshot of a Spotify playlist's track IDs at the time of the user's last
+// import. Used to badge "X new tracks since last import" when re-previewing
+// the same playlist. trackIdsJson is a stringified JSON array of Spotify
+// track IDs (SQLite has no native array type).
+model SpotifyPlaylistImport {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  playlistId     String
+  trackIdsJson   String
+  lastImportedAt DateTime @default(now())
+
+  @@unique([userId, playlistId])
 }
 
 model ApiCache {

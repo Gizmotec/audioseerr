@@ -1,6 +1,7 @@
 import {
   Bug,
   Compass,
+  Download,
   Home,
   Inbox,
   Library,
@@ -43,6 +44,9 @@ export async function Sidebar() {
         <SidebarLink href="/requests" icon={<Inbox className="h-4 w-4" />}>
           My requests
         </SidebarLink>
+        <SidebarLink href="/import/spotify" icon={<Download className="h-4 w-4" />}>
+          Import
+        </SidebarLink>
         <SidebarLink href="/bug-report" icon={<Bug className="h-4 w-4" />}>
           Bug report
         </SidebarLink>
@@ -76,12 +80,18 @@ export async function Sidebar() {
           <span className="font-mono text-foreground">{session.user.name}</span>
           {role === "ADMIN" ? " · admin" : ""}
         </p>
+        <Link
+          href="/account"
+          className="mt-2 block rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
+        >
+          Account
+        </Link>
         <form
           action={async () => {
             "use server";
             await signOut({ redirectTo: "/login" });
           }}
-          className="mt-2"
+          className="mt-1"
         >
           <Button
             variant="ghost"
