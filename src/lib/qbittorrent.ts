@@ -8,7 +8,6 @@ export type AddTorrentInput = {
   url?: string;
   file?: Blob;
   fileName?: string;
-  expectedName?: string;
   category?: string | null;
   savePath?: string | null;
   tags?: string | null;
@@ -175,17 +174,32 @@ export async function addTorrent(
 ): Promise<AddTorrentResult> {
   const sid = await login(config);
   await ensureCategory(config, sid, input.category, input.savePath);
+
+  // Snapshot every existing torrent hash so we can spot the new one without
+  // relying on category/tag filters or fuzzy name matches (both of which the
+  // earlier Codex implementation got wrong).
+  const beforeHashes = await getAllTorrentHashes(config, sid);
+  const expectedHash = input.url ? extractMagnetInfoHash(input.url) : null;
+
   const form = new FormData();
   if (input.url) {
     form.set("urls", input.url);
   }
   if (input.file) {
-    form.set("torrents", input.file, input.fileName ?? "release.torrent");
+    // Force application/x-bittorrent on the multipart part — Prowlarr blobs
+    // sometimes come through as application/octet-stream and at least one
+    // qBittorrent build is picky about it.
+    const bytes = await input.file.arrayBuffer();
+    const blob = new Blob([bytes], { type: "application/x-bittorrent" });
+    form.set("torrents", blob, input.fileName ?? "release.torrent");
   }
   if (input.category) form.set("category", input.category);
   if (input.savePath) form.set("savepath", input.savePath);
   if (input.tags) form.set("tags", input.tags);
+  // `paused` covers qBittorrent 4.x; `stopped` is the 5.x rename. Sending both
+  // is harmless on either version.
   form.set("paused", "false");
+  form.set("stopped", "false");
   form.set("root_folder", "false");
 
   const res = await fetch(buildUrl(config.url, "/api/v2/torrents/add"), {
@@ -202,26 +216,90 @@ export async function addTorrent(
     );
   }
 
-  try {
-    const parsed = JSON.parse(text) as { added_torrent_ids?: string[] };
-    const hash = parsed.added_torrent_ids?.[0] ?? null;
-    if (hash) return { hash };
-  } catch {
-    // qBittorrent 4.x returns plain text "Ok." instead of JSON.
-  }
-
-  const torrent = await waitForAddedTorrent(config, {
-    category: input.category,
-    tags: input.tags,
-    expectedName: input.expectedName ?? input.fileName,
-  });
+  const torrent = await pollForNewTorrent(config, sid, beforeHashes, expectedHash);
   if (!torrent) {
+    const detail = expectedHash
+      ? ` Expected hash ${expectedHash} did not appear`
+      : "";
+    const hint = expectedHash
+      ? " — the torrent might already be in qBittorrent (duplicates are silently ignored), or the magnet's info_hash was rejected."
+      : " — the .torrent file may already exist, be invalid, or have been silently dropped. Check the qBittorrent log.";
+    console.error(
+      "[qbittorrent] add accepted but no new torrent appeared",
+      JSON.stringify({
+        response: text.trim(),
+        expectedHash,
+        beforeCount: beforeHashes.size,
+        usedMagnet: !!input.url,
+        usedFile: !!input.file,
+        category: input.category ?? null,
+        tags: input.tags ?? null,
+      }),
+    );
     throw new QBittorrentError(
       200,
-      "qBittorrent accepted the add request but no torrent appeared in the transfer list.",
+      `qBittorrent accepted the add request but no new torrent appeared.${detail}${hint}`,
     );
   }
   return { hash: torrent.hash };
+}
+
+function extractMagnetInfoHash(url: string): string | null {
+  if (!/^magnet:/i.test(url)) return null;
+  const match = url.match(/[?&]xt=urn:btih:([a-zA-Z0-9]+)/i);
+  if (!match) return null;
+  const value = match[1].toLowerCase();
+  // qBittorrent's info endpoint returns 40-char hex hashes. Accept hex
+  // directly; skip base32 (32 chars) since converting it just to verify is
+  // not worth the dependency.
+  return /^[a-f0-9]{40}$/.test(value) ? value : null;
+}
+
+async function getAllTorrentHashes(
+  config: QBittorrentConfig,
+  sid: string,
+): Promise<Set<string>> {
+  const res = await fetch(buildUrl(config.url, "/api/v2/torrents/info"), {
+    headers: { Cookie: sid, Accept: "application/json" },
+  });
+  if (!res.ok) {
+    throw new QBittorrentError(
+      res.status,
+      `qBittorrent info -> HTTP ${res.status}`,
+    );
+  }
+  const torrents = (await res.json()) as { hash: string }[];
+  return new Set(torrents.map((t) => t.hash.toLowerCase()));
+}
+
+async function pollForNewTorrent(
+  config: QBittorrentConfig,
+  sid: string,
+  beforeHashes: Set<string>,
+  expectedHash: string | null,
+): Promise<QBittorrentTorrent | null> {
+  // Up to ~12 seconds — long enough for qBittorrent to settle the metadata
+  // entry without making a stuck add hang the approval round-trip forever.
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const res = await fetch(buildUrl(config.url, "/api/v2/torrents/info"), {
+      headers: { Cookie: sid, Accept: "application/json" },
+    });
+    if (res.ok) {
+      const torrents = (await res.json()) as QBittorrentTorrent[];
+      if (expectedHash) {
+        const exact = torrents.find(
+          (t) => t.hash.toLowerCase() === expectedHash,
+        );
+        if (exact) return exact;
+      }
+      const fresh = torrents.find(
+        (t) => !beforeHashes.has(t.hash.toLowerCase()),
+      );
+      if (fresh) return fresh;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  return null;
 }
 
 export async function getTorrent(
@@ -238,61 +316,6 @@ export async function getTorrent(
   }
   const torrents = (await res.json()) as QBittorrentTorrent[];
   return torrents[0] ?? null;
-}
-
-async function listTorrents(
-  config: QBittorrentConfig,
-  filter: { category?: string | null; tag?: string | null } = {},
-): Promise<QBittorrentTorrent[]> {
-  const sid = await login(config);
-  const params = new URLSearchParams();
-  if (filter.category?.trim()) params.set("category", filter.category.trim());
-  if (filter.tag?.trim()) params.set("tag", filter.tag.trim());
-  const suffix = params.size > 0 ? `?${params}` : "";
-  const res = await fetch(buildUrl(config.url, `/api/v2/torrents/info${suffix}`), {
-    headers: { Cookie: sid, Accept: "application/json" },
-  });
-  if (!res.ok) {
-    throw new QBittorrentError(res.status, `qBittorrent info -> HTTP ${res.status}`);
-  }
-  return (await res.json()) as QBittorrentTorrent[];
-}
-
-async function waitForAddedTorrent(
-  config: QBittorrentConfig,
-  input: {
-    category?: string | null;
-    tags?: string | null;
-    expectedName?: string | null;
-  },
-): Promise<QBittorrentTorrent | null> {
-  const tag = input.tags?.split(",").map((t) => t.trim()).find(Boolean) ?? null;
-  const expected = normalizeName(input.expectedName ?? "");
-
-  for (let attempt = 0; attempt < 8; attempt += 1) {
-    const torrents = await listTorrents(config, {
-      category: input.category,
-      tag,
-    });
-    const matched =
-      torrents.find((torrent) => {
-        if (!expected) return false;
-        const name = normalizeName(torrent.name);
-        return name.includes(expected) || expected.includes(name);
-      }) ?? torrents.at(-1);
-    if (matched) return matched;
-    await new Promise((resolve) => setTimeout(resolve, 750));
-  }
-
-  return null;
-}
-
-function normalizeName(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/\.(torrent|mp3|flac|m4a|aac|ogg|opus|wav)$/i, "")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
 }
 
 export { QBittorrentError };
