@@ -1,4 +1,4 @@
-import { ArrowLeft, ListMusic } from "lucide-react";
+import { ArrowLeft, Download, ListMusic } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
@@ -43,7 +43,15 @@ export default async function PlaylistsPage() {
             Hand-picked tracks from albums in your Lidarr library.
           </p>
         </div>
-        <CreatePlaylistInline />
+        <div className="flex items-center gap-2">
+          <Link
+            href="/import/spotify"
+            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-3 text-sm text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
+          >
+            <Download className="h-4 w-4" /> Import from Spotify
+          </Link>
+          <CreatePlaylistInline />
+        </div>
       </header>
 
       {ownPlaylists.length === 0 ? (

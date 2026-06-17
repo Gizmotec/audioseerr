@@ -1,7 +1,6 @@
 import {
   Bug,
   Compass,
-  Download,
   Home,
   Inbox,
   Library,
@@ -43,9 +42,6 @@ export async function Sidebar() {
         </SidebarLink>
         <SidebarLink href="/requests" icon={<Inbox className="h-4 w-4" />}>
           My requests
-        </SidebarLink>
-        <SidebarLink href="/import/spotify" icon={<Download className="h-4 w-4" />}>
-          Import
         </SidebarLink>
         <SidebarLink href="/bug-report" icon={<Bug className="h-4 w-4" />}>
           Bug report

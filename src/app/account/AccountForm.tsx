@@ -1,6 +1,12 @@
 "use client";
 
-import { Check, CheckCircle2, ExternalLink, Loader2 } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  CheckCircle2,
+  ExternalLink,
+  Loader2,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -85,6 +91,23 @@ export function AccountForm({
 
   const dirty = clientId.trim() !== savedClientId.trim();
 
+  // Spotify rejects http:// redirect URIs unless the host is a loopback
+  // literal (127.0.0.1 / [::1] — "localhost" is NOT allowed). When Audioseerr
+  // is reached over plain http:// at a LAN/Tailscale IP, the derived redirect
+  // URI can never satisfy Spotify, so warn before the user wastes a round trip.
+  const redirectHost = (() => {
+    try {
+      return new URL(redirectUri).hostname;
+    } catch {
+      return "";
+    }
+  })();
+  const redirectInsecure =
+    redirectUri.startsWith("http://") &&
+    redirectHost !== "127.0.0.1" &&
+    redirectHost !== "[::1]" &&
+    redirectHost !== "::1";
+
   function saveClientId() {
     setError(null);
     setSaved(false);
@@ -138,6 +161,25 @@ export function AccountForm({
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
+          {redirectInsecure && (
+            <div className="flex gap-2.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-600 dark:text-amber-400">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div className="space-y-1">
+                <p className="font-medium">Spotify needs a secure (HTTPS) address</p>
+                <p className="text-amber-700/90 dark:text-amber-300/90">
+                  You're reaching Audioseerr over an insecure{" "}
+                  <code className="font-mono">http://</code> address, so Spotify
+                  will reject the redirect URI below with{" "}
+                  <span className="font-mono text-xs">
+                    redirect_uri: Not matching configuration
+                  </span>
+                  . Connecting only works from an <strong>https://</strong>{" "}
+                  address (or <code className="font-mono">http://127.0.0.1</code>)
+                  — open Audioseerr there and connect from that URL.
+                </p>
+              </div>
+            </div>
+          )}
           <SetupSteps redirectUri={redirectUri} onCopy={copyRedirectUri} copied={copied} />
 
           <div className="space-y-1.5">
