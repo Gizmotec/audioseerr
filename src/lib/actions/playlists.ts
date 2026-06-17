@@ -20,6 +20,33 @@ import {
   setPlaylistShared,
   updatePlaylist,
 } from "@/lib/playlists";
+import { ensureTrackRequested } from "@/lib/trackRequests";
+
+/**
+ * For any added payloads we don't already have a file for (no Lidarr
+ * trackFileId), kick off a Soulseek fetch so the track becomes playable. Runs
+ * after the rows are inserted; best-effort per track.
+ */
+async function autoFetchMissing(
+  userId: string,
+  payloads: AddTrackPayload[],
+): Promise<void> {
+  await Promise.all(
+    payloads
+      .filter((p) => p.trackFileId == null)
+      .map((p) =>
+        ensureTrackRequested(userId, {
+          albumMbid: p.albumMbid,
+          albumTitle: p.albumTitle ?? null,
+          artistName: p.artistName,
+          coverUrl: p.coverUrl ?? null,
+          recordingMbid: p.recordingMbid,
+          trackTitle: p.title,
+          albumPosition: p.albumPosition,
+        }),
+      ),
+  );
+}
 
 type Result<T = void> =
   | (T extends void ? { ok: true } : { ok: true } & T)
@@ -178,6 +205,7 @@ export async function addTrackToPlaylistAction(
   if (!auth.ok) return auth;
   try {
     const row = await addTrackToPlaylist(auth.userId, playlistId, payload);
+    await autoFetchMissing(auth.userId, [payload]);
     revalidatePath("/playlists");
     revalidatePath(`/playlists/${playlistId}`);
     return { ok: true, id: row.id, position: row.position };
@@ -194,6 +222,7 @@ export async function addTracksToPlaylistAction(
   if (!auth.ok) return auth;
   try {
     const result = await addTracksToPlaylist(auth.userId, playlistId, payloads);
+    await autoFetchMissing(auth.userId, payloads);
     revalidatePath("/playlists");
     revalidatePath(`/playlists/${playlistId}`);
     return { ok: true, count: result.count };

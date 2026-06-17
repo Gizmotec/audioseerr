@@ -71,6 +71,7 @@ model User {
   invitesCreated Invite[] @relation("InvitesCreated")
   invitesUsed    Invite[] @relation("InvitesUsed")
   libraryItems   UserLibraryItem[]
+  downloadedTracks UserDownloadedTrack[]
   spotifyImports SpotifyPlaylistImport[]
 }
 
@@ -95,6 +96,12 @@ model Request {
   qualityProfileId Int?
   torrentHash      String?
   downloadTitle    String?
+  // In-flight Soulseek transfer handle for TRACK requests (slskd path). The
+  // sync job polls slskd for (username, file) to detect completion, then
+  // registers a DownloadedTrack. torrentHash above is the legacy qBittorrent
+  // handle, retained only for rows created before the slskd switchover.
+  slskdUsername    String?
+  slskdFile        String?
 
   @@index([status])
   @@index([requestedById])
@@ -143,6 +150,13 @@ model Settings {
   trackTorrentCategory   String?
   trackTorrentSavePath   String?
   trackTorrentMaxSizeMb  Int     @default(200)
+  // Soulseek (slskd) — the single-song download source. apiKey is AES-256-GCM
+  // encrypted at rest (see src/lib/encryption.ts). downloadPath is slskd's
+  // completed-downloads directory as slskd reports it; it's translated to a
+  // path Audioseerr can read via mediaPathMap, the same bridge used for Lidarr.
+  slskdUrl               String?
+  slskdApiKey            String?
+  slskdDownloadPath      String?
   lastFmApiKey           String?
   // Comma-separated `lidarrPath:localPath` pairs for bridging filesystem
   // differences between the Lidarr container and Audioseerr (e.g. when
@@ -290,7 +304,12 @@ model PlaylistTrack {
   playlist      Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
   position      Int
   recordingMbid String
-  trackFileId   Int
+  // Nullable since the slskd switchover: a playlist can now hold a track we
+  // don't have yet (auto-fetching) or one served from our own DownloadedTrack
+  // library (no Lidarr id). When set, it's the last-known Lidarr trackFileId.
+  // Streamability is resolved at render time from trackFileId OR a
+  // DownloadedTrack match (recordingMbid, falling back to albumMbid+position).
+  trackFileId   Int?
   albumMbid     String
   albumPosition Int
   title         String
@@ -301,4 +320,53 @@ model PlaylistTrack {
   addedAt       DateTime @default(now())
 
   @@index([playlistId, position])
+}
+
+// Audioseerr-owned single-track library — the slskd equivalent of LibraryItem.
+// One row per single song we've pulled down via Soulseek and can stream
+// directly off disk, independent of Lidarr. Created when a TRACK request
+// finishes downloading (the request's status remains the lifecycle source of
+// truth; this table is "available-only", i.e. its presence means playable).
+//
+// Identity is (albumMbid, albumPosition): every track request originates from
+// an album page so both are always known, and the album page joins on absolute
+// position (the same key buildTrackFileLookup uses for Lidarr). recordingMbid
+// is indexed as the stable cross-release identity that playlists join on.
+model DownloadedTrack {
+  id            String   @id @default(cuid())
+  recordingMbid String?
+  albumMbid     String
+  albumPosition Int
+  title         String
+  artistName    String
+  albumTitle    String?
+  coverUrl      String?
+  durationMs    Int?
+  // File location as reported by slskd (pre path-map). Resolved to a path
+  // Audioseerr can read at stream time via the shared mediaPathMap.
+  filePath      String
+  format        String?
+  bitrate       Int?
+  sizeBytes     Int?
+  createdAt     DateTime @default(now())
+  users         UserDownloadedTrack[]
+
+  @@unique([albumMbid, albumPosition])
+  @@index([recordingMbid])
+}
+
+// Per-user visibility onto DownloadedTrack, mirroring UserLibraryItem. The file
+// is stored once; this partitions who can see and stream it. A user gets a row
+// when they request the track or add it to a playlist. Admins bypass the
+// filter (same convention as the album library).
+model UserDownloadedTrack {
+  id                String          @id @default(cuid())
+  userId            String
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  downloadedTrackId String
+  downloadedTrack   DownloadedTrack @relation(fields: [downloadedTrackId], references: [id], onDelete: Cascade)
+  addedAt           DateTime        @default(now())
+
+  @@unique([userId, downloadedTrackId])
+  @@index([userId])
 }

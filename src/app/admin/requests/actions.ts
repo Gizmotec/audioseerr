@@ -13,14 +13,13 @@ import {
   type LidarrConfig,
 } from "@/lib/lidarr";
 import { getAlbum } from "@/lib/musicbrainz";
-import { addTorrent, type QBittorrentConfig } from "@/lib/qbittorrent";
 import {
-  downloadReleaseFile,
-  pickBestTrackRelease,
-  searchAudioReleases,
-  type AudioSearchResult,
-  type ProwlarrConfig,
-} from "@/lib/prowlarr";
+  baseName,
+  enqueueDownload,
+  pickBestTrackFile,
+  searchTracks,
+  type SlskdConfig,
+} from "@/lib/slskd";
 import { getSettings, type SettingsView } from "@/lib/settings";
 import type { Request } from "@prisma/client";
 
@@ -166,68 +165,52 @@ async function approveTrackRequest(
   request: Request,
   settings: SettingsView,
 ): Promise<ActionResult> {
-  if (
-    !settings.prowlarrUrl ||
-    !settings.prowlarrApiKey ||
-    !settings.qbittorrentUrl ||
-    !settings.qbittorrentUsername ||
-    !settings.qbittorrentPassword
-  ) {
+  if (!settings.slskdUrl || !settings.slskdApiKey) {
     return {
       ok: false,
-      error: "Track torrent automation is not configured in Settings.",
+      error: "Soulseek (slskd) is not configured in Settings.",
     };
   }
 
-  const prowlarr: ProwlarrConfig = {
-    url: settings.prowlarrUrl,
-    apiKey: settings.prowlarrApiKey,
-  };
-  const qbittorrent: QBittorrentConfig = {
-    url: settings.qbittorrentUrl,
-    username: settings.qbittorrentUsername,
-    password: settings.qbittorrentPassword,
+  const slskd: SlskdConfig = {
+    url: settings.slskdUrl,
+    apiKey: settings.slskdApiKey,
   };
 
   try {
+    // Best-effort expected duration — the strongest signal for rejecting the
+    // wrong file (remix/live/extended/mislabel) among noisy Soulseek results.
+    let durationSec: number | null = null;
+    if (request.albumMbid && request.albumPosition != null) {
+      try {
+        const album = await getAlbum(request.albumMbid);
+        const mbTrack = album?.tracks.find(
+          (t) => t.absolutePosition === request.albumPosition,
+        );
+        if (mbTrack?.lengthMs) durationSec = Math.round(mbTrack.lengthMs / 1000);
+      } catch {
+        // Duration is a bonus signal; proceed without it.
+      }
+    }
+
     const query = `${request.artistName} ${request.title}`;
-    const search = await searchAudioReleases(prowlarr, query);
-    const release = pickBestTrackRelease(search.usable, {
+    const candidates = await searchTracks(slskd, query);
+    const best = pickBestTrackFile(candidates, {
       artistName: request.artistName,
       trackTitle: request.title,
-      albumTitle: request.albumTitle,
-      maxSizeMb: settings.trackTorrentMaxSizeMb,
+      durationSec,
     });
 
-    if (!release) {
-      const maxSize = settings.trackTorrentMaxSizeMb;
-      const reason = buildNoMatchReason(query, search, maxSize);
+    if (!best) {
+      const reason = buildNoMatchReason(query, candidates.length);
       await markFailed(request.id, reason);
       revalidateTrackRequestPaths(request);
       return { ok: false, error: reason };
     }
 
-    const directUrl =
-      release.magnetUrl ??
-      (/^magnet:/i.test(release.downloadUrl ?? "")
-        ? release.downloadUrl
-        : undefined) ??
-      (/^magnet:/i.test(release.guid ?? "") ? release.guid : undefined);
-    const torrentFile = directUrl ? null : await downloadReleaseFile(prowlarr, release);
-    if (!directUrl && !torrentFile) {
-      await markFailed(request.id, "Prowlarr did not provide a usable torrent URL or file.");
-      revalidateTrackRequestPaths(request);
-      return { ok: false, error: "Prowlarr did not provide a usable torrent." };
-    }
-    const addResult = await addTorrent(qbittorrent, {
-      url: directUrl,
-      file: torrentFile ?? undefined,
-      fileName: `${safeFileName(release.title)}.torrent`,
-      expectedName: release.title,
-      category: settings.trackTorrentCategory ?? "audioseerr-tracks",
-      savePath: settings.trackTorrentSavePath,
-      tags: "audioseerr,track-request",
-    });
+    await enqueueDownload(slskd, best.username, [
+      { filename: best.filename, size: best.size },
+    ]);
 
     await prisma.request.update({
       where: { id: request.id },
@@ -235,12 +218,13 @@ async function approveTrackRequest(
         status: "DOWNLOADING",
         approvedAt: new Date(),
         declineReason: null,
-        torrentHash: addResult.hash,
-        downloadTitle: release.title,
+        slskdUsername: best.username,
+        slskdFile: best.filename,
+        downloadTitle: baseName(best.filename),
       },
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Track torrent push failed.";
+    const msg = err instanceof Error ? err.message : "Soulseek download failed.";
     await markFailed(request.id, msg);
     revalidateTrackRequestPaths(request);
     return { ok: false, error: msg };
@@ -289,25 +273,11 @@ async function markFailed(requestId: string, reason: string) {
   });
 }
 
-function buildNoMatchReason(
-  query: string,
-  search: AudioSearchResult,
-  maxSizeMb: number,
-): string {
-  if (search.raw === 0) {
-    return `Prowlarr returned no results for "${query}".`;
+function buildNoMatchReason(query: string, candidateCount: number): string {
+  if (candidateCount === 0) {
+    return `Soulseek returned no files for "${query}".`;
   }
-  if (search.usable.length === 0) {
-    return `Prowlarr returned ${search.raw} results for "${query}" but none were torrents with a usable URL.`;
-  }
-  const maxBytes = maxSizeMb * 1024 * 1024;
-  const oversized = search.usable.filter(
-    (release) => release.size && release.size > maxBytes,
-  ).length;
-  if (oversized === search.usable.length) {
-    return `Prowlarr returned ${search.usable.length} torrents for "${query}" but all exceeded ${maxSizeMb} MB.`;
-  }
-  return `Prowlarr returned ${search.usable.length} torrents for "${query}" but none matched the artist/track tokens (max ${maxSizeMb} MB).`;
+  return `Soulseek returned ${candidateCount} files for "${query}" but none matched the track closely enough (title or duration).`;
 }
 
 function revalidateTrackRequestPaths(request: {
@@ -321,10 +291,6 @@ function revalidateTrackRequestPaths(request: {
   } else {
     revalidatePath(`/album/${request.mbid}`);
   }
-}
-
-function safeFileName(value: string): string {
-  return value.replace(/[^a-z0-9._-]+/gi, "_").slice(0, 120) || "release";
 }
 
 export async function syncNowAction(): Promise<

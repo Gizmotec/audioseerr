@@ -164,6 +164,9 @@ export default async function AdminSettingsPage() {
             settings.trackTorrentCategory ?? "audioseerr-tracks",
           trackTorrentSavePath: settings.trackTorrentSavePath ?? "",
           trackTorrentMaxSizeMb: settings.trackTorrentMaxSizeMb,
+          slskdUrl: settings.slskdUrl ?? "",
+          slskdApiKeyMasked: settings.slskdApiKey ? "••••••••" : "",
+          slskdDownloadPath: settings.slskdDownloadPath ?? "",
           lastFmApiKey: settings.lastFmApiKey ?? "",
           mediaPathMap: settings.mediaPathMap ?? "",
         }}

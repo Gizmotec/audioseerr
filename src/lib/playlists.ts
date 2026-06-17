@@ -23,7 +23,7 @@ export type PlaylistTrackRow = {
   id: string;
   position: number;
   recordingMbid: string;
-  trackFileId: number;
+  trackFileId: number | null;
   albumMbid: string;
   albumPosition: number;
   title: string;
@@ -49,7 +49,9 @@ export type PlaylistDetail = {
 
 export type AddTrackPayload = {
   recordingMbid: string;
-  trackFileId: number;
+  // Null when the track isn't in the Lidarr library — either it's one of our
+  // own slskd downloads, or it hasn't been fetched yet (auto-fetch on add).
+  trackFileId: number | null;
   albumMbid: string;
   albumPosition: number;
   title: string;
@@ -338,7 +340,7 @@ export async function addTrackToPlaylist(
         playlistId,
         position: next,
         recordingMbid: payload.recordingMbid,
-        trackFileId: payload.trackFileId,
+        trackFileId: payload.trackFileId ?? null,
         albumMbid: payload.albumMbid,
         albumPosition: payload.albumPosition,
         title: payload.title,
@@ -386,7 +388,7 @@ export async function addTracksToPlaylist(
         playlistId,
         position: start + idx + 1,
         recordingMbid: payload.recordingMbid,
-        trackFileId: payload.trackFileId,
+        trackFileId: payload.trackFileId ?? null,
         albumMbid: payload.albumMbid,
         albumPosition: payload.albumPosition,
         title: payload.title,

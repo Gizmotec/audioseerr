@@ -12,9 +12,11 @@ import {
   type LidarrProbeResult,
   type ProwlarrProbeResult,
   type QBittorrentProbeResult,
+  type SlskdProbeResult,
   probeLidarrAction,
   probeProwlarrAction,
   probeQBittorrentAction,
+  probeSlskdAction,
   saveAdminSettingsAction,
 } from "./actions";
 import { KEY_UNCHANGED_SENTINEL } from "./constants";
@@ -33,6 +35,9 @@ type Initial = {
   trackTorrentCategory: string;
   trackTorrentSavePath: string;
   trackTorrentMaxSizeMb: number;
+  slskdUrl: string;
+  slskdApiKeyMasked: string;
+  slskdDownloadPath: string;
   lastFmApiKey: string;
   mediaPathMap: string;
 };
@@ -122,6 +127,16 @@ export function SettingsForm({
     null,
   );
 
+  // Soulseek (slskd) — the single-song download source.
+  const [slskdUrl, setSlskdUrl] = useState(initial.slskdUrl);
+  const [slskdApiKey, setSlskdApiKey] = useState(initial.slskdApiKeyMasked);
+  const [slskdKeyEdited, setSlskdKeyEdited] = useState(false);
+  const [slskdDownloadPath, setSlskdDownloadPath] = useState(
+    initial.slskdDownloadPath,
+  );
+  const [slskdTesting, setSlskdTesting] = useState(false);
+  const [slskdProbeMsg, setSlskdProbeMsg] = useState<string | null>(null);
+
   // Other settings.
   const [lastFmApiKey, setLastFmApiKey] = useState(initial.lastFmApiKey);
   const [mediaPathMap, setMediaPathMap] = useState(initial.mediaPathMap);
@@ -203,6 +218,20 @@ export function SettingsForm({
     );
   }
 
+  async function probeSlskd() {
+    setSlskdTesting(true);
+    setSlskdProbeMsg(null);
+    const res: SlskdProbeResult = await probeSlskdAction({
+      url: slskdUrl,
+      apiKey:
+        slskdKeyEdited || !initial.slskdApiKeyMasked
+          ? slskdApiKey
+          : KEY_UNCHANGED_SENTINEL,
+    });
+    setSlskdTesting(false);
+    setSlskdProbeMsg(res.ok ? "Connected to slskd." : res.error);
+  }
+
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
@@ -236,6 +265,12 @@ export function SettingsForm({
         trackTorrentCategory,
         trackTorrentSavePath,
         trackTorrentMaxSizeMb,
+        slskdUrl,
+        slskdApiKey:
+          slskdKeyEdited || !initial.slskdApiKeyMasked
+            ? slskdApiKey
+            : KEY_UNCHANGED_SENTINEL,
+        slskdDownloadPath,
         lastFmApiKey,
         mediaPathMap,
       });
@@ -247,9 +282,11 @@ export function SettingsForm({
       setKeyEdited(false);
       setProwlarrKeyEdited(false);
       setQbittorrentPasswordEdited(false);
+      setSlskdKeyEdited(false);
       setLidarrApiKey(initial.lidarrApiKeyMasked || "••••••••");
       if (prowlarrApiKey) setProwlarrApiKey("••••••••");
       if (qbittorrentPassword) setQbittorrentPassword("••••••••");
+      if (slskdApiKey) setSlskdApiKey("••••••••");
       router.refresh();
     });
   }
@@ -546,6 +583,92 @@ export function SettingsForm({
               )}
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Soulseek (slskd) */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Soulseek (slskd)</CardTitle>
+          <CardDescription>
+            Single-song downloads. Individual track requests and playlist
+            auto-fetch search Soulseek via slskd and download directly.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="slskdUrl">slskd URL</Label>
+              <Input
+                id="slskdUrl"
+                value={slskdUrl}
+                onChange={(e) => setSlskdUrl(e.target.value)}
+                placeholder="http://slskd:5030"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="slskdApiKey">API key</Label>
+              <Input
+                id="slskdApiKey"
+                type="password"
+                value={slskdApiKey}
+                onChange={(e) => {
+                  setSlskdApiKey(e.target.value);
+                  setSlskdKeyEdited(true);
+                }}
+                onFocus={() => {
+                  if (!slskdKeyEdited && slskdApiKey.startsWith("••")) {
+                    setSlskdApiKey("");
+                  }
+                }}
+                placeholder="From slskd config → web.authentication.api_keys"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="slskdDownloadPath">Download path</Label>
+            <Input
+              id="slskdDownloadPath"
+              value={slskdDownloadPath}
+              onChange={(e) => setSlskdDownloadPath(e.target.value)}
+              placeholder="/downloads (slskd's completed-downloads directory)"
+            />
+            <p className="text-xs text-muted-foreground">
+              Where slskd writes finished files. If Audioseerr mounts that
+              directory at a different path, add the translation to the path map
+              below.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={probeSlskd}
+              disabled={pending || slskdTesting}
+            >
+              {slskdTesting ? (
+                <>
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Testing
+                </>
+              ) : (
+                "Test connection"
+              )}
+            </Button>
+            {slskdProbeMsg && (
+              <span
+                className={
+                  slskdProbeMsg.startsWith("Connected")
+                    ? "text-sm text-green-500"
+                    : "text-sm text-destructive"
+                }
+                role="status"
+              >
+                {slskdProbeMsg}
+              </span>
+            )}
+          </div>
         </CardContent>
       </Card>
 

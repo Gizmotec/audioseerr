@@ -6,8 +6,16 @@ import {
   type LidarrAlbumState,
   type LidarrConfig,
 } from "@/lib/lidarr";
-import { getTorrent, type QBittorrentConfig } from "@/lib/qbittorrent";
+import {
+  registerDownloadedTrack,
+  resolveDownloadedFilePath,
+} from "@/lib/downloadedTracks";
 import { getSettings } from "@/lib/settings";
+import {
+  classifyTransfer,
+  getDownloadTransfer,
+  type SlskdConfig,
+} from "@/lib/slskd";
 import { attachLibraryItemToUser } from "@/lib/userLibrary";
 import type { RequestStatus } from "@prisma/client";
 
@@ -33,15 +41,9 @@ export async function syncActiveRequests(): Promise<{
       settings.lidarrUrl && settings.lidarrApiKey
         ? { url: settings.lidarrUrl, apiKey: settings.lidarrApiKey }
         : null;
-    const qbittorrentConfig: QBittorrentConfig | null =
-      settings.qbittorrentUrl &&
-      settings.qbittorrentUsername &&
-      settings.qbittorrentPassword
-        ? {
-            url: settings.qbittorrentUrl,
-            username: settings.qbittorrentUsername,
-            password: settings.qbittorrentPassword,
-          }
+    const slskdConfig: SlskdConfig | null =
+      settings.slskdUrl && settings.slskdApiKey
+        ? { url: settings.slskdUrl, apiKey: settings.slskdApiKey }
         : null;
 
     const albumRequests = lidarrConfig ? await prisma.request.findMany({
@@ -51,11 +53,12 @@ export async function syncActiveRequests(): Promise<{
         lidarrId: { not: null },
       },
     }) : [];
-    const trackRequests = qbittorrentConfig ? await prisma.request.findMany({
+    const trackRequests = slskdConfig ? await prisma.request.findMany({
       where: {
         status: { in: ["APPROVED", "DOWNLOADING"] },
         type: "TRACK",
-        torrentHash: { not: null },
+        slskdUsername: { not: null },
+        slskdFile: { not: null },
       },
     }) : [];
     if (albumRequests.length === 0 && trackRequests.length === 0) {
@@ -117,24 +120,93 @@ export async function syncActiveRequests(): Promise<{
       }
     }
 
+    // Give a track request this long to make progress before we give up and
+    // mark it FAILED, so a vanished transfer or an unlocatable file can't pin a
+    // row in DOWNLOADING (and the UI in "fetching") forever.
+    const STUCK_AFTER_MS = 6 * 60 * 60 * 1000;
+    const nowMs = Date.now();
+    const isStuck = (approvedAt: Date | null) =>
+      approvedAt != null && nowMs - approvedAt.getTime() > STUCK_AFTER_MS;
+
     for (const req of trackRequests) {
       try {
-        if (!qbittorrentConfig || !req.torrentHash) continue;
-        const torrent = await getTorrent(qbittorrentConfig, req.torrentHash);
-        if (!torrent) continue;
-        const done = torrent.progress >= 1 || /uploading|stalledUP|pausedUP/i.test(torrent.state);
-        if (done && req.status !== "AVAILABLE") {
+        if (!slskdConfig || !req.slskdUsername || !req.slskdFile) continue;
+        const transfer = await getDownloadTransfer(
+          slskdConfig,
+          req.slskdUsername,
+          req.slskdFile,
+        );
+
+        // No transfer record — peer offline, slskd dropped/auto-removed it, or
+        // the enqueue never took. Retry for a while, then fail so the row
+        // doesn't stay DOWNLOADING indefinitely.
+        if (!transfer) {
+          if (isStuck(req.approvedAt)) {
+            await prisma.request.update({
+              where: { id: req.id },
+              data: {
+                status: "FAILED",
+                declineReason:
+                  "Soulseek download never started (no active transfer).",
+              },
+            });
+            changed++;
+          }
+          continue;
+        }
+
+        const state = classifyTransfer(transfer.state);
+
+        if (state === "failed") {
           await prisma.request.update({
             where: { id: req.id },
-            data: { status: "AVAILABLE" },
+            data: {
+              status: "FAILED",
+              declineReason: `Soulseek transfer failed (${transfer.state}).`,
+            },
           });
-          // Track download landed — attach the requester to the parent album
-          // so it shows up in their library. albumMbid is set by track
-          // requests; if it's missing (legacy rows), skip silently.
-          if (req.albumMbid) {
-            await attachLibraryItemToUser(req.requestedById, req.albumMbid).catch(() => {});
-          }
           changed++;
+          continue;
+        }
+
+        if (state === "done" && req.status !== "AVAILABLE") {
+          // slskd reports the transfer done; find the file it wrote and
+          // register it as a playable DownloadedTrack.
+          let registeredId: string | null = null;
+          if (settings.slskdDownloadPath) {
+            const absPath = await resolveDownloadedFilePath({
+              slskdDownloadPath: settings.slskdDownloadPath,
+              mediaPathMap: settings.mediaPathMap,
+              remoteFilename: req.slskdFile,
+            });
+            if (absPath) registeredId = await registerDownloadedTrack(req, absPath);
+          }
+
+          if (registeredId) {
+            await prisma.request.update({
+              where: { id: req.id },
+              data: { status: "AVAILABLE" },
+            });
+            changed++;
+          } else {
+            // Not landed yet, path unset, or filename couldn't be matched.
+            // Retry next tick — but fail once it's clearly been too long so it
+            // can't stick forever.
+            console.warn(
+              `[sync] track request ${req.id} reports done but file unresolved (path=${settings.slskdDownloadPath ?? "unset"}, file=${req.slskdFile}).`,
+            );
+            if (isStuck(req.approvedAt)) {
+              await prisma.request.update({
+                where: { id: req.id },
+                data: {
+                  status: "FAILED",
+                  declineReason:
+                    "Download finished but the file couldn't be located on disk — check the slskd download path and path map.",
+                },
+              });
+              changed++;
+            }
+          }
         }
       } catch {
         // Per-request errors don't fail the whole cycle.

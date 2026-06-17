@@ -15,6 +15,9 @@ export type SettingsView = {
   trackTorrentCategory: string | null;
   trackTorrentSavePath: string | null;
   trackTorrentMaxSizeMb: number;
+  slskdUrl: string | null;
+  slskdApiKey: string | null;
+  slskdDownloadPath: string | null;
   lastFmApiKey: string | null;
   mediaPathMap: string | null;
 };
@@ -42,6 +45,9 @@ export async function getSettings(): Promise<SettingsView> {
     trackTorrentCategory: row.trackTorrentCategory,
     trackTorrentSavePath: row.trackTorrentSavePath,
     trackTorrentMaxSizeMb: row.trackTorrentMaxSizeMb,
+    slskdUrl: row.slskdUrl,
+    slskdApiKey: row.slskdApiKey ? decrypt(row.slskdApiKey) : null,
+    slskdDownloadPath: row.slskdDownloadPath,
     lastFmApiKey: row.lastFmApiKey,
     mediaPathMap: row.mediaPathMap,
   };
@@ -60,6 +66,9 @@ export type SettingsUpdate = {
   trackTorrentCategory?: string | null;
   trackTorrentSavePath?: string | null;
   trackTorrentMaxSizeMb?: number;
+  slskdUrl?: string | null;
+  slskdApiKey?: string | null;
+  slskdDownloadPath?: string | null;
   lastFmApiKey?: string | null;
   mediaPathMap?: string | null;
   setupComplete?: boolean;
@@ -78,6 +87,9 @@ export async function saveSettings(update: SettingsUpdate): Promise<void> {
     data.qbittorrentPassword !== null
   ) {
     data.qbittorrentPassword = encrypt(data.qbittorrentPassword);
+  }
+  if (data.slskdApiKey !== undefined && data.slskdApiKey !== null) {
+    data.slskdApiKey = encrypt(data.slskdApiKey);
   }
   await prisma.settings.upsert({
     where: { id: 1 },

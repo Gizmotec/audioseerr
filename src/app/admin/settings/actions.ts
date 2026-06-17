@@ -21,6 +21,7 @@ import {
   testQBittorrentConnection,
   type QBittorrentConnectionStatus,
 } from "@/lib/qbittorrent";
+import { SlskdError, testSlskdConnection } from "@/lib/slskd";
 import { getSettings, saveSettings } from "@/lib/settings";
 import { parsePathMap } from "@/lib/streaming";
 // Sentinel constant for "API key unchanged". Lives in its own module because
@@ -52,6 +53,9 @@ const saveInput = z.object({
     .int()
     .min(10, "Track torrent size cap must be at least 10 MB.")
     .max(2000, "Track torrent size cap must be 2000 MB or lower."),
+  slskdUrl: z.string(),
+  slskdApiKey: z.string(),
+  slskdDownloadPath: z.string(),
   lastFmApiKey: z.string(),
   mediaPathMap: z.string(),
 });
@@ -72,6 +76,7 @@ export async function saveAdminSettingsAction(
   for (const [label, value] of [
     ["Prowlarr URL", data.prowlarrUrl],
     ["qBittorrent URL", data.qbittorrentUrl],
+    ["slskd URL", data.slskdUrl],
   ] as const) {
     if (value.trim()) {
       const url = z.string().url(`${label} must be a valid URL`).safeParse(value);
@@ -144,6 +149,15 @@ export async function saveAdminSettingsAction(
       ? data.trackTorrentSavePath.trim()
       : null,
     trackTorrentMaxSizeMb: data.trackTorrentMaxSizeMb,
+    slskdUrl: data.slskdUrl.trim() ? data.slskdUrl.trim() : null,
+    ...(data.slskdApiKey === KEY_UNCHANGED
+      ? {}
+      : {
+          slskdApiKey: data.slskdApiKey.trim() ? data.slskdApiKey.trim() : null,
+        }),
+    slskdDownloadPath: data.slskdDownloadPath.trim()
+      ? data.slskdDownloadPath.trim()
+      : null,
     lastFmApiKey: data.lastFmApiKey.trim() ? data.lastFmApiKey.trim() : null,
     mediaPathMap: data.mediaPathMap.trim() ? data.mediaPathMap.trim() : null,
   });
@@ -299,6 +313,51 @@ export async function probeQBittorrentAction(input: {
   } catch (err) {
     return { ok: false, error: explainQBittorrentError(err) };
   }
+}
+
+export type SlskdProbeResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+export async function probeSlskdAction(input: {
+  url: string;
+  apiKey: string;
+}): Promise<SlskdProbeResult> {
+  await requireAdmin();
+
+  let apiKey = input.apiKey;
+  if (apiKey === KEY_UNCHANGED) {
+    const saved = await getSettings();
+    if (!saved.slskdApiKey) {
+      return { ok: false, error: "No saved slskd API key — type one to test." };
+    }
+    apiKey = saved.slskdApiKey;
+  }
+
+  const parsed = z
+    .object({ url: z.string().url(), apiKey: z.string().min(1) })
+    .safeParse({ url: input.url, apiKey });
+  if (!parsed.success) {
+    return { ok: false, error: "slskd URL and API key are required." };
+  }
+
+  try {
+    await testSlskdConnection(parsed.data);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: explainSlskdError(err) };
+  }
+}
+
+function explainSlskdError(err: unknown): string {
+  if (err instanceof SlskdError) {
+    if (err.status === 401 || err.status === 403) {
+      return "API key was rejected by slskd.";
+    }
+    if (err.status === 404) return "slskd responded 404 — check the URL path.";
+    return `slskd returned HTTP ${err.status}.`;
+  }
+  return explainNetworkError(err, "slskd");
 }
 
 function explainLidarrError(err: unknown): string {

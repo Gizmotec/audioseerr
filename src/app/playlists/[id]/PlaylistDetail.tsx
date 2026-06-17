@@ -53,6 +53,8 @@ import { cn } from "@/lib/utils";
 type DetailTrack = PlaylistTrackRow & {
   currentTrackFileId: number | null;
   streamUrl: string | null;
+  /** True while a Soulseek download for this track is in flight. */
+  fetching?: boolean;
 };
 
 type Props = {
@@ -97,6 +99,11 @@ export function PlaylistDetail({
       tracks.filter((t) => t.streamUrl && !player.failedIds.has(t.id)).length,
     [tracks, player.failedIds],
   );
+  const fetchingCount = useMemo(
+    () => tracks.filter((t) => t.fetching && !t.streamUrl).length,
+    [tracks],
+  );
+  const unavailableCount = tracks.length - playableCount - fetchingCount;
 
   const queueItems = useMemo<QueueItem[]>(
     () =>
@@ -181,11 +188,19 @@ export function PlaylistDetail({
                 </>
               )}
               {tracks.length} {tracks.length === 1 ? "track" : "tracks"}
-              {tracks.length > playableCount && (
+              {fetchingCount > 0 && (
+                <>
+                  {" · "}
+                  <span className="text-sky-400/80">
+                    {fetchingCount} downloading
+                  </span>
+                </>
+              )}
+              {unavailableCount > 0 && (
                 <>
                   {" · "}
                   <span className="text-amber-400/80">
-                    {tracks.length - playableCount} unavailable
+                    {unavailableCount} unavailable
                   </span>
                 </>
               )}
@@ -255,11 +270,14 @@ export function PlaylistDetail({
             // likely the album was downloaded with fewer tracks than MB lists).
             // "errored" = file existed at SSR but refused to play at runtime
             // (file was deleted or moved between sync and playback).
-            const unavailableReason = !t.streamUrl
-              ? "missing"
-              : failedAtPlay
-                ? "errored"
-                : null;
+            const fetching = !!t.fetching && !t.streamUrl && !failedAtPlay;
+            const unavailableReason = fetching
+              ? null
+              : !t.streamUrl
+                ? "missing"
+                : failedAtPlay
+                  ? "errored"
+                  : null;
             const isFirst = idx === 0;
             const isLast = idx === tracks.length - 1;
             const busy = pendingRowId === t.id;
@@ -341,6 +359,16 @@ export function PlaylistDetail({
                     )}
                   </p>
                 </div>
+
+                {fetching && (
+                  <span
+                    className="hidden shrink-0 items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-sky-400 sm:inline-flex"
+                    title="Downloading from Soulseek…"
+                  >
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Downloading
+                  </span>
+                )}
 
                 {unavailableReason && (
                   <span

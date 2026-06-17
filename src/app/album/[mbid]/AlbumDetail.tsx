@@ -71,7 +71,12 @@ export function AlbumDetail({
         // Only attach scrobble metadata for full-library streams. Deezer
         // previews are 30s auditions and shouldn't count toward play history.
         recordingMbid: t.streamUrl
-          ? (t.recordingMbid ?? (t.trackFileId ? `lidarr:${t.trackFileId}` : undefined))
+          ? (t.recordingMbid ??
+            (t.trackFileId
+              ? `lidarr:${t.trackFileId}`
+              : t.downloadedTrackId
+                ? `local:${t.downloadedTrackId}`
+                : undefined))
           : undefined,
         albumMbid: t.streamUrl ? album.mbid : undefined,
         durationMs: t.lengthMs ?? undefined,
@@ -272,10 +277,12 @@ export function AlbumDetail({
                     artistName={album.artistName}
                     trackTitle={t.title}
                   />
-                  {t.trackFileId && t.recordingMbid ? (
+                  {t.recordingMbid ? (
                     <AddToPlaylistButton
                       payload={{
                         recordingMbid: t.recordingMbid,
+                        // null when we don't have a Lidarr file — adding it
+                        // kicks off a Soulseek fetch (auto-fetch on add).
                         trackFileId: t.trackFileId,
                         albumMbid: album.mbid,
                         albumPosition: t.absolutePosition,
