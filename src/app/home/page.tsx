@@ -1,13 +1,11 @@
 import {
   ArrowRight,
-  CheckCircle2,
   Clock,
   Compass,
   Disc3,
   Flame,
   Library,
   ListMusic,
-  Music2,
 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -83,20 +81,11 @@ export default async function HomePage() {
       lastSyncedAt: row.lastSyncedAt,
     }));
 
-  const trackFileCount = libraryItems.reduce(
-    (sum, item) => sum + item.trackFileCount,
-    0,
-  );
-
   const recentAlbums = [...libraryItems]
     .sort((a, b) => b.lastSyncedAt.getTime() - a.lastSyncedAt.getTime())
     .slice(0, 10);
-  const allArtistSummaries = topArtists(libraryItems);
-  const artistSummaries = allArtistSummaries.slice(0, 6);
-  const artistCount = allArtistSummaries.length;
+  const artistSummaries = topArtists(libraryItems).slice(0, 6);
   const recentPlaylists = [likedSongs, ...playlists].slice(0, 5);
-  const spotlight =
-    recentAlbums.find((item) => item.status === "downloaded") ?? recentAlbums[0];
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-4 py-8 md:px-6">
@@ -133,70 +122,10 @@ export default async function HomePage() {
         </div>
       </header>
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric
-          icon={Disc3}
-          label="Downloaded albums"
-          value={libraryItems.length.toLocaleString()}
-          detail="Available on disk"
-        />
-        <Metric
-          icon={Music2}
-          label="Tracks on disk"
-          value={trackFileCount.toLocaleString()}
-          detail="Playable from downloaded albums"
-        />
-        <Metric
-          icon={Library}
-          label="Artists"
-          value={artistCount.toLocaleString()}
-          detail="From downloaded albums"
-        />
-        <Metric
-          icon={ListMusic}
-          label="Playlists"
-          value={recentPlaylists.length.toLocaleString()}
-          detail={`${likedSongs.trackCount.toLocaleString()} liked songs`}
-        />
-      </section>
-
       {libraryItems.length === 0 ? (
         <EmptyLibrary />
       ) : (
         <>
-          <section className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.65fr)]">
-            <div className="rounded-md border border-border bg-secondary/15 p-5">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="text-lg font-medium">Ready to play</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Home only shows albums that have finished downloading.
-                  </p>
-                </div>
-                <CheckCircle2 className="h-6 w-6 text-muted-foreground" />
-              </div>
-              <div className="mt-5 grid gap-2 sm:grid-cols-3">
-                <StatusPill
-                  icon={Disc3}
-                  label="Albums available"
-                  value={libraryItems.length}
-                />
-                <StatusPill
-                  icon={Music2}
-                  label="Tracks available"
-                  value={trackFileCount}
-                />
-                <StatusPill
-                  icon={Library}
-                  label="Artists represented"
-                  value={artistCount}
-                />
-              </div>
-            </div>
-
-            <SpotlightAlbum album={spotlight} />
-          </section>
-
           <section className="space-y-3">
             <SectionHeader
               title="Downloaded albums"
@@ -309,51 +238,6 @@ export default async function HomePage() {
   );
 }
 
-function Metric({
-  icon: Icon,
-  label,
-  value,
-  detail,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: string;
-  detail: string;
-}) {
-  return (
-    <div className="rounded-md border border-border bg-secondary/15 p-4">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">{label}</p>
-        <Icon className="h-4 w-4 text-muted-foreground" />
-      </div>
-      <p className="mt-3 text-2xl font-semibold tracking-tight">{value}</p>
-      <p className="mt-1 truncate text-xs text-muted-foreground" title={detail}>
-        {detail}
-      </p>
-    </div>
-  );
-}
-
-function StatusPill({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: number;
-}) {
-  return (
-    <div className="flex items-center gap-2 rounded-md border border-border bg-background/40 px-3 py-2">
-      <Icon className="h-4 w-4 text-muted-foreground" />
-      <div className="min-w-0">
-        <p className="text-sm font-medium">{value.toLocaleString()}</p>
-        <p className="truncate text-xs text-muted-foreground">{label}</p>
-      </div>
-    </div>
-  );
-}
-
 function SectionHeader({
   title,
   href,
@@ -376,55 +260,6 @@ function SectionHeader({
         </Link>
       )}
     </header>
-  );
-}
-
-function SpotlightAlbum({
-  album,
-}: {
-  album: (LibraryTileItem & { lastSyncedAt: Date }) | undefined;
-}) {
-  if (!album) {
-    return (
-      <div className="rounded-md border border-border bg-secondary/15 p-5">
-        <Disc3 className="mb-4 h-7 w-7 text-muted-foreground/60" />
-        <h2 className="text-lg font-medium">No albums yet</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Discover and request something to start filling your library.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <Link
-      href={`/album/${album.mbid}`}
-      className="group grid grid-cols-[6rem_1fr] gap-4 rounded-md border border-border bg-secondary/15 p-4 transition-colors hover:border-foreground/30 hover:bg-secondary/25"
-    >
-      <div className="aspect-square overflow-hidden rounded-md bg-secondary">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={`https://coverartarchive.org/release-group/${album.mbid}/front-250`}
-          alt=""
-          referrerPolicy="no-referrer"
-          className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
-        />
-      </div>
-      <div className="min-w-0 self-center">
-        <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-          Latest in rotation
-        </p>
-        <h2 className="mt-2 truncate text-lg font-medium" title={album.title}>
-          {album.title}
-        </h2>
-        <p className="truncate text-sm text-muted-foreground" title={album.artistName}>
-          {album.artistName}
-        </p>
-        <p className="mt-3 text-xs text-muted-foreground">
-          {album.trackFileCount}/{album.totalTrackCount || album.trackFileCount} tracks
-        </p>
-      </div>
-    </Link>
   );
 }
 
