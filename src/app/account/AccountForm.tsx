@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, ExternalLink, Loader2 } from "lucide-react";
+import { Check, CheckCircle2, ExternalLink, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -17,6 +17,35 @@ import {
   disconnectSpotifyAction,
   saveSpotifyClientIdAction,
 } from "./actions";
+
+// Copy text to the clipboard, falling back to the legacy execCommand path.
+// navigator.clipboard only exists in a secure context (HTTPS or localhost), so
+// over plain http:// — e.g. accessing Audioseerr at http://<lan-ip>:port — it
+// is undefined and the async API can't be used. Returns whether the copy stuck.
+async function copyText(text: string): Promise<boolean> {
+  if (window.isSecureContext && navigator.clipboard) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // Fall through to the legacy path below.
+    }
+  }
+  try {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.top = "-9999px";
+    document.body.appendChild(textarea);
+    textarea.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(textarea);
+    return ok;
+  } catch {
+    return false;
+  }
+}
 
 const ERROR_MESSAGES: Record<string, string> = {
   missing_client_id: "Save your Spotify Client ID before connecting.",
@@ -85,13 +114,10 @@ export function AccountForm({
   }
 
   async function copyRedirectUri() {
-    try {
-      await navigator.clipboard.writeText(redirectUri);
+    const ok = await copyText(redirectUri);
+    if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // Clipboard can fail on http://, fall back silently — the URI is
-      // visible on screen for manual copy.
     }
   }
 
@@ -251,9 +277,19 @@ function SetupSteps({
               variant="outline"
               size="sm"
               onClick={onCopy}
-              className="shrink-0"
+              aria-live="polite"
+              className={`shrink-0 transition-colors duration-150 ${
+                copied ? "border-green-500/40 text-green-500" : ""
+              }`}
             >
-              {copied ? "Copied" : "Copy"}
+              {copied ? (
+                <>
+                  <Check className="mr-1 h-3.5 w-3.5" />
+                  Copied
+                </>
+              ) : (
+                "Copy"
+              )}
             </Button>
           </span>
         </span>
