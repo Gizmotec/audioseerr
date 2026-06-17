@@ -115,7 +115,7 @@ export async function listMyPlaylists(
   const out: SpotifyPlaylistSummary[] = [];
   let path: string | null = "/me/playlists?limit=50";
   while (path) {
-    const page = await spotifyFetch<PlaylistsPage>(userId, path);
+    const page: PlaylistsPage = await spotifyFetch<PlaylistsPage>(userId, path);
     for (const p of page.items) {
       out.push({
         id: p.id,
@@ -169,7 +169,7 @@ export async function getPlaylistTracks(
   const out: SpotifyTrack[] = [];
   let path: string | null = `/playlists/${encodeURIComponent(playlistId)}/tracks?limit=100&fields=${encodeURIComponent(fields)}`;
   while (path) {
-    const page = await spotifyFetch<TracksPage>(userId, path);
+    const page: TracksPage = await spotifyFetch<TracksPage>(userId, path);
     for (const item of page.items) {
       const t = item.track;
       // Skip null (track was removed from Spotify), local files (no metadata
