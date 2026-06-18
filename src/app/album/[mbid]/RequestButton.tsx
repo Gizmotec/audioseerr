@@ -141,7 +141,7 @@ export function RequestButton({ album, existingStatus, libraryStatus }: Props) {
           ) : (
             <PlusCircle className="h-4 w-4" />
           )}
-          {pending ? "Submitting…" : "Request album"}
+          {pending ? "Submitting…" : "Download album"}
         </Button>
         {optimisticStatus === "DECLINED" && (
           <span className="text-xs text-muted-foreground">

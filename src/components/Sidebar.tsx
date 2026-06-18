@@ -26,11 +26,11 @@ export async function Sidebar() {
       </div>
 
       <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-2 py-4">
-        <SidebarLink href="/home" icon={<Home className="h-4 w-4" />}>
-          Home
-        </SidebarLink>
         <SidebarLink href="/discover" icon={<Compass className="h-4 w-4" />}>
           Discover
+        </SidebarLink>
+        <SidebarLink href="/home" icon={<Home className="h-4 w-4" />}>
+          Home
         </SidebarLink>
         <SidebarLink href="/playlists" icon={<ListMusic className="h-4 w-4" />}>
           Playlists

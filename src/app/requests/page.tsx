@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { AdminRequestRow } from "@/app/admin/requests/AdminRequestRow";
 import { SyncNowButton } from "@/app/admin/requests/SyncNowButton";
 import { auth } from "@/auth";
+import { DownloadProgressBar } from "@/components/DownloadProgressBar";
+import { DownloadsProgressProvider } from "@/components/DownloadsProgressProvider";
 import { StatusBadge } from "@/components/StatusBadge";
 import { prisma } from "@/lib/db";
 import { isSetupComplete } from "@/lib/settings";
@@ -44,6 +46,8 @@ async function AdminRequestsView() {
       include: { requestedBy: { select: { username: true } } },
     }),
   ]);
+
+  const hasActive = recent.some((r) => r.status === "DOWNLOADING");
 
   const toRow = (r: (typeof pending)[number]) => ({
     id: r.id,
@@ -106,11 +110,17 @@ async function AdminRequestsView() {
             Nothing here yet.
           </div>
         ) : (
-          <ul className="divide-y divide-border/50">
-            {recent.map((r) => (
-              <AdminRequestRow key={r.id} request={toRow(r)} isPending={false} />
-            ))}
-          </ul>
+          <DownloadsProgressProvider enabled={hasActive}>
+            <ul className="divide-y divide-border/50">
+              {recent.map((r) => (
+                <AdminRequestRow
+                  key={r.id}
+                  request={toRow(r)}
+                  isPending={false}
+                />
+              ))}
+            </ul>
+          </DownloadsProgressProvider>
         )}
       </section>
     </main>
@@ -123,6 +133,7 @@ async function MyRequestsView({ userId }: { userId: string }) {
     where: { requestedById: userId },
     orderBy: { requestedAt: "desc" },
   });
+  const hasActive = requests.some((r) => r.status === "DOWNLOADING");
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 md:px-6">
@@ -149,6 +160,7 @@ async function MyRequestsView({ userId }: { userId: string }) {
           to get started.
         </div>
       ) : (
+        <DownloadsProgressProvider enabled={hasActive}>
         <ul className="divide-y divide-border/50">
           {requests.map((r) => {
             const href =
@@ -209,6 +221,9 @@ async function MyRequestsView({ userId }: { userId: string }) {
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-2">
                   <StatusBadge status={r.status} />
+                  {r.status === "DOWNLOADING" && (
+                    <DownloadProgressBar requestId={r.id} />
+                  )}
                   <UnrequestButton
                     request={{
                       id: r.id,
@@ -222,6 +237,7 @@ async function MyRequestsView({ userId }: { userId: string }) {
             );
           })}
         </ul>
+        </DownloadsProgressProvider>
       )}
     </main>
   );

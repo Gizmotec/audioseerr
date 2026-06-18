@@ -337,7 +337,11 @@ function trackQueueId(
 ): string {
   // idx disambiguates multi-disc releases where t.position is per-disc and
   // collisions otherwise highlight two rows as "currently playing".
-  return `${albumMbid}:${idx}:${t.position}:${t.recordingMbid ?? t.title}`;
+  // The source suffix (full file vs 30s preview) makes the id change the moment
+  // a download lands: the row is then no longer the player's "current" track, so
+  // clicking play loads the full file instead of resuming the loaded preview.
+  const source = t.streamUrl ? "full" : "preview";
+  return `${albumMbid}:${idx}:${t.position}:${t.recordingMbid ?? t.title}:${source}`;
 }
 
 function trackRequestKey(albumMbid: string, t: TrackWithPreview): string {

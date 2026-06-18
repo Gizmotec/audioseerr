@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DownloadProgressBar } from "@/components/DownloadProgressBar";
 import { StatusBadge } from "@/components/StatusBadge";
 import type { RequestStatus, RequestType } from "@prisma/client";
 import { approveRequestAction, declineRequestAction } from "./actions";
@@ -179,6 +180,11 @@ export function AdminRequestRow({
               {error}
             </p>
           )}
+        </div>
+      ) : status === "DOWNLOADING" ? (
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          <StatusBadge status={status} />
+          <DownloadProgressBar requestId={request.id} />
         </div>
       ) : (
         <StatusBadge status={status} />

@@ -105,8 +105,8 @@ export function RequestTrackButton({
         size="icon-sm"
         variant="ghost"
         disabled={pending}
-        title="Request track"
-        aria-label="Request track"
+        title="Download track"
+        aria-label="Download track"
         onClick={() => {
           setError(null);
           startTransition(async () => {
