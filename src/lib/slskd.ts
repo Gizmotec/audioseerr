@@ -374,6 +374,254 @@ export async function getDownloadTransfer(
   return transfers.find((t) => baseName(t.filename) === target) ?? null;
 }
 
+// --- Albums -----------------------------------------------------------------
+// Soulseek shares whole album folders. We reconstruct candidate folders from
+// the flat search results (each file's remote path), pick the one that best
+// matches the album, download all its files, then map each downloaded file back
+// to an album track position.
+
+export type SlskdAlbumFolder = {
+  username: string;
+  folder: string; // remote folder path, no trailing separator
+  files: SlskdFileCandidate[];
+};
+
+/** The remote directory containing a file (its path minus the last segment). */
+export function folderOf(filename: string): string {
+  const idx = Math.max(filename.lastIndexOf("\\"), filename.lastIndexOf("/"));
+  return idx >= 0 ? filename.slice(0, idx) : "";
+}
+
+/**
+ * The album-level folder: like folderOf, but collapses a trailing disc segment
+ * (CD1, Disc 2, Disk03, …) up to its parent so multi-disc rips spread across
+ * `Album/CD1` + `Album/CD2` group as one album, not two half-albums.
+ */
+export function albumFolderOf(filename: string): string {
+  const dir = folderOf(filename);
+  const idx = Math.max(dir.lastIndexOf("\\"), dir.lastIndexOf("/"));
+  const leaf = (idx >= 0 ? dir.slice(idx + 1) : dir).trim();
+  if (/^(cd|dis[ck])\s*\d{1,2}$/i.test(leaf)) {
+    return idx >= 0 ? dir.slice(0, idx) : "";
+  }
+  return dir;
+}
+
+/** Group flat search candidates into (peer, album-folder) buckets. */
+export function groupAlbumFolders(
+  candidates: SlskdFileCandidate[],
+): SlskdAlbumFolder[] {
+  const map = new Map<string, SlskdAlbumFolder>();
+  for (const c of candidates) {
+    const folder = albumFolderOf(c.filename);
+    const key = `${c.username} ${folder}`;
+    let g = map.get(key);
+    if (!g) {
+      g = { username: c.username, folder, files: [] };
+      map.set(key, g);
+    }
+    g.files.push(c);
+  }
+  return [...map.values()];
+}
+
+export type PickAlbumInput = {
+  artistName: string;
+  albumTitle: string;
+  trackCount: number;
+};
+
+/**
+ * Rank candidate folders best-first. A good album folder has ~the right number
+ * of audio files, a path matching artist/album, decent format, and a reachable
+ * peer. Folders with far too few files (clearly not the album) are dropped.
+ */
+export function rankAlbumFolders(
+  folders: SlskdAlbumFolder[],
+  input: PickAlbumInput,
+): SlskdAlbumFolder[] {
+  const artistTokens = tokenize(input.artistName);
+  const albumTokens = tokenize(input.albumTitle);
+  const minFiles = Math.max(2, Math.ceil(input.trackCount / 2));
+
+  const scored = folders
+    .filter((f) => f.files.length >= minFiles)
+    .map((f) => ({ f, score: scoreFolder(f, input, artistTokens, albumTokens) }))
+    .sort((a, b) => b.score - a.score);
+
+  return scored.map(({ f }) => f);
+}
+
+export function pickBestAlbumFolder(
+  folders: SlskdAlbumFolder[],
+  input: PickAlbumInput,
+): SlskdAlbumFolder | null {
+  return rankAlbumFolders(folders, input)[0] ?? null;
+}
+
+function scoreFolder(
+  f: SlskdAlbumFolder,
+  input: PickAlbumInput,
+  artistTokens: string[],
+  albumTokens: string[],
+): number {
+  let score = 0;
+
+  // File-count closeness to the expected tracklist. Exact (or a few bonus
+  // tracks) is best; missing tracks is penalised harder than extras.
+  const diff = f.files.length - input.trackCount;
+  if (diff === 0) score += 30;
+  else if (diff > 0) score += Math.max(0, 30 - diff * 3); // bonus tracks ok-ish
+  else score += Math.max(-30, diff * 6); // missing tracks: heavy penalty
+
+  // Folder path should mention the artist and album.
+  const path = f.folder.toLowerCase();
+  score += artistTokens.filter((t) => path.includes(t)).length * 4;
+  score += albumTokens.filter((t) => path.includes(t)).length * 4;
+
+  // Average format quality across the folder.
+  if (f.files.length > 0) {
+    const avgFormat =
+      f.files.reduce((s, c) => s + formatScore(c), 0) / f.files.length;
+    score += avgFormat * 0.5;
+  }
+
+  // Peer reliability (response-level, identical across a peer's files).
+  const peer = f.files[0];
+  if (peer?.hasFreeUploadSlot) score += 12;
+  if (peer) {
+    score -= Math.min(peer.queueLength, 20);
+    score += Math.min(peer.uploadSpeed / 50000, 6);
+  }
+
+  return score;
+}
+
+export type AlbumTrackInput = {
+  absolutePosition: number;
+  mediumNumber: number;
+  position: number;
+  title: string;
+  recordingMbid: string | null;
+  lengthMs: number | null;
+};
+
+export type AlbumFileMatch = {
+  position: number; // absolute album position (1-indexed)
+  recordingMbid: string | null;
+  title: string;
+  durationMs: number | null;
+  filename: string;
+};
+
+type MatchFile = { filename: string; lengthSec?: number | null };
+
+/**
+ * Parse a filename's disc/track index. "1-01 x" → {disc:1,track:1}; "05 x" →
+ * {disc:null,track:5}; "x" → null. The disc-track form is what lets multi-disc
+ * folders (where per-disc numbering restarts) map correctly.
+ */
+export function parseDiscTrack(
+  name: string,
+): { disc: number | null; track: number } | null {
+  const base = name.replace(/\.[a-z0-9]+$/i, "");
+  const dt = base.match(/^\s*(\d{1,2})\s*[-_.]\s*(\d{1,2})(?!\d)/);
+  if (dt) {
+    return { disc: Number.parseInt(dt[1]!, 10), track: Number.parseInt(dt[2]!, 10) };
+  }
+  const m = base.match(/^\s*(\d{1,3})(?!\d)/);
+  if (m) return { disc: null, track: Number.parseInt(m[1]!, 10) };
+  return null;
+}
+
+/**
+ * Map a folder's audio files to album track positions.
+ *   Pass 1 — filename disc/track number → the matching MusicBrainz track
+ *     (by (disc,track) for multi-disc, else by absolute number for single-disc).
+ *   Pass 2 — remaining tracks to the closest unused file by duration, tie-broken
+ *     by shared title tokens so similar-length tracks aren't cross-assigned.
+ * A file is only ever used once.
+ */
+export function matchAlbumFiles<F extends MatchFile>(
+  files: F[],
+  tracks: AlbumTrackInput[],
+): AlbumFileMatch[] {
+  const used = new Set<F>();
+  const matchedPos = new Set<number>();
+  const out: AlbumFileMatch[] = [];
+
+  const byDiscPos = new Map<string, AlbumTrackInput>();
+  const byAbs = new Map<number, AlbumTrackInput>();
+  for (const t of tracks) {
+    byDiscPos.set(`${t.mediumNumber}-${t.position}`, t);
+    byAbs.set(t.absolutePosition, t);
+  }
+
+  const push = (t: AlbumTrackInput, f: F) => {
+    used.add(f);
+    matchedPos.add(t.absolutePosition);
+    out.push({
+      position: t.absolutePosition,
+      recordingMbid: t.recordingMbid,
+      title: t.title,
+      durationMs: t.lengthMs,
+      filename: f.filename,
+    });
+  };
+
+  // Pass 1: by filename disc/track number.
+  for (const f of files) {
+    if (used.has(f)) continue;
+    const dt = parseDiscTrack(baseName(f.filename));
+    if (!dt) continue;
+    let t: AlbumTrackInput | undefined;
+    if (dt.disc != null) t = byDiscPos.get(`${dt.disc}-${dt.track}`);
+    if (!t) t = byAbs.get(dt.track) ?? byDiscPos.get(`1-${dt.track}`);
+    if (t && !matchedPos.has(t.absolutePosition)) push(t, f);
+  }
+
+  // Pass 2: by duration, preferring shared title tokens.
+  const pairs: { t: AlbumTrackInput; f: F; diff: number; tokenHits: number }[] = [];
+  for (const t of tracks) {
+    if (matchedPos.has(t.absolutePosition) || !t.lengthMs) continue;
+    const titleTokens = tokenize(t.title);
+    for (const f of files) {
+      if (used.has(f) || !f.lengthSec) continue;
+      const diff = Math.abs(f.lengthSec - t.lengthMs / 1000);
+      if (diff > 12) continue;
+      const base = baseName(f.filename).toLowerCase();
+      const tokenHits = titleTokens.filter((tok) => base.includes(tok)).length;
+      pairs.push({ t, f, diff, tokenHits });
+    }
+  }
+  pairs.sort((a, b) => b.tokenHits - a.tokenHits || a.diff - b.diff);
+  for (const { t, f } of pairs) {
+    if (matchedPos.has(t.absolutePosition) || used.has(f)) continue;
+    push(t, f);
+  }
+
+  return out;
+}
+
+/** All download transfers for a user, flattened across directories. */
+export async function listUserDownloads(
+  config: SlskdConfig,
+  username: string,
+): Promise<SlskdTransfer[]> {
+  const data = await slskdFetch<SlskdUserDownloads | SlskdUserDownloads[]>(
+    config,
+    `/transfers/downloads/${encodeURIComponent(username)}`,
+  );
+  const users = Array.isArray(data) ? data : data ? [data] : [];
+  const transfers: SlskdTransfer[] = [];
+  for (const user of users) {
+    for (const dir of user.directories ?? []) {
+      for (const file of dir.files ?? []) transfers.push(file);
+    }
+  }
+  return transfers;
+}
+
 /** "Completed, Succeeded" → done; "Completed, Errored/Cancelled" → failed. */
 export function classifyTransfer(state: string): "done" | "failed" | "active" {
   const s = state.toLowerCase();

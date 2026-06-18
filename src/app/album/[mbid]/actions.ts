@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { executeRequestApproval } from "@/app/admin/requests/actions";
 import { prisma } from "@/lib/db";
+import { attachDownloadedTrackToUser } from "@/lib/downloadedTracks";
 import { getSettings } from "@/lib/settings";
 import { attachLibraryItemToUser } from "@/lib/userLibrary";
 
@@ -42,6 +43,32 @@ export async function requestAlbumAction(input: {
     },
   });
   if (existing) return { ok: false, error: "You've already requested this album." };
+
+  // slskd dedup: if this album is already in our own track library (downloaded
+  // by anyone), grant this user visibility instead of downloading it again.
+  const ownedTracks = await prisma.downloadedTrack.findMany({
+    where: { albumMbid: input.mbid },
+    select: { id: true },
+  });
+  if (ownedTracks.length > 0) {
+    await prisma.request.create({
+      data: {
+        type: "ALBUM",
+        mbid: input.mbid,
+        title: input.title,
+        artistName: input.artistName,
+        coverUrl: input.coverUrl,
+        requestedById: userId,
+        status: "AVAILABLE",
+        approvedAt: new Date(),
+      },
+    });
+    for (const t of ownedTracks) {
+      await attachDownloadedTrackToUser(userId, t.id);
+    }
+    revalidateAlbumPaths(input.mbid);
+    return { ok: true };
+  }
 
   const requester = await loadRequester(userId);
   if (!requester) return { ok: false, error: "User record missing." };

@@ -1,6 +1,6 @@
 # Single-song downloads via Soulseek (slskd)
 
-**Status:** Phase 1 implemented · Phases 2–3 planned
+**Status:** Phases 1–2 implemented · Phase 3 planned
 **Date:** 2026-06-17
 
 ## Problem
@@ -122,9 +122,13 @@ next-best peer is the immediate follow-up.
   streaming, album-page playability, playlist add-undownloaded + auto-fetch,
   slskd settings UI. Lidarr still serves albums. Old Prowlarr+qBittorrent *track*
   path removed (those services remain only behind Lidarr for albums).
-- **Phase 2.** Albums via slskd: search/download a full album folder (match track
-  count + durations against MusicBrainz), register each track as a
-  `DownloadedTrack`. Both flows then feed one library.
+- **Phase 2 (done).** Albums via slskd: album requests now route to Soulseek when
+  slskd is configured (Lidarr is the fallback). The engine groups search results
+  into album folders (collapsing nested `CD1`/`CD2` disc subfolders), picks the
+  best by track-count/format/peer, downloads the whole folder, and maps each file
+  to an album position by disc/track number + duration — persisted at approval and
+  registered per-track by the sync job (playable incrementally; dedup attaches a
+  second requester to the shared files). Artist requests still use Lidarr.
 - **Phase 3.** Migrate the existing Lidarr library → `DownloadedTrack` rows
   pointing at existing files; switch streaming + playability fully local; delete
   Lidarr/Prowlarr/qBittorrent code, settings, and the Lidarr-synced tables.
@@ -158,9 +162,21 @@ Hardened after an adversarial review of the diff:
 - **Done.** slskd HTTP errors keep their response body so the admin-facing
   failure reason is meaningful.
 
+Phase 2 hardening after adversarial review:
+- **Done.** Multi-disc: per-disc track numbers now map to absolute positions via
+  (disc, track), and nested `CD1`/`CD2` folders group as one album.
+- **Done.** Concurrent second requester is attached to shared album files instead
+  of being marked FAILED; album completion is judged on *this* album's tracks
+  (not any pre-owned track), with a title-token tiebreak in duration matching.
+- **Done.** The Lidarr album loop got the same stuck-state guard as the slskd paths.
+
 Still open (consciously deferred — low impact):
-- Auto-fallback to the next-best peer when a transfer errors mid-flight (today:
-  FAILED + manual retry re-runs the search).
+- Partial albums are marked AVAILABLE (missing tracks render as non-playable);
+  a distinct "incomplete" status is a future nicety.
+- Auto-fallback to the next-best peer/folder when a transfer errors mid-flight
+  (today: FAILED + manual retry re-runs the search).
+- Optimal (vs greedy) duration assignment; `parseDiscTrack` false-positive on
+  titles starting with a number; folder token-match dropping <3-char tokens.
 - When MusicBrainz omits a track length, pass the Deezer duration into the
   scorer so the duration reject still applies (currently skipped if either side
   lacks a length).

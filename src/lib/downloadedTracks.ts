@@ -76,18 +76,28 @@ function normalizeFileName(name: string): string {
     .trim();
 }
 
-/**
- * Register a finished download as a playable track and attach the requester.
- * Upserts on (albumMbid, albumPosition) so a second requester for the same
- * track reuses the one file. Returns the DownloadedTrack id, or null if the
- * request lacks the album context the table keys on.
- */
-export async function registerDownloadedTrack(
-  request: Request,
-  absFilePath: string,
-): Promise<string | null> {
-  if (!request.albumMbid || request.albumPosition == null) return null;
+export type DownloadedTrackFields = {
+  recordingMbid: string | null;
+  albumMbid: string;
+  albumPosition: number;
+  title: string;
+  artistName: string;
+  albumTitle: string | null;
+  coverUrl: string | null;
+  durationMs?: number | null;
+};
 
+/**
+ * Register a finished download as a playable track and grant the user
+ * visibility. Upserts on (albumMbid, albumPosition) so a second requester for
+ * the same track reuses the one file. Returns the DownloadedTrack id, or null if
+ * the file can't be stat'd. Used by both the single-track and album paths.
+ */
+export async function upsertDownloadedTrack(
+  fields: DownloadedTrackFields,
+  absFilePath: string,
+  userId: string,
+): Promise<string | null> {
   let sizeBytes: number | null = null;
   try {
     sizeBytes = (await fs.stat(absFilePath)).size;
@@ -101,17 +111,44 @@ export async function registerDownloadedTrack(
   const track = await prisma.downloadedTrack.upsert({
     where: {
       albumMbid_albumPosition: {
-        albumMbid: request.albumMbid,
-        albumPosition: request.albumPosition,
+        albumMbid: fields.albumMbid,
+        albumPosition: fields.albumPosition,
       },
     },
     update: {
       filePath: absFilePath,
       format,
       sizeBytes,
-      recordingMbid: request.recordingMbid,
+      recordingMbid: fields.recordingMbid,
+      durationMs: fields.durationMs ?? undefined,
     },
     create: {
+      recordingMbid: fields.recordingMbid,
+      albumMbid: fields.albumMbid,
+      albumPosition: fields.albumPosition,
+      title: fields.title,
+      artistName: fields.artistName,
+      albumTitle: fields.albumTitle,
+      coverUrl: fields.coverUrl,
+      durationMs: fields.durationMs ?? null,
+      filePath: absFilePath,
+      format,
+      sizeBytes,
+    },
+  });
+
+  await attachDownloadedTrackToUser(userId, track.id);
+  return track.id;
+}
+
+/** Single-track convenience wrapper keyed off a TRACK Request row. */
+export async function registerDownloadedTrack(
+  request: Request,
+  absFilePath: string,
+): Promise<string | null> {
+  if (!request.albumMbid || request.albumPosition == null) return null;
+  return upsertDownloadedTrack(
+    {
       recordingMbid: request.recordingMbid,
       albumMbid: request.albumMbid,
       albumPosition: request.albumPosition,
@@ -119,14 +156,10 @@ export async function registerDownloadedTrack(
       artistName: request.artistName,
       albumTitle: request.albumTitle,
       coverUrl: request.coverUrl,
-      filePath: absFilePath,
-      format,
-      sizeBytes,
     },
-  });
-
-  await attachDownloadedTrackToUser(request.requestedById, track.id);
-  return track.id;
+    absFilePath,
+    request.requestedById,
+  );
 }
 
 /** Idempotent per-user visibility attach (mirrors attachLibraryItemToUser). */

@@ -102,6 +102,10 @@ model Request {
   // handle, retained only for rows created before the slskd switchover.
   slskdUsername    String?
   slskdFile        String?
+  // For ALBUM requests fetched via slskd: JSON array mapping each downloaded
+  // file to its album position, computed at approval (with candidate durations)
+  // so the sync job can register each finished track without re-matching.
+  slskdFilesJson   String?
 
   @@index([status])
   @@index([requestedById])

@@ -16,6 +16,9 @@ import { getAlbum } from "@/lib/musicbrainz";
 import {
   baseName,
   enqueueDownload,
+  groupAlbumFolders,
+  matchAlbumFiles,
+  pickBestAlbumFolder,
   pickBestTrackFile,
   searchTracks,
   type SlskdConfig,
@@ -65,6 +68,16 @@ export async function executeRequestApproval(
 ): Promise<ActionResult> {
   if (request.type === "TRACK") {
     return approveTrackRequest(request, settings);
+  }
+  // Albums go through Soulseek when slskd is configured (the new default);
+  // otherwise fall back to the legacy Lidarr path. Artist requests still use
+  // Lidarr until that path is removed.
+  if (
+    request.type === "ALBUM" &&
+    settings.slskdUrl &&
+    settings.slskdApiKey
+  ) {
+    return approveAlbumViaSlskd(request, settings);
   }
   return pushAlbumOrArtistToLidarr(request, settings);
 }
@@ -225,6 +238,80 @@ async function approveTrackRequest(
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Soulseek download failed.";
+    await markFailed(request.id, msg);
+    revalidateTrackRequestPaths(request);
+    return { ok: false, error: msg };
+  }
+
+  revalidateTrackRequestPaths(request);
+  return { ok: true };
+}
+
+async function approveAlbumViaSlskd(
+  request: Request,
+  settings: SettingsView,
+): Promise<ActionResult> {
+  if (!settings.slskdUrl || !settings.slskdApiKey) {
+    return { ok: false, error: "Soulseek (slskd) is not configured in Settings." };
+  }
+  const slskd: SlskdConfig = {
+    url: settings.slskdUrl,
+    apiKey: settings.slskdApiKey,
+  };
+
+  try {
+    const album = await getAlbum(request.mbid);
+    if (!album || album.tracks.length === 0) {
+      const reason = "Couldn't load the album tracklist from MusicBrainz.";
+      await markFailed(request.id, reason);
+      revalidateTrackRequestPaths(request);
+      return { ok: false, error: reason };
+    }
+
+    const query = `${request.artistName} ${request.title}`;
+    const candidates = await searchTracks(slskd, query);
+    const best = pickBestAlbumFolder(groupAlbumFolders(candidates), {
+      artistName: request.artistName,
+      albumTitle: request.title,
+      trackCount: album.tracks.length,
+    });
+
+    if (!best) {
+      const reason =
+        candidates.length === 0
+          ? `Soulseek returned no files for "${query}".`
+          : `Soulseek returned files for "${query}" but no folder matched the album closely enough.`;
+      await markFailed(request.id, reason);
+      revalidateTrackRequestPaths(request);
+      return { ok: false, error: reason };
+    }
+
+    // Map files to album positions now, while we still have candidate durations
+    // — the sync job only sees transfer filenames. Persist it for registration.
+    const matches = matchAlbumFiles(best.files, album.tracks);
+
+    await enqueueDownload(
+      slskd,
+      best.username,
+      best.files.map((f) => ({ filename: f.filename, size: f.size })),
+    );
+
+    await prisma.request.update({
+      where: { id: request.id },
+      data: {
+        status: "DOWNLOADING",
+        approvedAt: new Date(),
+        declineReason: null,
+        // For albums, slskdFile holds the remote folder; the sync job polls all
+        // transfers under it and registers each completed track via slskdFilesJson.
+        slskdUsername: best.username,
+        slskdFile: best.folder,
+        slskdFilesJson: JSON.stringify(matches),
+        downloadTitle: `${best.files.length} files — ${baseName(best.folder) || request.title}`,
+      },
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Soulseek album download failed.";
     await markFailed(request.id, msg);
     revalidateTrackRequestPaths(request);
     return { ok: false, error: msg };
