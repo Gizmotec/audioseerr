@@ -4,17 +4,14 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AmbientArtworkBackground } from "@/components/AmbientArtworkBackground";
 import { BackLink } from "@/components/BackLink";
-import { getDownloadedTracksByRecording } from "@/lib/downloadedTracks";
+import { buildPlaylistStreamLookup } from "@/lib/downloadedTracks";
 import {
   getAllLikes,
   getLikedSongsPlaylist,
   LIKED_SONGS_PLAYLIST_ID,
   type LikedRow,
 } from "@/lib/likes";
-import {
-  getPlaylist,
-  resolvePlaylistTrackFiles,
-} from "@/lib/playlists";
+import { getPlaylist } from "@/lib/playlists";
 import { isSetupComplete } from "@/lib/settings";
 import { getActiveTrackRequestKeys } from "@/lib/trackRequests";
 import { PlaylistDetail } from "./PlaylistDetail";
@@ -53,32 +50,26 @@ export default async function PlaylistPage({ params }: { params: RouteParams }) 
   // viewer so a shared playlist played by a non-owner only resolves rows
   // covered by their UserLibraryItem; other rows get null and render
   // unplayable. The client also renders that as "unavailable."
-  const resolved = await resolvePlaylistTrackFiles(playlist.tracks, viewer);
-
-  // Beyond Lidarr: tracks we fetched via slskd are streamable from our own
-  // library, and tracks still downloading are badged "fetching" rather than
-  // "unavailable".
+  // Streamability is resolved entirely from our own library now, joined by
+  // (albumMbid, position) so migrated tracks (no recordingMbid) resolve too.
+  // Tracks still downloading are badged "fetching" rather than "unavailable".
   const recordingMbids = playlist.tracks
     .map((t) => t.recordingMbid)
     .filter((id): id is string => !!id);
-  const [localByRecording, fetchingKeys] = await Promise.all([
-    getDownloadedTracksByRecording(viewer, recordingMbids),
+  const [localByKey, fetchingKeys] = await Promise.all([
+    buildPlaylistStreamLookup(
+      viewer,
+      playlist.tracks.map((t) => t.albumMbid),
+    ),
     getActiveTrackRequestKeys(userId, recordingMbids),
   ]);
 
   const tracksWithStream = playlist.tracks.map((t) => {
-    const fileId = resolved.get(t.id) ?? null;
-    const localId = t.recordingMbid
-      ? (localByRecording.get(t.recordingMbid) ?? null)
-      : null;
-    const streamUrl = fileId
-      ? `/api/stream/${fileId}`
-      : localId
-        ? `/api/stream/local/${localId}`
-        : null;
+    const localId = localByKey.get(`${t.albumMbid}:${t.albumPosition}`) ?? null;
+    const streamUrl = localId ? `/api/stream/local/${localId}` : null;
     return {
       ...t,
-      currentTrackFileId: fileId,
+      currentTrackFileId: null,
       streamUrl,
       fetching: !streamUrl && fetchingKeys.has(t.recordingMbid),
     };

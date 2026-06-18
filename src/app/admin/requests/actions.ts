@@ -3,15 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import {
-  addArtist,
-  findArtistByMbid,
-  pollForAlbum,
-  setAlbumsMonitored,
-  triggerAlbumSearch,
-  triggerArtistSearch,
-  type LidarrConfig,
-} from "@/lib/lidarr";
 import { getAlbum } from "@/lib/musicbrainz";
 import {
   baseName,
@@ -69,109 +60,15 @@ export async function executeRequestApproval(
   if (request.type === "TRACK") {
     return approveTrackRequest(request, settings);
   }
-  // Albums go through Soulseek when slskd is configured (the new default);
-  // otherwise fall back to the legacy Lidarr path. Artist requests still use
-  // Lidarr until that path is removed.
-  if (
-    request.type === "ALBUM" &&
-    settings.slskdUrl &&
-    settings.slskdApiKey
-  ) {
+  if (request.type === "ALBUM") {
     return approveAlbumViaSlskd(request, settings);
   }
-  return pushAlbumOrArtistToLidarr(request, settings);
-}
-
-async function pushAlbumOrArtistToLidarr(
-  request: Request,
-  settings: SettingsView,
-): Promise<ActionResult> {
-  if (
-    !settings.lidarrUrl ||
-    !settings.lidarrApiKey ||
-    !settings.lidarrDefaultProfileId ||
-    !settings.lidarrRootFolderPath
-  ) {
-    return { ok: false, error: "Lidarr is not fully configured in setup." };
-  }
-  const lidarr: LidarrConfig = {
-    url: settings.lidarrUrl,
-    apiKey: settings.lidarrApiKey,
+  // Artist follow was a Lidarr feature; it's gone in the slskd-only world.
+  return {
+    ok: false,
+    error:
+      "Following whole artists isn't supported — request individual albums or tracks instead.",
   };
-
-  // Resolve the artist MBID — for album requests we need to look it up via MB.
-  let artistMbid: string | null = null;
-  if (request.type === "ARTIST") {
-    artistMbid = request.mbid;
-  } else {
-    const album = await getAlbum(request.mbid);
-    artistMbid = album?.artistMbid ?? null;
-  }
-  if (!artistMbid) {
-    await markFailed(request.id, "Couldn't resolve the artist MBID for this album.");
-    return { ok: false, error: "MusicBrainz didn't return an artist for this album." };
-  }
-
-  try {
-    // 1. Find or add the artist. Album requests add with monitor=none so we
-    //    can opt-in a single album below; artist requests add with monitor=all
-    //    + searchForMissingAlbums so Lidarr fans out across the back catalog
-    //    (design doc §8).
-    const existing = await findArtistByMbid(lidarr, artistMbid);
-    const lidarrArtistId = existing
-      ? existing.id
-      : (
-          await addArtist(lidarr, artistMbid, request.artistName, {
-            qualityProfileId: settings.lidarrDefaultProfileId,
-            rootFolderPath: settings.lidarrRootFolderPath,
-            monitor: request.type === "ARTIST" ? "all" : "none",
-            searchForMissingAlbums: request.type === "ARTIST",
-          })
-        ).id;
-
-    // 2. Wait for the album to appear under the artist. For existing artists
-    //    this is immediate; for fresh adds Lidarr's metadata refresh takes a
-    //    handful of seconds.
-    const album =
-      request.type === "ALBUM"
-        ? await pollForAlbum(lidarr, lidarrArtistId, request.mbid)
-        : null;
-
-    // 3. If we found the album, monitor + search just that one. We don't
-    //    touch other albums' monitoring state, so existing user setups are
-    //    preserved.
-    if (album) {
-      await setAlbumsMonitored(lidarr, [album.id], true);
-      await triggerAlbumSearch(lidarr, [album.id]).catch(() => {
-        // Search failures don't block the approval state change.
-      });
-    }
-    // If `album` is null (poll timeout / artist-typed request), the request
-    // still advances to APPROVED — milestone 8's status sync will reconcile.
-
-    // 4. Artist requests against an already-imported artist won't trigger
-    //    Lidarr's add-time search — kick one off explicitly so existing
-    //    monitored albums get searched. Newly-added artists already searched
-    //    via addOptions.searchForMissingAlbums above.
-    if (request.type === "ARTIST" && existing) {
-      await triggerArtistSearch(lidarr, lidarrArtistId).catch(() => {});
-    }
-
-    await prisma.request.update({
-      where: { id: request.id },
-      data: {
-        status: "APPROVED",
-        approvedAt: new Date(),
-        lidarrId: lidarrArtistId,
-        qualityProfileId: settings.lidarrDefaultProfileId,
-      },
-    });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Lidarr push failed.";
-    return { ok: false, error: msg };
-  }
-
-  return { ok: true };
 }
 
 async function approveTrackRequest(
@@ -384,30 +281,28 @@ export async function syncNowAction(): Promise<
   | {
       ok: true;
       requests: { scanned: number; changed: number };
-      library: { artists: number; albums: number };
+      library: { albums: number };
     }
   | { ok: false; error: string }
 > {
   const guard = await requireAdmin();
   if (!guard.ok) return guard;
 
-  const [{ syncActiveRequests }, { syncLibrary }] = await Promise.all([
+  const [{ syncActiveRequests }, { syncDownloadedLibrary }] = await Promise.all([
     import("@/lib/jobs/syncActiveRequests"),
-    import("@/lib/jobs/syncLibrary"),
+    import("@/lib/jobs/syncDownloadedLibrary"),
   ]);
 
   try {
-    // Library first so freshly-added items show up before the request scan
-    // reconciles their per-request status.
-    const lib = await syncLibrary();
     const reqs = await syncActiveRequests();
+    const lib = await syncDownloadedLibrary();
     revalidatePath("/admin/requests");
     revalidatePath("/requests");
     revalidatePath("/home");
     return {
       ok: true,
       requests: reqs,
-      library: { artists: lib.artists, albums: lib.albums },
+      library: { albums: lib.albums },
     };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Sync failed." };

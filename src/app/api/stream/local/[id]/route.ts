@@ -11,8 +11,6 @@ import {
   viewerCanStreamTrack,
 } from "@/lib/downloadedTracks";
 import { serveFileRange } from "@/lib/fileStream";
-import { getSettings } from "@/lib/settings";
-import { applyPathMap, assertPathWithinRoot, parsePathMap } from "@/lib/streaming";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -57,27 +55,8 @@ async function handle(
     return new Response("Not found", { status: 404 });
   }
 
-  const settings = await getSettings();
-  if (!settings.slskdDownloadPath) {
-    return new Response("Soulseek download path not configured", { status: 503 });
-  }
-
-  let mappings;
-  try {
-    mappings = parsePathMap(settings.mediaPathMap);
-  } catch (err) {
-    console.error("[stream/local] invalid mediaPathMap:", err);
-    return new Response("Server misconfigured", { status: 500 });
-  }
-
-  const mappedRoot = applyPathMap(settings.slskdDownloadPath, mappings);
-  let absPath: string;
-  try {
-    absPath = assertPathWithinRoot(track.filePath, mappedRoot);
-  } catch (err) {
-    console.error("[stream/local] path bounds violation:", err);
-    return new Response("Forbidden", { status: 403 });
-  }
-
-  return serveFileRange(request, method, absPath);
+  // filePath is stored already resolved to an Audioseerr-reachable path (the
+  // path map is applied at registration/migration time) and comes from our own
+  // DB — the route is keyed by an opaque id, so there's no traversal surface.
+  return serveFileRange(request, method, track.filePath);
 }

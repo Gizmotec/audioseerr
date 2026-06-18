@@ -9,9 +9,8 @@ import { buildDownloadedTrackLookup } from "@/lib/downloadedTracks";
 import { getLibraryHit, getLibraryHitByName } from "@/lib/library";
 import { getLikedSet, isLiked } from "@/lib/likes";
 import { getAlbum, type MbTrack } from "@/lib/musicbrainz";
-import { buildTrackFileLookup, type TrackFileLookup } from "@/lib/playback";
 import { listPlaylists } from "@/lib/playlists";
-import { getSettings, isSetupComplete } from "@/lib/settings";
+import { isSetupComplete } from "@/lib/settings";
 import { AlbumDetail } from "./AlbumDetail";
 import type { ExistingRequestStatus } from "./RequestButton";
 
@@ -100,44 +99,20 @@ export default async function AlbumPage({
     // Previews are nice-to-have; swallow and render the page without them.
   }
 
-  // If the album is in our Lidarr library and downloaded, fetch the
-  // position→trackFileId map so the UI can stream full audio. Best-effort —
-  // Lidarr may be temporarily unreachable; the page still renders.
-  let trackFileLookup: TrackFileLookup | null = null;
-  if (libraryHit?.status === "downloaded") {
-    try {
-      const settings = await getSettings();
-      if (settings.lidarrUrl && settings.lidarrApiKey) {
-        trackFileLookup = await buildTrackFileLookup(
-          { url: settings.lidarrUrl, apiKey: settings.lidarrApiKey },
-          libraryHit.lidarrId,
-        );
-      }
-    } catch {
-      // Fall through with null — UI will use Deezer previews instead.
-    }
-  }
-
-  // Singles we fetched via slskd are playable independently of Lidarr's
-  // album-level library status, so this lookup runs unconditionally (scoped to
-  // what the viewer is allowed to stream).
+  // Which tracks of this album we have on disk, scoped to what the viewer is
+  // allowed to stream. This is the single source of playability now that
+  // everything is served from our own library.
   const downloadedLookup = await buildDownloadedTrackLookup(viewer, album.mbid);
 
   const tracks: TrackWithPreview[] = album.tracks.map((t) => {
     const dz = previews?.trackByTitle[normalizeTrackTitle(t.title)];
-    const trackFileId = trackFileLookup?.get(t.absolutePosition);
     const local = downloadedLookup.get(t.absolutePosition);
-    // Lidarr file wins when present; otherwise fall back to our own slskd copy.
-    const streamUrl = trackFileId
-      ? `/api/stream/${trackFileId}`
-      : local
-        ? `/api/stream/local/${local.id}`
-        : null;
+    const streamUrl = local ? `/api/stream/local/${local.id}` : null;
     return {
       ...t,
       previewUrl: dz?.previewUrl ?? null,
       streamUrl,
-      trackFileId: trackFileId ?? null,
+      trackFileId: null,
       downloadedTrackId: local?.id ?? null,
       // MusicBrainz often omits track lengths for newer releases; Deezer's
       // duration is a reasonable fallback when it's available.

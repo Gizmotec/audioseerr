@@ -1,6 +1,6 @@
 # Single-song downloads via Soulseek (slskd)
 
-**Status:** Phases 1–2 implemented · Phase 3 planned
+**Status:** Phases 1–3 implemented (slskd-only)
 **Date:** 2026-06-17
 
 ## Problem
@@ -129,9 +129,22 @@ next-best peer is the immediate follow-up.
   to an album position by disc/track number + duration — persisted at approval and
   registered per-track by the sync job (playable incrementally; dedup attaches a
   second requester to the shared files). Artist requests still use Lidarr.
-- **Phase 3.** Migrate the existing Lidarr library → `DownloadedTrack` rows
-  pointing at existing files; switch streaming + playability fully local; delete
-  Lidarr/Prowlarr/qBittorrent code, settings, and the Lidarr-synced tables.
+- **Phase 3 (done).** slskd-only. Lidarr/Prowlarr/qBittorrent client code and the
+  Lidarr stream route are deleted; album/playlist/album-page playback resolve
+  entirely from `DownloadedTrack`; approval routes albums to slskd (artist-follow
+  removed); the 15-min Lidarr `syncLibrary` is replaced by `syncDownloadedLibrary`,
+  which rebuilds `LibraryItem`/`UserLibraryItem` as a *derived* index of what
+  we've downloaded (so the existing library/home/badge consumers keep working);
+  setup + admin settings now configure slskd. The local stream route serves the
+  DB-stored path directly (no slskd-root bounds check — the path is never user
+  input). **One-time migration:** run `scripts/migrate-library-to-slskd.mjs` with
+  `LIDARR_URL`/`LIDARR_API_KEY` set, while Lidarr is still reachable, to convert
+  the existing library into `DownloadedTrack` rows.
+
+  Left as a deliberate, low-risk **cleanup follow-up** (so the migration can read
+  them): the vestigial `LibraryItem.lidarrId` column and the
+  lidarr*/prowlarr*/qbittorrent*/trackTorrent* `Settings` columns remain in the
+  DB (unused). Drop them once the migration is confirmed.
 
 ## slskd API reference (verified)
 

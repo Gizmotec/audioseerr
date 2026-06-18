@@ -3,7 +3,7 @@ import { pruneCache } from "./pruneCache";
 import { pruneOldRequests } from "./pruneOldRequests";
 import { refreshCharts } from "./refreshCharts";
 import { syncActiveRequests } from "./syncActiveRequests";
-import { syncLibrary } from "./syncLibrary";
+import { syncDownloadedLibrary } from "./syncDownloadedLibrary";
 
 let registered = false;
 
@@ -13,8 +13,9 @@ export function registerJobs() {
 
   // Schedules are sourced from docs/plans/2026-05-03-audioseerr-design.md §10.
 
-  cron.schedule("*/15 * * * *", () => {
-    void syncLibrary().catch(() => {
+  // Rebuild the album-library index from what we've downloaded via slskd.
+  cron.schedule("*/5 * * * *", () => {
+    void syncDownloadedLibrary().catch(() => {
       // Errors are tolerated; the next run picks up where this left off.
     });
   });

@@ -1,20 +1,13 @@
 import { prisma } from "@/lib/db";
 import { decrypt, encrypt } from "@/lib/encryption";
 
+// Note: the Settings table still carries vestigial lidarr*/prowlarr*/
+// qbittorrent*/trackTorrent* columns from before the slskd-only switchover.
+// They're intentionally not surfaced here anymore; a later cleanup migration
+// can drop them once the library migration is confirmed.
+
 export type SettingsView = {
   setupComplete: boolean;
-  lidarrUrl: string | null;
-  lidarrApiKey: string | null;
-  lidarrDefaultProfileId: number | null;
-  lidarrRootFolderPath: string | null;
-  prowlarrUrl: string | null;
-  prowlarrApiKey: string | null;
-  qbittorrentUrl: string | null;
-  qbittorrentUsername: string | null;
-  qbittorrentPassword: string | null;
-  trackTorrentCategory: string | null;
-  trackTorrentSavePath: string | null;
-  trackTorrentMaxSizeMb: number;
   slskdUrl: string | null;
   slskdApiKey: string | null;
   slskdDownloadPath: string | null;
@@ -31,20 +24,6 @@ export async function getSettings(): Promise<SettingsView> {
 
   return {
     setupComplete: row.setupComplete,
-    lidarrUrl: row.lidarrUrl,
-    lidarrApiKey: row.lidarrApiKey ? decrypt(row.lidarrApiKey) : null,
-    lidarrDefaultProfileId: row.lidarrDefaultProfileId,
-    lidarrRootFolderPath: row.lidarrRootFolderPath,
-    prowlarrUrl: row.prowlarrUrl,
-    prowlarrApiKey: row.prowlarrApiKey ? decrypt(row.prowlarrApiKey) : null,
-    qbittorrentUrl: row.qbittorrentUrl,
-    qbittorrentUsername: row.qbittorrentUsername,
-    qbittorrentPassword: row.qbittorrentPassword
-      ? decrypt(row.qbittorrentPassword)
-      : null,
-    trackTorrentCategory: row.trackTorrentCategory,
-    trackTorrentSavePath: row.trackTorrentSavePath,
-    trackTorrentMaxSizeMb: row.trackTorrentMaxSizeMb,
     slskdUrl: row.slskdUrl,
     slskdApiKey: row.slskdApiKey ? decrypt(row.slskdApiKey) : null,
     slskdDownloadPath: row.slskdDownloadPath,
@@ -54,18 +33,6 @@ export async function getSettings(): Promise<SettingsView> {
 }
 
 export type SettingsUpdate = {
-  lidarrUrl?: string | null;
-  lidarrApiKey?: string | null;
-  lidarrDefaultProfileId?: number | null;
-  lidarrRootFolderPath?: string | null;
-  prowlarrUrl?: string | null;
-  prowlarrApiKey?: string | null;
-  qbittorrentUrl?: string | null;
-  qbittorrentUsername?: string | null;
-  qbittorrentPassword?: string | null;
-  trackTorrentCategory?: string | null;
-  trackTorrentSavePath?: string | null;
-  trackTorrentMaxSizeMb?: number;
   slskdUrl?: string | null;
   slskdApiKey?: string | null;
   slskdDownloadPath?: string | null;
@@ -76,18 +43,6 @@ export type SettingsUpdate = {
 
 export async function saveSettings(update: SettingsUpdate): Promise<void> {
   const data: SettingsUpdate = { ...update };
-  if (data.lidarrApiKey !== undefined && data.lidarrApiKey !== null) {
-    data.lidarrApiKey = encrypt(data.lidarrApiKey);
-  }
-  if (data.prowlarrApiKey !== undefined && data.prowlarrApiKey !== null) {
-    data.prowlarrApiKey = encrypt(data.prowlarrApiKey);
-  }
-  if (
-    data.qbittorrentPassword !== undefined &&
-    data.qbittorrentPassword !== null
-  ) {
-    data.qbittorrentPassword = encrypt(data.qbittorrentPassword);
-  }
   if (data.slskdApiKey !== undefined && data.slskdApiKey !== null) {
     data.slskdApiKey = encrypt(data.slskdApiKey);
   }

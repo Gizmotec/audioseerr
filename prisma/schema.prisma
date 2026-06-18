@@ -114,7 +114,10 @@ model Request {
 
 model LibraryItem {
   mbid             String   @id
-  lidarrId         Int      @unique
+  // Derived album-library index (rebuilt from DownloadedTrack by
+  // syncDownloadedLibrary). lidarrId is vestigial — null for slskd-sourced
+  // albums, retained only for rows migrated from the old Lidarr sync.
+  lidarrId         Int?
   status           String
   artistName       String
   title            String

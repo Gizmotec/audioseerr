@@ -33,7 +33,6 @@ export function LibraryAlbumTile({
     status: item.status,
     trackFileCount: item.trackFileCount,
     totalTrackCount: item.totalTrackCount,
-    lidarrId: 0,
   });
 
   return (

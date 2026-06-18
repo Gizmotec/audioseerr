@@ -4,37 +4,23 @@ import { CheckCircle2, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { LidarrQualityProfile, LidarrRootFolder } from "@/lib/lidarr";
 import {
-  type LidarrProbeResult,
-  type ProwlarrProbeResult,
-  type QBittorrentProbeResult,
   type SlskdProbeResult,
-  probeLidarrAction,
-  probeProwlarrAction,
-  probeQBittorrentAction,
   probeSlskdAction,
   saveAdminSettingsAction,
 } from "./actions";
 import { KEY_UNCHANGED_SENTINEL } from "./constants";
 
 type Initial = {
-  lidarrUrl: string;
-  // Empty string when no key is stored yet; the masked dots otherwise.
-  lidarrApiKeyMasked: string;
-  lidarrDefaultProfileId: number | null;
-  lidarrRootFolderPath: string;
-  prowlarrUrl: string;
-  prowlarrApiKeyMasked: string;
-  qbittorrentUrl: string;
-  qbittorrentUsername: string;
-  qbittorrentPasswordMasked: string;
-  trackTorrentCategory: string;
-  trackTorrentSavePath: string;
-  trackTorrentMaxSizeMb: number;
   slskdUrl: string;
   slskdApiKeyMasked: string;
   slskdDownloadPath: string;
@@ -48,29 +34,11 @@ type EnvFlags = {
   audioseerrSecret: boolean;
 };
 
-export type StorageInfo = {
-  rootFolderPath: string | null;
-  diskPath: string | null;
-  freeSpace: number | null;
-  totalSpace: number | null;
-  librarySize: number | null;
-  artistCount: number | null;
-  trackFileCount: number | null;
-};
-
 export function SettingsForm({
   initial,
-  profiles: initialProfiles,
-  rootFolders: initialRootFolders,
-  lidarrReachable: initialReachable,
-  storage,
   env,
 }: {
   initial: Initial;
-  profiles: LidarrQualityProfile[];
-  rootFolders: LidarrRootFolder[];
-  lidarrReachable: boolean;
-  storage: StorageInfo | null;
   env: EnvFlags;
 }) {
   const router = useRouter();
@@ -78,56 +46,6 @@ export function SettingsForm({
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  // Lidarr controls — start from initial, then update if the user re-probes
-  // the connection (so they can pick up newly-added profiles or folders).
-  const [lidarrUrl, setLidarrUrl] = useState(initial.lidarrUrl);
-  const [lidarrApiKey, setLidarrApiKey] = useState(initial.lidarrApiKeyMasked);
-  // Track whether the user actually edited the key field. If they didn't, we
-  // send a sentinel back so the action keeps the existing encrypted value.
-  const [keyEdited, setKeyEdited] = useState(false);
-  const [profileId, setProfileId] = useState<number | null>(
-    initial.lidarrDefaultProfileId,
-  );
-  const [rootFolder, setRootFolder] = useState(initial.lidarrRootFolderPath);
-  const [profiles, setProfiles] = useState(initialProfiles);
-  const [rootFolders, setRootFolders] = useState(initialRootFolders);
-  const [reachable, setReachable] = useState(initialReachable);
-  const [probing, setProbing] = useState(false);
-  const [probeMsg, setProbeMsg] = useState<string | null>(null);
-
-  // Track torrent controls. These are independent from Lidarr: Prowlarr finds
-  // candidate audio releases, qBittorrent receives the selected torrent.
-  const [prowlarrUrl, setProwlarrUrl] = useState(initial.prowlarrUrl);
-  const [prowlarrApiKey, setProwlarrApiKey] = useState(
-    initial.prowlarrApiKeyMasked,
-  );
-  const [prowlarrKeyEdited, setProwlarrKeyEdited] = useState(false);
-  const [qbittorrentUrl, setQbittorrentUrl] = useState(initial.qbittorrentUrl);
-  const [qbittorrentUsername, setQbittorrentUsername] = useState(
-    initial.qbittorrentUsername,
-  );
-  const [qbittorrentPassword, setQbittorrentPassword] = useState(
-    initial.qbittorrentPasswordMasked,
-  );
-  const [qbittorrentPasswordEdited, setQbittorrentPasswordEdited] =
-    useState(false);
-  const [trackTorrentCategory, setTrackTorrentCategory] = useState(
-    initial.trackTorrentCategory,
-  );
-  const [trackTorrentSavePath, setTrackTorrentSavePath] = useState(
-    initial.trackTorrentSavePath,
-  );
-  const [trackTorrentMaxSizeMb, setTrackTorrentMaxSizeMb] = useState(
-    initial.trackTorrentMaxSizeMb,
-  );
-  const [prowlarrTesting, setProwlarrTesting] = useState(false);
-  const [prowlarrProbeMsg, setProwlarrProbeMsg] = useState<string | null>(null);
-  const [qbittorrentTesting, setQbittorrentTesting] = useState(false);
-  const [qbittorrentProbeMsg, setQbittorrentProbeMsg] = useState<string | null>(
-    null,
-  );
-
-  // Soulseek (slskd) — the single-song download source.
   const [slskdUrl, setSlskdUrl] = useState(initial.slskdUrl);
   const [slskdApiKey, setSlskdApiKey] = useState(initial.slskdApiKeyMasked);
   const [slskdKeyEdited, setSlskdKeyEdited] = useState(false);
@@ -137,86 +55,8 @@ export function SettingsForm({
   const [slskdTesting, setSlskdTesting] = useState(false);
   const [slskdProbeMsg, setSlskdProbeMsg] = useState<string | null>(null);
 
-  // Other settings.
   const [lastFmApiKey, setLastFmApiKey] = useState(initial.lastFmApiKey);
   const [mediaPathMap, setMediaPathMap] = useState(initial.mediaPathMap);
-
-  async function probe() {
-    setProbing(true);
-    setProbeMsg(null);
-    // If the key field still shows the masked placeholder, we haven't been
-    // given a fresh key — send the sentinel and let the server pull the
-    // currently-stored key.
-    const res: LidarrProbeResult = await probeLidarrAction({
-      url: lidarrUrl,
-      apiKey: keyEdited ? lidarrApiKey : KEY_UNCHANGED_SENTINEL,
-    });
-    setProbing(false);
-    if (!res.ok) {
-      setReachable(false);
-      setProbeMsg(res.error);
-      return;
-    }
-    setProfiles(res.profiles);
-    setRootFolders(res.rootFolders);
-    setReachable(true);
-    setProbeMsg(`Connected to Lidarr ${res.version}.`);
-    // If the saved profile/folder no longer exist (renamed in Lidarr), clear
-    // them so the form forces a re-pick.
-    if (profileId && !res.profiles.find((p) => p.id === profileId)) {
-      setProfileId(null);
-    }
-    if (rootFolder && !res.rootFolders.find((r) => r.path === rootFolder)) {
-      setRootFolder("");
-    }
-  }
-
-  async function probeProwlarr() {
-    setProwlarrTesting(true);
-    setProwlarrProbeMsg(null);
-    const res: ProwlarrProbeResult = await probeProwlarrAction({
-      url: prowlarrUrl,
-      apiKey: prowlarrKeyEdited || !initial.prowlarrApiKeyMasked
-        ? prowlarrApiKey
-        : KEY_UNCHANGED_SENTINEL,
-    });
-    setProwlarrTesting(false);
-    if (!res.ok) {
-      setProwlarrProbeMsg(res.error);
-      return;
-    }
-    setProwlarrProbeMsg(`Connected to Prowlarr ${res.status.version}.`);
-  }
-
-  async function probeQBittorrent() {
-    setQbittorrentTesting(true);
-    setQbittorrentProbeMsg(null);
-    const res: QBittorrentProbeResult = await probeQBittorrentAction({
-      url: qbittorrentUrl,
-      username: qbittorrentUsername,
-      password:
-        qbittorrentPasswordEdited || !initial.qbittorrentPasswordMasked
-          ? qbittorrentPassword
-          : KEY_UNCHANGED_SENTINEL,
-      category: trackTorrentCategory,
-    });
-    setQbittorrentTesting(false);
-    if (!res.ok) {
-      setQbittorrentProbeMsg(res.error);
-      return;
-    }
-
-    const category = trackTorrentCategory.trim();
-    const categoryNote =
-      res.categoryExists === null
-        ? ""
-        : res.categoryExists
-          ? ` Category "${category}" exists.`
-          : ` Category "${category}" does not exist yet; Audioseerr will create it before adding a torrent.`;
-    setQbittorrentProbeMsg(
-      `Connected to qBittorrent ${res.status.version}.${categoryNote}`,
-    );
-  }
 
   async function probeSlskd() {
     setSlskdTesting(true);
@@ -237,34 +77,8 @@ export function SettingsForm({
     setError(null);
     setSaved(false);
 
-    if (!profileId) {
-      setError("Pick a default Lidarr quality profile.");
-      return;
-    }
-    if (!rootFolder) {
-      setError("Pick a Lidarr root folder.");
-      return;
-    }
-
     startTransition(async () => {
       const res = await saveAdminSettingsAction({
-        lidarrUrl,
-        lidarrApiKey: keyEdited ? lidarrApiKey : KEY_UNCHANGED_SENTINEL,
-        lidarrDefaultProfileId: profileId,
-        lidarrRootFolderPath: rootFolder,
-        prowlarrUrl,
-        prowlarrApiKey: prowlarrKeyEdited || !initial.prowlarrApiKeyMasked
-          ? prowlarrApiKey
-          : KEY_UNCHANGED_SENTINEL,
-        qbittorrentUrl,
-        qbittorrentUsername,
-        qbittorrentPassword:
-          qbittorrentPasswordEdited || !initial.qbittorrentPasswordMasked
-          ? qbittorrentPassword
-          : KEY_UNCHANGED_SENTINEL,
-        trackTorrentCategory,
-        trackTorrentSavePath,
-        trackTorrentMaxSizeMb,
         slskdUrl,
         slskdApiKey:
           slskdKeyEdited || !initial.slskdApiKeyMasked
@@ -279,13 +93,7 @@ export function SettingsForm({
         return;
       }
       setSaved(true);
-      setKeyEdited(false);
-      setProwlarrKeyEdited(false);
-      setQbittorrentPasswordEdited(false);
       setSlskdKeyEdited(false);
-      setLidarrApiKey(initial.lidarrApiKeyMasked || "••••••••");
-      if (prowlarrApiKey) setProwlarrApiKey("••••••••");
-      if (qbittorrentPassword) setQbittorrentPassword("••••••••");
       if (slskdApiKey) setSlskdApiKey("••••••••");
       router.refresh();
     });
@@ -293,306 +101,13 @@ export function SettingsForm({
 
   return (
     <form className="flex flex-col gap-6" onSubmit={onSubmit}>
-      {/* Lidarr */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Lidarr</CardTitle>
-          <CardDescription>
-            Connection and defaults used when approving requests.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="lidarrUrl">URL</Label>
-              <Input
-                id="lidarrUrl"
-                value={lidarrUrl}
-                onChange={(e) => setLidarrUrl(e.target.value)}
-                placeholder="http://lidarr:8686"
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="lidarrApiKey">API key</Label>
-              <Input
-                id="lidarrApiKey"
-                type="password"
-                value={lidarrApiKey}
-                onChange={(e) => {
-                  setLidarrApiKey(e.target.value);
-                  setKeyEdited(true);
-                }}
-                onFocus={() => {
-                  // Clear the masked placeholder so the user types onto a blank
-                  // field — same trick browsers use for password autofill.
-                  if (!keyEdited && lidarrApiKey.startsWith("••")) {
-                    setLidarrApiKey("");
-                  }
-                }}
-                placeholder="From Lidarr → Settings → General → API Key"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Button type="button" variant="outline" onClick={probe} disabled={probing}>
-              {probing ? (
-                <>
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Testing
-                </>
-              ) : (
-                "Test connection"
-              )}
-            </Button>
-            {probeMsg && (
-              <span
-                className={
-                  reachable ? "text-sm text-green-500" : "text-sm text-destructive"
-                }
-              >
-                {probeMsg}
-              </span>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="profile">Default quality profile</Label>
-              <select
-                id="profile"
-                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm dark:bg-input/30"
-                value={profileId ?? ""}
-                onChange={(e) =>
-                  setProfileId(e.target.value ? Number(e.target.value) : null)
-                }
-              >
-                <option value="">— Select —</option>
-                {profiles.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-                {/* If we couldn't reach Lidarr, surface the saved id so the
-                    user knows it's still set. */}
-                {!reachable && profileId && !profiles.find((p) => p.id === profileId) && (
-                  <option value={profileId}>id #{profileId} (Lidarr unreachable)</option>
-                )}
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="rootFolder">Root folder</Label>
-              <select
-                id="rootFolder"
-                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm dark:bg-input/30"
-                value={rootFolder}
-                onChange={(e) => setRootFolder(e.target.value)}
-              >
-                <option value="">— Select —</option>
-                {rootFolders.map((r) => (
-                  <option key={r.id} value={r.path}>
-                    {r.path}
-                  </option>
-                ))}
-                {!reachable && rootFolder && !rootFolders.find((r) => r.path === rootFolder) && (
-                  <option value={rootFolder}>{rootFolder} (Lidarr unreachable)</option>
-                )}
-              </select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Track torrents */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Track torrents</CardTitle>
-          <CardDescription>
-            Optional automation for individual track requests. Album and artist
-            requests still go through Lidarr.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="prowlarrUrl">Prowlarr URL</Label>
-              <Input
-                id="prowlarrUrl"
-                value={prowlarrUrl}
-                onChange={(e) => setProwlarrUrl(e.target.value)}
-                placeholder="http://prowlarr:9696"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="prowlarrApiKey">Prowlarr API key</Label>
-              <Input
-                id="prowlarrApiKey"
-                type="password"
-                value={prowlarrApiKey}
-                onChange={(e) => {
-                  setProwlarrApiKey(e.target.value);
-                  setProwlarrKeyEdited(true);
-                }}
-                onFocus={() => {
-                  if (!prowlarrKeyEdited && prowlarrApiKey.startsWith("••")) {
-                    setProwlarrApiKey("");
-                  }
-                }}
-                placeholder="From Prowlarr → Settings → General → API Key"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="qbittorrentUrl">qBittorrent URL</Label>
-              <Input
-                id="qbittorrentUrl"
-                value={qbittorrentUrl}
-                onChange={(e) => setQbittorrentUrl(e.target.value)}
-                placeholder="http://qbittorrent:8080"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="qbittorrentUsername">Username</Label>
-              <Input
-                id="qbittorrentUsername"
-                value={qbittorrentUsername}
-                onChange={(e) => setQbittorrentUsername(e.target.value)}
-                placeholder="admin"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="qbittorrentPassword">Password</Label>
-              <Input
-                id="qbittorrentPassword"
-                type="password"
-                value={qbittorrentPassword}
-                onChange={(e) => {
-                  setQbittorrentPassword(e.target.value);
-                  setQbittorrentPasswordEdited(true);
-                }}
-                onFocus={() => {
-                  if (
-                    !qbittorrentPasswordEdited &&
-                    qbittorrentPassword.startsWith("••")
-                  ) {
-                    setQbittorrentPassword("");
-                  }
-                }}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="trackTorrentCategory">Category</Label>
-              <Input
-                id="trackTorrentCategory"
-                value={trackTorrentCategory}
-                onChange={(e) => setTrackTorrentCategory(e.target.value)}
-                placeholder="audioseerr-tracks"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="trackTorrentSavePath">Save path</Label>
-              <Input
-                id="trackTorrentSavePath"
-                value={trackTorrentSavePath}
-                onChange={(e) => setTrackTorrentSavePath(e.target.value)}
-                placeholder="Optional"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="trackTorrentMaxSizeMb">Max size MB</Label>
-              <Input
-                id="trackTorrentMaxSizeMb"
-                type="number"
-                min={10}
-                max={2000}
-                value={trackTorrentMaxSizeMb}
-                onChange={(e) => setTrackTorrentMaxSizeMb(Number(e.target.value))}
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2 rounded-md border border-border bg-secondary/15 p-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="font-medium text-foreground">Connection checks</p>
-              <p>
-                Test each service from the Audioseerr server using the values
-                above. Save first if you changed a masked secret.
-              </p>
-            </div>
-            <div className="flex shrink-0 flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={probeProwlarr}
-                disabled={pending || prowlarrTesting}
-                className="gap-1.5"
-              >
-                {prowlarrTesting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <CheckCircle2 className="h-4 w-4" />
-                )}
-                Test Prowlarr
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={probeQBittorrent}
-                disabled={pending || qbittorrentTesting}
-                className="gap-1.5"
-              >
-                {qbittorrentTesting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <CheckCircle2 className="h-4 w-4" />
-                )}
-                Test qBittorrent
-              </Button>
-            </div>
-          </div>
-          {(prowlarrProbeMsg || qbittorrentProbeMsg) && (
-            <div className="space-y-1 text-sm">
-              {prowlarrProbeMsg && (
-                <p
-                  className={
-                    prowlarrProbeMsg.startsWith("Connected")
-                      ? "text-muted-foreground"
-                      : "text-destructive"
-                  }
-                  role="status"
-                >
-                  Prowlarr: {prowlarrProbeMsg}
-                </p>
-              )}
-              {qbittorrentProbeMsg && (
-                <p
-                  className={
-                    qbittorrentProbeMsg.startsWith("Connected")
-                      ? "text-muted-foreground"
-                      : "text-destructive"
-                  }
-                  role="status"
-                >
-                  qBittorrent: {qbittorrentProbeMsg}
-                </p>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
       {/* Soulseek (slskd) */}
       <Card>
         <CardHeader>
           <CardTitle>Soulseek (slskd)</CardTitle>
           <CardDescription>
-            Single-song downloads. Individual track requests and playlist
-            auto-fetch search Soulseek via slskd and download directly.
+            The download source for everything — singles, albums, and playlist
+            auto-fetch all search Soulseek via slskd.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
@@ -677,9 +192,9 @@ export function SettingsForm({
         <CardHeader>
           <CardTitle>Library playback</CardTitle>
           <CardDescription>
-            Path translations for streaming downloaded tracks. Lidarr reports
-            files at its own filesystem view; if Audioseerr mounts the library
-            at a different path, list the translations here.
+            Path translations for streaming downloaded files. If Audioseerr
+            mounts the download directory at a different path than slskd writes
+            to, list the translations here.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
@@ -688,12 +203,13 @@ export function SettingsForm({
             id="mediaPathMap"
             value={mediaPathMap}
             onChange={(e) => setMediaPathMap(e.target.value)}
-            placeholder="/music:/data/music,/downloads:/data/dl"
+            placeholder="/downloads:/data/dl"
           />
           <p className="text-xs text-muted-foreground">
-            Comma-separated <code className="font-mono">lidarrPath:localPath</code> pairs.
-            Longest prefix wins. Leave empty when both containers see the
-            library at the same path.
+            Comma-separated{" "}
+            <code className="font-mono">slskdPath:localPath</code> pairs. Longest
+            prefix wins. Leave empty when both containers see the directory at
+            the same path.
           </p>
         </CardContent>
       </Card>
@@ -714,9 +230,6 @@ export function SettingsForm({
           />
         </CardContent>
       </Card>
-
-      {/* Storage */}
-      <StorageCard storage={storage} />
 
       {/* System info */}
       <Card>
@@ -759,144 +272,6 @@ export function SettingsForm({
       </div>
     </form>
   );
-}
-
-function StorageCard({ storage }: { storage: StorageInfo | null }) {
-  if (!storage) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Storage</CardTitle>
-          <CardDescription>
-            Connect Lidarr above to see library size and free space.
-          </CardDescription>
-        </CardHeader>
-      </Card>
-    );
-  }
-
-  const { freeSpace, totalSpace, librarySize, rootFolderPath, diskPath } =
-    storage;
-  const usedSpace =
-    freeSpace !== null && totalSpace !== null ? totalSpace - freeSpace : null;
-  const usedPct =
-    usedSpace !== null && totalSpace !== null && totalSpace > 0
-      ? Math.min(100, (usedSpace / totalSpace) * 100)
-      : null;
-  const libraryPct =
-    librarySize !== null && totalSpace !== null && totalSpace > 0
-      ? Math.min(100, (librarySize / totalSpace) * 100)
-      : null;
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Storage</CardTitle>
-        <CardDescription>
-          {rootFolderPath ? (
-            <>
-              Library at <code className="font-mono text-xs">{rootFolderPath}</code>
-              {diskPath && diskPath !== rootFolderPath && (
-                <>
-                  {" "}
-                  on <code className="font-mono text-xs">{diskPath}</code>
-                </>
-              )}
-              .
-            </>
-          ) : (
-            "Reported by Lidarr."
-          )}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {totalSpace !== null && usedSpace !== null && (
-          <div className="space-y-1.5">
-            <div className="flex items-baseline justify-between text-sm">
-              <span className="text-muted-foreground">Disk usage</span>
-              <span>
-                {formatBytes(usedSpace)} used of {formatBytes(totalSpace)}
-              </span>
-            </div>
-            <div className="relative h-2 overflow-hidden rounded-full bg-muted">
-              {usedPct !== null && (
-                <div
-                  className="absolute inset-y-0 left-0 bg-muted-foreground/40"
-                  style={{ width: `${usedPct}%` }}
-                />
-              )}
-              {libraryPct !== null && (
-                <div
-                  className="absolute inset-y-0 left-0 bg-primary"
-                  style={{ width: `${libraryPct}%` }}
-                />
-              )}
-            </div>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-              <span className="inline-flex items-center gap-1.5">
-                <span className="inline-block h-2 w-2 rounded-full bg-primary" />
-                Audioseerr library
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="inline-block h-2 w-2 rounded-full bg-muted-foreground/40" />
-                Other usage
-              </span>
-              {freeSpace !== null && (
-                <span className="ml-auto">{formatBytes(freeSpace)} free</span>
-              )}
-            </div>
-          </div>
-        )}
-
-        <dl className="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
-          <StorageStat
-            label="Library size"
-            value={librarySize !== null ? formatBytes(librarySize) : "—"}
-          />
-          <StorageStat
-            label="Free space"
-            value={freeSpace !== null ? formatBytes(freeSpace) : "—"}
-          />
-          <StorageStat
-            label="Artists"
-            value={
-              storage.artistCount !== null
-                ? storage.artistCount.toLocaleString()
-                : "—"
-            }
-          />
-          <StorageStat
-            label="Track files"
-            value={
-              storage.trackFileCount !== null
-                ? storage.trackFileCount.toLocaleString()
-                : "—"
-            }
-          />
-        </dl>
-      </CardContent>
-    </Card>
-  );
-}
-
-function StorageStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border px-3 py-2">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="mt-0.5 font-medium tabular-nums">{value}</dd>
-    </div>
-  );
-}
-
-function formatBytes(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB", "TB", "PB"];
-  const i = Math.min(
-    units.length - 1,
-    Math.floor(Math.log(bytes) / Math.log(1024)),
-  );
-  const value = bytes / 1024 ** i;
-  return `${value >= 100 || i === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[i]}`;
 }
 
 function EnvRow({ label, set }: { label: string; set: boolean }) {

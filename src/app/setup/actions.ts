@@ -3,20 +3,16 @@
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import {
-  LidarrError,
-  type LidarrQualityProfile,
-  type LidarrRootFolder,
-  listQualityProfiles,
-  listRootFolders,
-  testConnection,
-} from "@/lib/lidarr";
+import { SlskdError, testSlskdConnection } from "@/lib/slskd";
+import { isSetupComplete, saveSettings } from "@/lib/settings";
 
-function explainLidarrError(err: unknown): string {
-  if (err instanceof LidarrError) {
-    if (err.status === 401) return "API key was rejected by Lidarr.";
-    if (err.status === 404) return "Lidarr responded 404 — check the URL path.";
-    return `Lidarr returned HTTP ${err.status}.`;
+function explainSlskdError(err: unknown): string {
+  if (err instanceof SlskdError) {
+    if (err.status === 401 || err.status === 403) {
+      return "API key was rejected by slskd.";
+    }
+    if (err.status === 404) return "slskd responded 404 — check the URL path.";
+    return `slskd returned HTTP ${err.status}.`;
   }
   if (err instanceof Error) {
     const cause = (err as Error & { cause?: { code?: string; message?: string } }).cause;
@@ -25,52 +21,40 @@ function explainLidarrError(err: unknown): string {
       return "Hostname could not be resolved — check the URL.";
     }
     if (cause?.code === "ECONNREFUSED" || /ECONNREFUSED/.test(msg)) {
-      return "Connection refused — is Lidarr running on that URL?";
+      return "Connection refused — is slskd running on that URL?";
     }
     if (cause?.code === "ETIMEDOUT" || /ETIMEDOUT/.test(msg)) {
       return "Connection timed out.";
     }
   }
-  return "Could not connect to Lidarr.";
+  return "Could not connect to slskd.";
 }
-import { isSetupComplete, saveSettings } from "@/lib/settings";
 
-const lidarrInput = z.object({
+const slskdInput = z.object({
   url: z.string().url("Must be a valid URL"),
   apiKey: z.string().min(1, "Required"),
 });
 
-export type LidarrTestResult =
-  | {
-      ok: true;
-      version: string;
-      profiles: LidarrQualityProfile[];
-      rootFolders: LidarrRootFolder[];
-    }
-  | { ok: false; error: string };
+export type SlskdTestResult = { ok: true } | { ok: false; error: string };
 
-export async function testLidarrAction(input: {
+export async function testSlskdAction(input: {
   url: string;
   apiKey: string;
-}): Promise<LidarrTestResult> {
+}): Promise<SlskdTestResult> {
   if (await isSetupComplete()) {
     return { ok: false, error: "Setup is already complete." };
   }
 
-  const parsed = lidarrInput.safeParse(input);
+  const parsed = slskdInput.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
 
   try {
-    const status = await testConnection(parsed.data);
-    const [profiles, rootFolders] = await Promise.all([
-      listQualityProfiles(parsed.data),
-      listRootFolders(parsed.data),
-    ]);
-    return { ok: true, version: status.version, profiles, rootFolders };
+    await testSlskdConnection(parsed.data);
+    return { ok: true };
   } catch (err) {
-    return { ok: false, error: explainLidarrError(err) };
+    return { ok: false, error: explainSlskdError(err) };
   }
 }
 
@@ -80,11 +64,10 @@ const finalizeInput = z.object({
     email: z.string().email(),
     password: z.string().min(8, "At least 8 characters"),
   }),
-  lidarr: z.object({
+  slskd: z.object({
     url: z.string().url(),
     apiKey: z.string().min(1),
-    qualityProfileId: z.number().int(),
-    rootFolderPath: z.string().min(1),
+    downloadPath: z.string().optional().or(z.literal("")),
   }),
   lastFmApiKey: z.string().optional().or(z.literal("")),
 });
@@ -100,7 +83,7 @@ export async function finalizeSetupAction(
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
-  const { admin, lidarr, lastFmApiKey } = parsed.data;
+  const { admin, slskd, lastFmApiKey } = parsed.data;
 
   const usernameTaken = await prisma.user.findUnique({ where: { username: admin.username } });
   if (usernameTaken) return { ok: false, error: "Username already in use." };
@@ -109,23 +92,20 @@ export async function finalizeSetupAction(
 
   const passwordHash = await bcrypt.hash(admin.password, 10);
 
-  await prisma.$transaction(async (tx) => {
-    await tx.user.create({
-      data: {
-        username: admin.username,
-        email: admin.email,
-        passwordHash,
-        role: "ADMIN",
-        requestQuota: 0,
-      },
-    });
+  await prisma.user.create({
+    data: {
+      username: admin.username,
+      email: admin.email,
+      passwordHash,
+      role: "ADMIN",
+      requestQuota: 0,
+    },
   });
 
   await saveSettings({
-    lidarrUrl: lidarr.url,
-    lidarrApiKey: lidarr.apiKey,
-    lidarrDefaultProfileId: lidarr.qualityProfileId,
-    lidarrRootFolderPath: lidarr.rootFolderPath,
+    slskdUrl: slskd.url,
+    slskdApiKey: slskd.apiKey,
+    slskdDownloadPath: slskd.downloadPath?.trim() ? slskd.downloadPath.trim() : null,
     lastFmApiKey: lastFmApiKey?.trim() ? lastFmApiKey.trim() : null,
     setupComplete: true,
   });

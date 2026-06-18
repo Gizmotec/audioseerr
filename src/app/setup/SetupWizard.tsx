@@ -10,32 +10,26 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  type LidarrTestResult,
+  type SlskdTestResult,
   finalizeSetupAction,
-  testLidarrAction,
+  testSlskdAction,
 } from "./actions";
 
-type Step = "admin" | "lidarr" | "finish";
+type Step = "admin" | "slskd" | "finish";
 
 type AdminData = { username: string; email: string; password: string };
-type LidarrData = {
-  url: string;
-  apiKey: string;
-  qualityProfileId: number;
-  rootFolderPath: string;
-  version: string;
-};
+type SlskdData = { url: string; apiKey: string; downloadPath: string };
 
 const STEPS: { id: Step; title: string }[] = [
   { id: "admin", title: "Admin account" },
-  { id: "lidarr", title: "Lidarr" },
+  { id: "slskd", title: "Soulseek" },
   { id: "finish", title: "Finish" },
 ];
 
 export function SetupWizard() {
   const [step, setStep] = useState<Step>("admin");
   const [admin, setAdmin] = useState<AdminData | null>(null);
-  const [lidarr, setLidarr] = useState<LidarrData | null>(null);
+  const [slskd, setSlskd] = useState<SlskdData | null>(null);
 
   return (
     <div className="w-full max-w-xl space-y-6">
@@ -52,7 +46,7 @@ export function SetupWizard() {
           const done =
             STEPS.findIndex((x) => x.id === step) > i ||
             (s.id === "admin" && admin) ||
-            (s.id === "lidarr" && lidarr);
+            (s.id === "slskd" && slskd);
           return (
             <li key={s.id} className="flex items-center gap-2 whitespace-nowrap">
               <span
@@ -79,26 +73,22 @@ export function SetupWizard() {
           initial={admin}
           onSubmit={(data) => {
             setAdmin(data);
-            setStep("lidarr");
+            setStep("slskd");
           }}
         />
       )}
-      {step === "lidarr" && (
-        <LidarrStep
-          initial={lidarr}
+      {step === "slskd" && (
+        <SlskdStep
+          initial={slskd}
           onBack={() => setStep("admin")}
           onSubmit={(data) => {
-            setLidarr(data);
+            setSlskd(data);
             setStep("finish");
           }}
         />
       )}
-      {step === "finish" && admin && lidarr && (
-        <FinishStep
-          admin={admin}
-          lidarr={lidarr}
-          onBack={() => setStep("lidarr")}
-        />
+      {step === "finish" && admin && slskd && (
+        <FinishStep admin={admin} slskd={slskd} onBack={() => setStep("slskd")} />
       )}
     </div>
   );
@@ -189,89 +179,88 @@ function AdminStep({
   );
 }
 
-const lidarrCredsSchema = z.object({
+const slskdCredsSchema = z.object({
   url: z.string().url("Must be a valid URL"),
   apiKey: z.string().min(1, "Required"),
+  downloadPath: z.string().optional(),
 });
 
-type LidarrCredsForm = z.infer<typeof lidarrCredsSchema>;
+type SlskdCredsForm = z.infer<typeof slskdCredsSchema>;
 
-function LidarrStep({
+function SlskdStep({
   initial,
   onBack,
   onSubmit,
 }: {
-  initial: LidarrData | null;
+  initial: SlskdData | null;
   onBack: () => void;
-  onSubmit: (d: LidarrData) => void;
+  onSubmit: (d: SlskdData) => void;
 }) {
   const {
     register,
     handleSubmit,
     watch,
     formState: { errors, isSubmitting },
-  } = useForm<LidarrCredsForm>({
-    resolver: zodResolver(lidarrCredsSchema),
+  } = useForm<SlskdCredsForm>({
+    resolver: zodResolver(slskdCredsSchema),
     defaultValues: {
       url: initial?.url ?? "",
       apiKey: initial?.apiKey ?? "",
+      downloadPath: initial?.downloadPath ?? "",
     },
   });
 
-  const [test, setTest] = useState<LidarrTestResult | null>(
-    initial
-      ? { ok: true, version: initial.version, profiles: [], rootFolders: [] }
-      : null,
+  const [test, setTest] = useState<SlskdTestResult | null>(
+    initial ? { ok: true } : null,
   );
-  const [profileId, setProfileId] = useState<number | "">(
-    initial?.qualityProfileId ?? "",
-  );
-  const [rootPath, setRootPath] = useState<string>(initial?.rootFolderPath ?? "");
 
   const runTest = handleSubmit(async (creds) => {
-    const result = await testLidarrAction(creds);
-    setTest(result);
-    if (result.ok && !profileId && result.profiles[0]) {
-      setProfileId(result.profiles[0].id);
-    }
-    if (result.ok && !rootPath && result.rootFolders[0]) {
-      setRootPath(result.rootFolders[0].path);
-    }
+    setTest(await testSlskdAction({ url: creds.url, apiKey: creds.apiKey }));
   });
 
   const goNext = () => {
-    if (!test?.ok || !profileId || !rootPath) return;
+    if (!test?.ok) return;
     const creds = watch();
     onSubmit({
       url: creds.url,
       apiKey: creds.apiKey,
-      qualityProfileId: Number(profileId),
-      rootFolderPath: rootPath,
-      version: test.version,
+      downloadPath: creds.downloadPath ?? "",
     });
   };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Connect Lidarr</CardTitle>
+        <CardTitle>Connect Soulseek (slskd)</CardTitle>
         <CardDescription>
-          Audioseerr needs Lidarr&apos;s URL and API key to send approved requests.
-          You&apos;ll find the API key in Lidarr under Settings → General.
+          Audioseerr downloads everything through slskd. Enter its URL and an API
+          key (slskd config → web.authentication.api_keys).
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form className="space-y-4" onSubmit={runTest}>
-          <Field label="Lidarr URL" id="url" error={errors.url?.message}>
+          <Field label="slskd URL" id="url" error={errors.url?.message}>
             <Input
               id="url"
-              placeholder="http://lidarr:8686"
+              placeholder="http://slskd:5030"
               autoComplete="off"
               {...register("url")}
             />
           </Field>
           <Field label="API key" id="apiKey" error={errors.apiKey?.message}>
             <Input id="apiKey" autoComplete="off" {...register("apiKey")} />
+          </Field>
+          <Field label="Download path (optional)" id="downloadPath">
+            <Input
+              id="downloadPath"
+              placeholder="/downloads"
+              autoComplete="off"
+              {...register("downloadPath")}
+            />
+            <p className="text-xs text-muted-foreground">
+              slskd&apos;s completed-downloads directory. You can set this later
+              in Settings.
+            </p>
           </Field>
 
           <div>
@@ -287,56 +276,16 @@ function LidarrStep({
           )}
           {test?.ok && (
             <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">
-              Connected to Lidarr {test.version}
+              Connected to slskd.
             </div>
           )}
         </form>
-
-        {test?.ok && test.profiles.length > 0 && (
-          <div className="mt-4 space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="profile">Default quality profile</Label>
-              <select
-                id="profile"
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                value={profileId}
-                onChange={(e) => setProfileId(Number(e.target.value))}
-              >
-                {test.profiles.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="root">Default root folder</Label>
-              <select
-                id="root"
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                value={rootPath}
-                onChange={(e) => setRootPath(e.target.value)}
-              >
-                {test.rootFolders.map((r) => (
-                  <option key={r.id} value={r.path}>
-                    {r.path}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        )}
 
         <div className="mt-6 flex justify-between">
           <Button variant="ghost" onClick={onBack} type="button">
             Back
           </Button>
-          <Button
-            type="button"
-            onClick={goNext}
-            disabled={!test?.ok || !profileId || !rootPath}
-          >
+          <Button type="button" onClick={goNext} disabled={!test?.ok}>
             Continue
           </Button>
         </div>
@@ -353,11 +302,11 @@ type FinishForm = z.infer<typeof finishSchema>;
 
 function FinishStep({
   admin,
-  lidarr,
+  slskd,
   onBack,
 }: {
   admin: AdminData;
-  lidarr: LidarrData;
+  slskd: SlskdData;
   onBack: () => void;
 }) {
   const router = useRouter();
@@ -375,12 +324,7 @@ function FinishStep({
     setServerError(null);
     const result = await finalizeSetupAction({
       admin,
-      lidarr: {
-        url: lidarr.url,
-        apiKey: lidarr.apiKey,
-        qualityProfileId: lidarr.qualityProfileId,
-        rootFolderPath: lidarr.rootFolderPath,
-      },
+      slskd,
       lastFmApiKey: values.lastFmApiKey,
     });
     if (!result.ok) {

@@ -8,7 +8,6 @@ export type LibraryHit = {
   status: LibraryStatus;
   trackFileCount: number;
   totalTrackCount: number;
-  lidarrId: number;
 };
 
 function normalize(s: string): string {
@@ -63,7 +62,6 @@ export const buildLibraryIndex = cache(
       where,
       select: {
         mbid: true,
-        lidarrId: true,
         artistName: true,
         title: true,
         status: true,
@@ -80,7 +78,6 @@ export const buildLibraryIndex = cache(
       status: r.status as LibraryStatus,
       trackFileCount: r.trackFileCount,
       totalTrackCount: r.totalTrackCount,
-      lidarrId: r.lidarrId,
     };
     byMbid.set(r.mbid, hit);
     const key = nameKey(r.artistName, r.title);
@@ -110,7 +107,6 @@ export async function getLibraryHit(
   const row = await prisma.libraryItem.findFirst({
     where,
     select: {
-      lidarrId: true,
       status: true,
       trackFileCount: true,
       totalTrackCount: true,
@@ -121,7 +117,6 @@ export async function getLibraryHit(
         status: row.status as LibraryStatus,
         trackFileCount: row.trackFileCount,
         totalTrackCount: row.totalTrackCount,
-        lidarrId: row.lidarrId,
       }
     : null;
 }
@@ -135,7 +130,6 @@ export async function getLibraryHitByName(
   const rows = await prisma.libraryItem.findMany({
     where,
     select: {
-      lidarrId: true,
       artistName: true,
       title: true,
       status: true,
@@ -151,7 +145,6 @@ export async function getLibraryHitByName(
       status: r.status as LibraryStatus,
       trackFileCount: r.trackFileCount,
       totalTrackCount: r.totalTrackCount,
-      lidarrId: r.lidarrId,
     };
     best = best ? preferHit(hit, best) : hit;
   }

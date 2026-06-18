@@ -1,12 +1,5 @@
 import { prisma } from "@/lib/db";
 import {
-  classifyAlbum,
-  findAlbumByForeignId,
-  getQueue,
-  type LidarrAlbumState,
-  type LidarrConfig,
-} from "@/lib/lidarr";
-import {
   attachDownloadedTrackToUser,
   registerDownloadedTrack,
   resolveDownloadedFilePath,
@@ -23,15 +16,14 @@ import {
   matchAlbumFiles,
   type SlskdConfig,
 } from "@/lib/slskd";
-import { attachLibraryItemToUser } from "@/lib/userLibrary";
-import type { RequestStatus } from "@prisma/client";
+import { syncDownloadedLibrary } from "./syncDownloadedLibrary";
 
 let running = false;
 
 /**
- * Runs through APPROVED / DOWNLOADING requests and reconciles their status
- * against Lidarr (design doc §10). One run per cycle — overlapping calls bail
- * out so a slow Lidarr can't pile up workers.
+ * Reconciles APPROVED / DOWNLOADING track + album requests against slskd
+ * transfers, registering finished files into the library. One run per cycle —
+ * overlapping calls bail out so a slow slskd can't pile up workers.
  */
 export async function syncActiveRequests(): Promise<{
   scanned: number;
@@ -44,22 +36,11 @@ export async function syncActiveRequests(): Promise<{
     if (!settings.setupComplete) {
       return { scanned: 0, changed: 0 };
     }
-    const lidarrConfig: LidarrConfig | null =
-      settings.lidarrUrl && settings.lidarrApiKey
-        ? { url: settings.lidarrUrl, apiKey: settings.lidarrApiKey }
-        : null;
     const slskdConfig: SlskdConfig | null =
       settings.slskdUrl && settings.slskdApiKey
         ? { url: settings.slskdUrl, apiKey: settings.slskdApiKey }
         : null;
 
-    const albumRequests = lidarrConfig ? await prisma.request.findMany({
-      where: {
-        status: { in: ["APPROVED", "DOWNLOADING"] },
-        type: "ALBUM",
-        lidarrId: { not: null },
-      },
-    }) : [];
     const trackRequests = slskdConfig ? await prisma.request.findMany({
       where: {
         status: { in: ["APPROVED", "DOWNLOADING"] },
@@ -76,27 +57,8 @@ export async function syncActiveRequests(): Promise<{
         slskdFile: { not: null },
       },
     }) : [];
-    if (
-      albumRequests.length === 0 &&
-      trackRequests.length === 0 &&
-      slskdAlbumRequests.length === 0
-    ) {
+    if (trackRequests.length === 0 && slskdAlbumRequests.length === 0) {
       return { scanned: 0, changed: 0 };
-    }
-
-    let queueAlbumIds = new Set<number>();
-    if (lidarrConfig) {
-      try {
-        const queue = await getQueue(lidarrConfig);
-        queueAlbumIds = new Set(
-          queue
-            .map((q) => q.albumId)
-            .filter((id): id is number => typeof id === "number"),
-        );
-      } catch {
-        // If the queue endpoint hiccups, treat queue as empty — we'll still
-        // catch completions via track counts.
-      }
     }
 
     // Give a request this long to make progress before we give up and mark it
@@ -108,56 +70,6 @@ export async function syncActiveRequests(): Promise<{
       approvedAt != null && nowMs - approvedAt.getTime() > STUCK_AFTER_MS;
 
     let changed = 0;
-    for (const req of albumRequests) {
-      try {
-        if (!lidarrConfig) continue;
-        const album = await findAlbumByForeignId(
-          lidarrConfig,
-          req.lidarrId!,
-          req.mbid,
-        );
-        if (!album) continue;
-
-        const state: LidarrAlbumState = classifyAlbum(album, queueAlbumIds);
-        const next: RequestStatus | null =
-          state === "downloaded"
-            ? "AVAILABLE"
-            : state === "downloading" && req.status !== "DOWNLOADING"
-              ? "DOWNLOADING"
-              : null;
-        if (next && next !== req.status) {
-          await prisma.request.update({
-            where: { id: req.id },
-            data: { status: next },
-          });
-          // Album just became playable — attach the requester to it so the
-          // album shows up in their /library and unlocks streaming. The
-          // syncLibrary job upserts LibraryItem before this runs, so the FK
-          // target exists.
-          if (next === "AVAILABLE") {
-            await attachLibraryItemToUser(req.requestedById, req.mbid).catch(() => {
-              // Don't fail the cycle if the LibraryItem hasn't been synced
-              // yet on this tick — next sync will catch up.
-            });
-          }
-          changed++;
-        } else if (state === "missing" && isStuck(req.approvedAt)) {
-          // Lidarr never found a release within the window — don't leave it
-          // pinned in APPROVED/DOWNLOADING forever.
-          await prisma.request.update({
-            where: { id: req.id },
-            data: {
-              status: "FAILED",
-              declineReason:
-                "Lidarr found no release for this album within the expected time.",
-            },
-          });
-          changed++;
-        }
-      } catch {
-        // Per-request errors don't fail the whole cycle.
-      }
-    }
 
     for (const req of trackRequests) {
       try {
@@ -376,11 +288,13 @@ export async function syncActiveRequests(): Promise<{
       }
     }
 
+    // Newly-registered tracks should show up in the library views promptly.
+    if (changed > 0) {
+      await syncDownloadedLibrary().catch(() => {});
+    }
+
     return {
-      scanned:
-        albumRequests.length +
-        trackRequests.length +
-        slskdAlbumRequests.length,
+      scanned: trackRequests.length + slskdAlbumRequests.length,
       changed,
     };
   } finally {

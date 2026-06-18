@@ -1,9 +1,4 @@
 import { prisma } from "@/lib/db";
-import { getLibraryHit, getLibraryHitByName } from "@/lib/library";
-import { listTracksByAlbum, type LidarrConfig } from "@/lib/lidarr";
-import { buildTrackFileLookup, type TrackFileLookup } from "@/lib/playback";
-import { getSettings } from "@/lib/settings";
-import type { LibraryViewer } from "@/lib/userLibrary";
 
 export type PlaylistSummary = {
   id: string;
@@ -500,161 +495,43 @@ export async function moveTrack(
 // Available tracks ----------------------------------------------------------
 
 /**
- * Lists every downloaded track Lidarr currently has files for. Playlist rows
- * can heal stale file ids by album position later, so the only playlist-level
- * requirement here is a current trackFileId and stable-enough identity.
+ * Lists every track in our own library (DownloadedTrack), for the playlist
+ * "Add songs" picker. recordingMbid falls back to a synthetic album:position key
+ * for migrated tracks that lack one; the playlist resolves streamability by
+ * (albumMbid, position) regardless.
  */
 export async function listAvailablePlaylistTracks(): Promise<
   AvailablePlaylistTrack[]
 > {
-  const settings = await getSettings();
-  if (!settings.lidarrUrl || !settings.lidarrApiKey) return [];
-
-  const albums = await prisma.libraryItem.findMany({
-    where: { status: "downloaded", trackFileCount: { gt: 0 } },
-    orderBy: [{ artistName: "asc" }, { title: "asc" }],
+  const rows = await prisma.downloadedTrack.findMany({
+    orderBy: [
+      { artistName: "asc" },
+      { albumTitle: "asc" },
+      { albumPosition: "asc" },
+    ],
     select: {
-      mbid: true,
-      lidarrId: true,
-      artistName: true,
+      id: true,
+      recordingMbid: true,
+      albumMbid: true,
+      albumPosition: true,
       title: true,
+      artistName: true,
+      albumTitle: true,
+      coverUrl: true,
+      durationMs: true,
     },
   });
-  if (albums.length === 0) return [];
 
-  const config: LidarrConfig = {
-    url: settings.lidarrUrl,
-    apiKey: settings.lidarrApiKey,
-  };
-
-  const settled = await Promise.allSettled(
-    albums.map(async (album) => {
-      const tracks = await listTracksByAlbum(config, album.lidarrId);
-      return tracks
-        .filter((track) => track.hasFile && track.trackFileId)
-        .map<AvailablePlaylistTrack>((track) => {
-          const position =
-            track.absoluteTrackNumber ?? Number.parseInt(track.trackNumber, 10);
-          return {
-            key: `${album.lidarrId}:${track.id}:${track.trackFileId}`,
-            recordingMbid: `lidarr:${track.id}`,
-            trackFileId: track.trackFileId,
-            albumMbid: album.mbid,
-            albumPosition:
-              Number.isFinite(position) && position > 0 ? position : track.id,
-            title: track.title,
-            artistName: album.artistName,
-            albumTitle: album.title,
-            coverUrl: coverUrlForReleaseGroup(album.mbid),
-            durationMs: null,
-          };
-        });
-    }),
-  );
-
-  return settled
-    .flatMap((result) => (result.status === "fulfilled" ? result.value : []))
-    .sort(
-      (a, b) =>
-        a.artistName.localeCompare(b.artistName) ||
-        (a.albumTitle ?? "").localeCompare(b.albumTitle ?? "") ||
-        a.albumPosition - b.albumPosition ||
-        a.title.localeCompare(b.title),
-    );
-}
-
-// Heal ----------------------------------------------------------------------
-
-/**
- * Resolve every row in a playlist to a current Lidarr trackFileId, healing
- * stale ids by re-walking the album's tracklist when the stored id is gone.
- *
- * Strategy:
- *   1. Group by albumMbid → at most one Lidarr roundtrip per album.
- *   2. Look up the LibraryItem (MBID first, artist+title fallback) → lidarrId.
- *   3. buildTrackFileLookup(lidarrId) → Map<albumPosition, trackFileId>.
- *   4. For each row, take map.get(row.albumPosition).
- *   5. Persist the new id back to the row when it differs from what we stored.
- *
- * Returns null for rows that couldn't be resolved (album gone from Lidarr,
- * track file missing, Lidarr unreachable). The UI greys those rows out.
- */
-export async function resolvePlaylistTrackFiles(
-  rows: Pick<PlaylistTrackRow, "id" | "albumMbid" | "albumPosition" | "trackFileId" | "artistName" | "albumTitle">[],
-  viewer?: LibraryViewer,
-): Promise<Map<string, number | null>> {
-  const out = new Map<string, number | null>();
-  if (rows.length === 0) return out;
-
-  const settings = await getSettings();
-  if (!settings.lidarrUrl || !settings.lidarrApiKey) {
-    for (const r of rows) out.set(r.id, null);
-    return out;
-  }
-  const config: LidarrConfig = {
-    url: settings.lidarrUrl,
-    apiKey: settings.lidarrApiKey,
-  };
-
-  // Unique albums → fetch each one's track-file map exactly once.
-  const albumKeys = new Map<
-    string,
-    { albumMbid: string; artistName: string; albumTitle: string | null }
-  >();
-  for (const r of rows) {
-    if (!albumKeys.has(r.albumMbid)) {
-      albumKeys.set(r.albumMbid, {
-        albumMbid: r.albumMbid,
-        artistName: r.artistName,
-        albumTitle: r.albumTitle,
-      });
-    }
-  }
-
-  const albumLookups = new Map<string, TrackFileLookup | null>();
-  await Promise.all(
-    Array.from(albumKeys.values()).map(async (info) => {
-      try {
-        // Pass viewer through so a shared playlist played by someone without
-        // UserLibraryItem coverage gets a null lookup → row renders unplayable.
-        const hit =
-          (await getLibraryHit(info.albumMbid, viewer)) ??
-          (info.albumTitle
-            ? await getLibraryHitByName(info.artistName, info.albumTitle, viewer)
-            : null);
-        if (!hit) {
-          albumLookups.set(info.albumMbid, null);
-          return;
-        }
-        const lookup = await buildTrackFileLookup(config, hit.lidarrId);
-        albumLookups.set(info.albumMbid, lookup);
-      } catch {
-        albumLookups.set(info.albumMbid, null);
-      }
-    }),
-  );
-
-  const updates: Array<{ id: string; trackFileId: number }> = [];
-  for (const r of rows) {
-    const lookup = albumLookups.get(r.albumMbid);
-    const resolved = lookup?.get(r.albumPosition) ?? null;
-    out.set(r.id, resolved);
-    if (resolved !== null && resolved !== r.trackFileId) {
-      updates.push({ id: r.id, trackFileId: resolved });
-    }
-  }
-
-  // Heal: write back any newly-discovered trackFileIds. Not in a transaction —
-  // a partial write here is harmless (next page load redoes the lookup).
-  await Promise.all(
-    updates.map((u) =>
-      prisma.playlistTrack
-        .update({ where: { id: u.id }, data: { trackFileId: u.trackFileId } })
-        .catch(() => {
-          /* ignore — row may have been deleted concurrently */
-        }),
-    ),
-  );
-
-  return out;
+  return rows.map((r) => ({
+    key: r.id,
+    recordingMbid: r.recordingMbid ?? `${r.albumMbid}:${r.albumPosition}`,
+    trackFileId: null,
+    albumMbid: r.albumMbid,
+    albumPosition: r.albumPosition,
+    title: r.title,
+    artistName: r.artistName,
+    albumTitle: r.albumTitle,
+    coverUrl: r.coverUrl ?? coverUrlForReleaseGroup(r.albumMbid),
+    durationMs: r.durationMs,
+  }));
 }

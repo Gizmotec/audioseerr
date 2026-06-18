@@ -217,26 +217,26 @@ export async function buildDownloadedTrackLookup(
 }
 
 /**
- * Viewer-scoped map of recordingMbid → DownloadedTrack id, used by the playlist
- * page to resolve which playlist tracks are locally streamable.
+ * Viewer-scoped map of `${albumMbid}:${albumPosition}` → DownloadedTrack id for
+ * a set of albums, used by the playlist page to resolve which rows are locally
+ * streamable. Joining on (albumMbid, position) — rather than recordingMbid —
+ * handles migrated Lidarr tracks (which have no recordingMbid).
  */
-export async function getDownloadedTracksByRecording(
+export async function buildPlaylistStreamLookup(
   viewer: LibraryViewer,
-  recordingMbids: string[],
+  albumMbids: string[],
 ): Promise<Map<string, string>> {
   const out = new Map<string, string>();
-  if (!viewer || recordingMbids.length === 0) return out;
+  if (!viewer || albumMbids.length === 0) return out;
   const rows = await prisma.downloadedTrack.findMany({
     where: {
-      recordingMbid: { in: recordingMbids },
-      ...(isAdmin(viewer)
-        ? {}
-        : { users: { some: { userId: viewer.id } } }),
+      albumMbid: { in: Array.from(new Set(albumMbids)) },
+      ...(isAdmin(viewer) ? {} : { users: { some: { userId: viewer.id } } }),
     },
-    select: { id: true, recordingMbid: true },
+    select: { id: true, albumMbid: true, albumPosition: true },
   });
   for (const row of rows) {
-    if (row.recordingMbid) out.set(row.recordingMbid, row.id);
+    out.set(`${row.albumMbid}:${row.albumPosition}`, row.id);
   }
   return out;
 }
