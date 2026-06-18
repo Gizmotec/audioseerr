@@ -128,14 +128,14 @@ export default async function HomePage() {
           <OwnedTrackList
             title="Recently added"
             tracks={recentlyAdded}
-            icon={Disc3}
+            icon={<Disc3 className="h-4 w-4 text-muted-foreground" />}
             seeAllHref="/library"
           />
 
           <OwnedTrackList
             title="Recently played"
             tracks={toOwned(recentlyPlayed, (t) => formatRelativeTime(t.lastPlayedAt))}
-            icon={Clock}
+            icon={<Clock className="h-4 w-4 text-muted-foreground" />}
           />
 
           <OwnedTrackList
@@ -144,7 +144,7 @@ export default async function HomePage() {
               mostPlayed,
               (t) => `${t.playCount} ${t.playCount === 1 ? "play" : "plays"}`,
             )}
-            icon={Flame}
+            icon={<Flame className="h-4 w-4 text-muted-foreground" />}
           />
 
           <section className="grid gap-8 lg:grid-cols-2">

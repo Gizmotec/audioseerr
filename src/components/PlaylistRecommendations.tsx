@@ -13,6 +13,7 @@ import {
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { usePreviewPlayer } from "@/components/PreviewPlayer";
 import { TrackLikeButton } from "@/components/TrackLikeButton";
+import { useTrackMenu } from "@/components/TrackMenu";
 import {
   addRecommendationToPlaylistAction,
   getPlaylistRecommendationsAction,
@@ -142,6 +143,7 @@ function RecommendationRow({
   onAdded: () => void;
 }) {
   const player = usePreviewPlayer();
+  const { openTrackMenu } = useTrackMenu();
   const router = useRouter();
   const [state, setState] = useState<AddState>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -196,6 +198,13 @@ function RecommendationRow({
 
   return (
     <li
+      onContextMenu={(e) =>
+        openTrackMenu(e, {
+          title: rec.title,
+          artistName: rec.artistName,
+          recordingMbid: rec.recordingMbid,
+        })
+      }
       className={cn(
         "flex items-center gap-3 py-2.5",
         isActive && "bg-secondary/40",

@@ -4,6 +4,7 @@ import { ArrowRight, Disc3, Loader2, Pause, Play } from "lucide-react";
 import Link from "next/link";
 import { useMemo } from "react";
 import { type QueueItem, usePreviewPlayer } from "@/components/PreviewPlayer";
+import { useTrackMenu } from "@/components/TrackMenu";
 import { cn } from "@/lib/utils";
 
 export type OwnedTrack = {
@@ -28,15 +29,18 @@ export type OwnedTrack = {
 export function OwnedTrackList({
   title,
   tracks,
-  icon: Icon,
+  icon,
   seeAllHref,
 }: {
   title: string;
   tracks: OwnedTrack[];
-  icon?: React.ComponentType<{ className?: string }>;
+  // A rendered icon element (not a component) — Server Components can't pass a
+  // function/component type across the boundary into this Client Component.
+  icon?: React.ReactNode;
   seeAllHref?: string;
 }) {
   const player = usePreviewPlayer();
+  const { openTrackMenu } = useTrackMenu();
 
   const queue = useMemo<QueueItem[]>(
     () =>
@@ -59,7 +63,7 @@ export function OwnedTrackList({
     <section className="space-y-3">
       <header className="flex items-baseline justify-between gap-3">
         <h2 className="flex items-center gap-2 text-lg font-medium">
-          {Icon && <Icon className="h-4 w-4 text-muted-foreground" />}
+          {icon}
           {title}
         </h2>
         {seeAllHref && (
@@ -79,6 +83,13 @@ export function OwnedTrackList({
           return (
             <li
               key={t.id}
+              onContextMenu={(e) =>
+                openTrackMenu(e, {
+                  title: t.title,
+                  artistName: t.artistName,
+                  recordingMbid: t.recordingMbid,
+                })
+              }
               className={cn(
                 "group flex items-center gap-3 py-2.5",
                 isActive && "bg-secondary/40",

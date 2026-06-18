@@ -13,6 +13,7 @@ import {
 import { useMemo, useState, useTransition } from "react";
 import { usePreviewPlayer, type QueueItem } from "@/components/PreviewPlayer";
 import { TrackLikeButton } from "@/components/TrackLikeButton";
+import { useTrackMenu } from "@/components/TrackMenu";
 import { requestDiscoveryTrackAction } from "@/app/discover/actions";
 import { trackLikeTargetId } from "@/lib/likeKeys";
 import type { MixTrack } from "@/lib/mixes";
@@ -131,10 +132,18 @@ function MixRow({
   initialLiked: boolean;
 }) {
   const player = usePreviewPlayer();
+  const { openTrackMenu } = useTrackMenu();
   const isActive = player.isCurrent(queueId);
 
   return (
     <li
+      onContextMenu={(e) =>
+        openTrackMenu(e, {
+          title: track.title,
+          artistName: track.artistName,
+          recordingMbid: track.kind === "library" ? track.recordingMbid : null,
+        })
+      }
       className={cn(
         "flex items-center gap-3 py-2.5",
         isActive && "bg-secondary/40",

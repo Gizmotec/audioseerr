@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Outfit, Geist_Mono } from "next/font/google";
 import { PreviewPlayerProvider } from "@/components/PreviewPlayer";
 import { Sidebar } from "@/components/Sidebar";
+import { TrackMenuProvider } from "@/components/TrackMenu";
 import { VersionUpdateBanner } from "@/components/VersionUpdateBanner";
 import "./globals.css";
 
@@ -35,16 +36,18 @@ export default function RootLayout({
     >
       <body className="min-h-full flex font-sans">
         <PreviewPlayerProvider>
-          <Sidebar />
-          <div
-            className="flex min-h-screen flex-1 flex-col transition-[padding-bottom] duration-200"
-            style={{
-              paddingBottom: "var(--preview-player-bottom-offset, 0px)",
-            }}
-          >
-            <VersionUpdateBanner />
-            {children}
-          </div>
+          <TrackMenuProvider>
+            <Sidebar />
+            <div
+              className="flex min-h-screen flex-1 flex-col transition-[padding-bottom] duration-200"
+              style={{
+                paddingBottom: "var(--preview-player-bottom-offset, 0px)",
+              }}
+            >
+              <VersionUpdateBanner />
+              {children}
+            </div>
+          </TrackMenuProvider>
         </PreviewPlayerProvider>
       </body>
     </html>

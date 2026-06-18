@@ -3,6 +3,7 @@
 import { Check, Disc3, Download, Heart, Loader2, Pause, Play, X } from "lucide-react";
 import { useState, useTransition } from "react";
 import { usePreviewPlayer } from "@/components/PreviewPlayer";
+import { useTrackMenu } from "@/components/TrackMenu";
 import { requestDiscoveryTrackAction } from "@/app/discover/actions";
 import { toggleTrackLikeAction } from "@/lib/actions/likes";
 import type { DiscoveryTrack } from "@/lib/deezer";
@@ -47,6 +48,7 @@ type DownloadState = "idle" | "resolving" | "done" | "error";
 
 function DiscoveryTrackCard({ track }: { track: DiscoveryTrack }) {
   const player = usePreviewPlayer();
+  const { openTrackMenu } = useTrackMenu();
   const [state, setState] = useState<DownloadState>("idle");
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -96,7 +98,15 @@ function DiscoveryTrackCard({ track }: { track: DiscoveryTrack }) {
   };
 
   return (
-    <div className="flex flex-col gap-2">
+    <div
+      className="flex flex-col gap-2"
+      onContextMenu={(e) =>
+        openTrackMenu(e, {
+          title: track.title,
+          artistName: track.artistName,
+        })
+      }
+    >
       <div
         className={cn(
           "group relative aspect-square overflow-hidden rounded-md bg-secondary",

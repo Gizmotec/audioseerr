@@ -35,6 +35,7 @@ import {
 import { PlaylistRecommendations } from "@/components/PlaylistRecommendations";
 import { type QueueItem, usePreviewPlayer } from "@/components/PreviewPlayer";
 import { TrackLikeButton } from "@/components/TrackLikeButton";
+import { useTrackMenu } from "@/components/TrackMenu";
 import { trackLikeTargetId } from "@/lib/likeKeys";
 import {
   addTracksToPlaylistAction,
@@ -92,6 +93,7 @@ export function PlaylistDetail({
   likedTrackIds = [],
 }: Props) {
   const player = usePreviewPlayer();
+  const { openTrackMenu } = useTrackMenu();
   const router = useRouter();
   const likedSet = useMemo(() => new Set(likedTrackIds), [likedTrackIds]);
   const [pendingRowId, setPendingRowId] = useState<string | null>(null);
@@ -297,6 +299,13 @@ export function PlaylistDetail({
             return (
               <li
                 key={t.id}
+                onContextMenu={(e) =>
+                  openTrackMenu(e, {
+                    title: t.title,
+                    artistName: t.artistName,
+                    recordingMbid: t.recordingMbid,
+                  })
+                }
                 className={cn(
                   "group flex items-center gap-3 py-2.5",
                   isActive && "bg-secondary/40",

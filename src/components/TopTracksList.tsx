@@ -2,6 +2,7 @@
 
 import { Loader2, Pause, Play } from "lucide-react";
 import { usePreviewPlayer } from "@/components/PreviewPlayer";
+import { useTrackMenu } from "@/components/TrackMenu";
 import { YouTubeButton } from "@/components/YouTubeButton";
 import type { DeezerArtistTopTrack } from "@/lib/deezer";
 
@@ -26,6 +27,7 @@ export function TopTracksList({
   heading?: string;
 }) {
   const player = usePreviewPlayer();
+  const { openTrackMenu } = useTrackMenu();
 
   const togglePreview = (track: DeezerArtistTopTrack) => {
     if (!track.previewUrl) return;
@@ -52,6 +54,9 @@ export function TopTracksList({
           return (
             <li
               key={`${i}-${t.title}`}
+              onContextMenu={(e) =>
+                openTrackMenu(e, { title: t.title, artistName })
+              }
               className={`flex items-center gap-4 py-2.5 ${
                 isActive ? "bg-secondary/40" : ""
               }`}

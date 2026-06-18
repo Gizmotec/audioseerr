@@ -11,6 +11,7 @@ import { AppleMusicButton } from "@/components/AppleMusicButton";
 import { LikeButton } from "@/components/LikeButton";
 import { type QueueItem, usePreviewPlayer } from "@/components/PreviewPlayer";
 import { TrackLikeButton } from "@/components/TrackLikeButton";
+import { useTrackMenu } from "@/components/TrackMenu";
 import { RemoveFromLibraryButton } from "@/components/RemoveFromLibraryButton";
 import { YouTubeButton } from "@/components/YouTubeButton";
 import type { LibraryStatus } from "@/lib/library";
@@ -57,6 +58,7 @@ export function AlbumDetail({
   );
   const [coverOk, setCoverOk] = useState(true);
   const player = usePreviewPlayer();
+  const { openTrackMenu } = useTrackMenu();
 
   // Build the album as a playback queue so the player auto-advances and the
   // bar's prev/next controls step through the tracklist. Full local stream
@@ -228,6 +230,13 @@ export function AlbumDetail({
                 return (
                 <li
                   key={`${group.disc}-${t.position}-${t.title}`}
+                  onContextMenu={(e) =>
+                    openTrackMenu(e, {
+                      title: t.title,
+                      artistName: album.artistName,
+                      recordingMbid: t.recordingMbid,
+                    })
+                  }
                   className={`flex items-center gap-4 py-2.5 ${
                     isActive ? "bg-secondary/40" : ""
                   }`}

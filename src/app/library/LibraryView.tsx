@@ -16,6 +16,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { type QueueItem, usePreviewPlayer } from "@/components/PreviewPlayer";
 import { TrackLikeButton } from "@/components/TrackLikeButton";
+import { useTrackMenu } from "@/components/TrackMenu";
 import { Input } from "@/components/ui/input";
 import {
   deleteLibraryAlbumAction,
@@ -59,6 +60,7 @@ export function LibraryView({
   likedTrackIds?: string[];
 }) {
   const player = usePreviewPlayer();
+  const { openTrackMenu } = useTrackMenu();
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("recent");
   const likedSet = useMemo(() => new Set(likedTrackIds), [likedTrackIds]);
@@ -208,6 +210,13 @@ export function LibraryView({
             return (
               <li
                 key={t.id}
+                onContextMenu={(e) =>
+                  openTrackMenu(e, {
+                    title: t.title,
+                    artistName: t.artistName,
+                    recordingMbid: t.recordingMbid,
+                  })
+                }
                 className={cn(
                   "group flex items-center gap-3 py-2.5",
                   isActive && "bg-secondary/40",
