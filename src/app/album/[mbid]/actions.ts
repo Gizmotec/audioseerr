@@ -6,7 +6,6 @@ import { executeRequestApproval } from "@/app/admin/requests/actions";
 import { prisma } from "@/lib/db";
 import { attachDownloadedTrackToUser } from "@/lib/downloadedTracks";
 import { getSettings } from "@/lib/settings";
-import { attachLibraryItemToUser } from "@/lib/userLibrary";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -73,52 +72,7 @@ export async function requestAlbumAction(input: {
   const requester = await loadRequester(userId);
   if (!requester) return { ok: false, error: "User record missing." };
 
-  // Server-wide dedup: if the album is already downloaded for someone else,
-  // skip Lidarr/qBittorrent entirely and just attach the user to it. If it's
-  // currently downloading, ride along — sync will attach when AVAILABLE.
-  const libraryItem = await prisma.libraryItem.findUnique({
-    where: { mbid: input.mbid },
-    select: { lidarrId: true, status: true },
-  });
-
-  if (libraryItem?.status === "downloaded") {
-    await prisma.request.create({
-      data: {
-        type: "ALBUM",
-        mbid: input.mbid,
-        title: input.title,
-        artistName: input.artistName,
-        coverUrl: input.coverUrl,
-        requestedById: userId,
-        status: "AVAILABLE",
-        approvedAt: new Date(),
-        lidarrId: libraryItem.lidarrId,
-      },
-    });
-    await attachLibraryItemToUser(userId, input.mbid);
-    revalidateAlbumPaths(input.mbid);
-    return { ok: true };
-  }
-
-  if (libraryItem?.status === "downloading") {
-    await prisma.request.create({
-      data: {
-        type: "ALBUM",
-        mbid: input.mbid,
-        title: input.title,
-        artistName: input.artistName,
-        coverUrl: input.coverUrl,
-        requestedById: userId,
-        status: "APPROVED",
-        approvedAt: new Date(),
-        lidarrId: libraryItem.lidarrId,
-      },
-    });
-    revalidateAlbumPaths(input.mbid);
-    return { ok: true };
-  }
-
-  // Not on the server yet. Either auto-push or queue for admin approval.
+  // Not in the library yet. Either auto-push (→ slskd) or queue for approval.
   const created = await prisma.request.create({
     data: {
       type: "ALBUM",
@@ -171,15 +125,18 @@ export async function requestTrackAction(input: {
   const requester = await loadRequester(userId);
   if (!requester) return { ok: false, error: "User record missing." };
 
-  // Album-level dedup for tracks: if the parent album is already downloaded,
-  // the track file is on disk too. Mark AVAILABLE and attach the user to the
-  // album so they can play it from /album/[mbid].
-  const parentAlbum = await prisma.libraryItem.findUnique({
-    where: { mbid: input.albumMbid },
-    select: { lidarrId: true, status: true },
+  // Dedup: if we already have this exact track on disk (downloaded by anyone),
+  // grant this user visibility instead of downloading it again.
+  const owned = await prisma.downloadedTrack.findUnique({
+    where: {
+      albumMbid_albumPosition: {
+        albumMbid: input.albumMbid,
+        albumPosition: input.albumPosition,
+      },
+    },
+    select: { id: true },
   });
-
-  if (parentAlbum?.status === "downloaded") {
+  if (owned) {
     await prisma.request.create({
       data: {
         type: "TRACK",
@@ -196,7 +153,7 @@ export async function requestTrackAction(input: {
         approvedAt: new Date(),
       },
     });
-    await attachLibraryItemToUser(userId, input.albumMbid);
+    await attachDownloadedTrackToUser(userId, owned.id);
     revalidatePath(`/album/${input.albumMbid}`);
     revalidatePath("/requests");
     return { ok: true };
