@@ -17,6 +17,11 @@ export async function syncDownloadedLibrary(): Promise<{ albums: number }> {
     },
   });
 
+  // Safety: with no downloads yet (e.g. a fresh slskd-only deploy before the
+  // one-time library migration has run), do nothing — never prune the existing
+  // LibraryItem rows the migration is about to read.
+  if (tracks.length === 0) return { albums: 0 };
+
   const albums = new Map<
     string,
     { artistName: string; title: string; count: number; users: Set<string> }

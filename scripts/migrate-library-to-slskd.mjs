@@ -23,18 +23,45 @@
 // not-downloaded — re-request those albums to refetch them via slskd.
 
 import "dotenv/config";
+import { createDecipheriv, createHash } from "node:crypto";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { PrismaClient } from "@prisma/client";
 
-const LIDARR_URL = process.env.LIDARR_URL?.replace(/\/+$/, "");
-const LIDARR_API_KEY = process.env.LIDARR_API_KEY;
-if (!LIDARR_URL || !LIDARR_API_KEY) {
-  console.error("Set LIDARR_URL and LIDARR_API_KEY env vars.");
-  process.exit(1);
+// Mirrors src/lib/encryption.ts (AES-256-GCM, key = sha256(AUDIOSEERR_SECRET),
+// format iv:ct:tag base64url) so we can read the stored Lidarr API key.
+function decrypt(payload) {
+  const secret = process.env.AUDIOSEERR_SECRET;
+  if (!secret) throw new Error("AUDIOSEERR_SECRET is not set");
+  const k = createHash("sha256").update(secret).digest();
+  const [iv, ct, tag] = payload.split(":").map((p) => Buffer.from(p, "base64url"));
+  const d = createDecipheriv("aes-256-gcm", k, iv);
+  d.setAuthTag(tag);
+  return Buffer.concat([d.update(ct), d.final()]).toString("utf8");
 }
 
 const adapter = new PrismaBetterSqlite3({ url: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
+
+const settings = await prisma.settings.findUnique({ where: { id: 1 } });
+
+// Lidarr creds: prefer env vars, otherwise read them from the app's Settings
+// (so this runs inside the container with no secrets passed).
+const LIDARR_URL = (process.env.LIDARR_URL || settings?.lidarrUrl || "").replace(/\/+$/, "");
+let LIDARR_API_KEY = process.env.LIDARR_API_KEY || "";
+if (!LIDARR_API_KEY && settings?.lidarrApiKey) {
+  try {
+    LIDARR_API_KEY = decrypt(settings.lidarrApiKey);
+  } catch (err) {
+    console.error(`Could not decrypt stored Lidarr API key: ${err.message}`);
+  }
+}
+if (!LIDARR_URL || !LIDARR_API_KEY) {
+  console.error(
+    "No Lidarr credentials. Set LIDARR_URL + LIDARR_API_KEY, or run while the app's Settings still hold them.",
+  );
+  await prisma.$disconnect();
+  process.exit(1);
+}
 
 function parsePathMap(raw) {
   if (!raw) return [];
@@ -67,7 +94,6 @@ async function lidarr(path) {
 }
 const coverUrl = (mbid) => `https://coverartarchive.org/release-group/${mbid}/front-250`;
 
-const settings = await prisma.settings.findUnique({ where: { id: 1 } });
 const maps = parsePathMap(settings?.mediaPathMap);
 
 const albums = await prisma.libraryItem.findMany({
