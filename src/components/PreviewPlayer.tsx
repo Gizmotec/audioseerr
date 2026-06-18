@@ -2,6 +2,7 @@
 
 import {
   Disc3,
+  Heart,
   Loader2,
   Pause,
   Play,
@@ -20,7 +21,13 @@ import {
   useMemo,
   useRef,
   useState,
+  useTransition,
 } from "react";
+import {
+  getTrackLikedAction,
+  toggleTrackLikeAction,
+  type TrackLikeInput,
+} from "@/lib/actions/likes";
 import { recordPlayAction } from "@/lib/actions/plays";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +44,20 @@ type ScrobbleMeta = {
   durationMs?: number | null;
 };
 
+/**
+ * Identity the player bar's heart uses to like the current track. `recordingMbid`
+ * here is the REAL MusicBrainz recording id — distinct from PreviewTrack's
+ * scrobble `recordingMbid`, which may be a `lidarr:`/`local:` pseudo-id. Preview
+ * rows pass null ids and rely on `albumTitle` (with title+artist) to resolve on
+ * click. Omit `likeSeed` entirely for tracks that can't be liked.
+ */
+export type TrackLikeSeed = {
+  recordingMbid: string | null;
+  albumMbid: string | null;
+  albumPosition: number | null;
+  albumTitle: string | null;
+};
+
 export type PreviewTrack = {
   /** Stable per-track id used to highlight the active row. previewUrl works. */
   id: string;
@@ -48,6 +69,7 @@ export type PreviewTrack = {
   recordingMbid?: string;
   albumMbid?: string | null;
   durationMs?: number | null;
+  likeSeed?: TrackLikeSeed | null;
 };
 
 /**
@@ -64,6 +86,8 @@ export type QueueItem = {
   recordingMbid?: string;
   albumMbid?: string | null;
   durationMs?: number | null;
+  /** Identity for the player-bar heart. See TrackLikeSeed. */
+  likeSeed?: TrackLikeSeed | null;
 };
 
 // Last.fm-style threshold: a play counts after 50% of the track OR 4 minutes,
@@ -284,6 +308,7 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
         recordingMbid: item.recordingMbid,
         albumMbid: item.albumMbid ?? null,
         durationMs: item.durationMs ?? null,
+        likeSeed: item.likeSeed ?? null,
       });
       // Caller is responsible for ensuring item.streamUrl is non-null.
       playUrlInElement(el, item.streamUrl!, scrobbleMetaFor(item));
@@ -649,6 +674,7 @@ function PreviewPlayerBar({
               {current.artistName}
             </p>
           </div>
+          <BarLikeButton current={current} />
         </div>
 
         <div className="hidden flex-1 items-center gap-3 md:flex">
@@ -721,6 +747,88 @@ function PreviewPlayerBar({
         />
       </div>
     </div>
+  );
+}
+
+function BarLikeButton({ current }: { current: PreviewTrack }) {
+  const seed = current.likeSeed ?? null;
+  // Likeable when we have a real recording id, or enough to resolve a preview
+  // on click (an album title to search MusicBrainz with).
+  const likeable = !!seed && (!!seed.recordingMbid || !!seed.albumTitle);
+  const recordingMbid = seed?.recordingMbid ?? null;
+
+  // Liked state is scoped to a track id, so when the track changes it derives
+  // back to "unliked" during render (no synchronous setState in the effect).
+  const [likeFor, setLikeFor] = useState<{ id: string; liked: boolean } | null>(
+    null,
+  );
+  const [pending, startTransition] = useTransition();
+  const liked = likeFor?.id === current.id ? likeFor.liked : false;
+
+  // When a track with a real recording MBID starts, reflect its true liked
+  // state (one cheap indexed lookup). Preview-only tracks stay unliked — the
+  // toggle self-corrects from the server reply on the first click.
+  useEffect(() => {
+    if (!recordingMbid) return;
+    let active = true;
+    const id = current.id;
+    getTrackLikedAction(recordingMbid)
+      .then((v) => {
+        if (active) setLikeFor({ id, liked: v });
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [current.id, recordingMbid]);
+
+  if (!likeable || !seed) return null;
+
+  const submit = () => {
+    if (pending) return;
+    const id = current.id;
+    const next = !liked;
+    setLikeFor({ id, liked: next });
+    startTransition(async () => {
+      const input: TrackLikeInput = {
+        recordingMbid: seed.recordingMbid,
+        albumMbid: seed.albumMbid,
+        albumPosition: seed.albumPosition,
+        albumTitle: seed.albumTitle,
+        title: current.title,
+        artistName: current.artistName,
+        coverUrl: current.coverUrl,
+        durationMs: current.durationMs ?? null,
+      };
+      const res = await toggleTrackLikeAction(input);
+      setLikeFor({ id, liked: res.ok ? res.liked : !next });
+    });
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={submit}
+      aria-pressed={liked}
+      aria-label={liked ? `Unlike ${current.title}` : `Like ${current.title}`}
+      title={liked ? "Unlike" : "Like"}
+      className={cn(
+        "flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors",
+        liked
+          ? "text-rose-500 hover:text-rose-400"
+          : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+      )}
+    >
+      {pending ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <Heart
+          className="h-4 w-4"
+          fill={liked ? "currentColor" : "none"}
+          strokeWidth={liked ? 0 : 2}
+        />
+      )}
+    </button>
   );
 }
 

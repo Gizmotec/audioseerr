@@ -10,6 +10,7 @@ import {
 import { AppleMusicButton } from "@/components/AppleMusicButton";
 import { LikeButton } from "@/components/LikeButton";
 import { type QueueItem, usePreviewPlayer } from "@/components/PreviewPlayer";
+import { TrackLikeButton } from "@/components/TrackLikeButton";
 import { RemoveFromLibraryButton } from "@/components/RemoveFromLibraryButton";
 import { YouTubeButton } from "@/components/YouTubeButton";
 import type { LibraryStatus } from "@/lib/library";
@@ -80,8 +81,14 @@ export function AlbumDetail({
           : undefined,
         albumMbid: t.streamUrl ? album.mbid : undefined,
         durationMs: t.lengthMs ?? undefined,
+        likeSeed: {
+          recordingMbid: t.recordingMbid ?? null,
+          albumMbid: album.mbid,
+          albumPosition: t.absolutePosition,
+          albumTitle: album.title,
+        },
       })),
-    [tracks, album.mbid, album.artistName, album.coverUrl],
+    [tracks, album.mbid, album.title, album.artistName, album.coverUrl],
   );
 
   const togglePreview = (track: TrackWithPreview, idx: number) => {
@@ -297,23 +304,22 @@ export function AlbumDetail({
                   ) : (
                     <span className="inline-block h-8 w-8" aria-hidden />
                   )}
-                  {t.recordingMbid ? (
-                    <LikeButton
-                      payload={{
-                        targetType: "TRACK",
-                        targetId: t.recordingMbid,
-                        title: t.title,
-                        artistName: album.artistName,
-                        albumMbid: album.mbid,
-                        albumTitle: album.title,
-                        coverUrl: album.coverUrl,
-                      }}
-                      initialLiked={likedTracks.has(t.recordingMbid)}
-                      variant="icon"
-                    />
-                  ) : (
-                    <span className="inline-block h-8 w-8" aria-hidden />
-                  )}
+                  <TrackLikeButton
+                    track={{
+                      recordingMbid: t.recordingMbid ?? null,
+                      albumMbid: album.mbid,
+                      albumPosition: t.absolutePosition,
+                      title: t.title,
+                      artistName: album.artistName,
+                      albumTitle: album.title,
+                      coverUrl: album.coverUrl,
+                      durationMs: t.lengthMs,
+                    }}
+                    initialLiked={
+                      t.recordingMbid ? likedTracks.has(t.recordingMbid) : false
+                    }
+                    variant="icon"
+                  />
                   <span className="text-xs text-muted-foreground tabular-nums">
                     {formatDuration(t.lengthMs)}
                   </span>

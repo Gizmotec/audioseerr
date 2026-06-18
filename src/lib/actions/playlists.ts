@@ -20,6 +20,11 @@ import {
   setPlaylistShared,
   updatePlaylist,
 } from "@/lib/playlists";
+import {
+  getPlaylistRecommendations,
+  type PlaylistRecommendation,
+} from "@/lib/recommendations";
+import { resolveSong } from "@/lib/songResolve";
 import { ensureTrackRequested } from "@/lib/trackRequests";
 
 /**
@@ -296,6 +301,103 @@ export async function listAvailablePlaylistTracksAction(): Promise<
   try {
     const tracks = await listAvailablePlaylistTracks(viewer);
     return { ok: true, tracks };
+  } catch (err) {
+    return { ok: false, error: errorMessage(err) };
+  }
+}
+
+/**
+ * Songs that fit this playlist (Spotify-style). `offset` paginates the ranked
+ * pool so the UI's "Refresh" can swap in a fresh batch. Returns [] (not an
+ * error) when the playlist is too short, has no recommendations, or no Last.fm
+ * key is configured — the shelf simply stays hidden in those cases.
+ */
+export async function getPlaylistRecommendationsAction(
+  playlistId: string,
+  offset = 0,
+): Promise<Result<{ recommendations: PlaylistRecommendation[] }>> {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) return { ok: false, error: "Not signed in." };
+  const viewer = {
+    id: userId,
+    role: (session.user as { role?: string }).role ?? null,
+  };
+  try {
+    const recommendations = await getPlaylistRecommendations(viewer, playlistId, {
+      offset,
+    });
+    return { ok: true, recommendations };
+  } catch (err) {
+    return { ok: false, error: errorMessage(err) };
+  }
+}
+
+type RecommendationAddInput = {
+  title: string;
+  artistName: string;
+  albumTitle: string | null;
+  coverUrl: string | null;
+  // Present for library tracks (precise identity). Absent for downloadable
+  // suggestions, which are resolved against MusicBrainz here.
+  albumMbid: string | null;
+  albumPosition: number | null;
+  recordingMbid: string | null;
+};
+
+/**
+ * Add a recommended song to the playlist. Library tracks already carry their
+ * identity, so they're added directly (autoFetch grants visibility, no
+ * re-download). Downloadable suggestions are resolved against MusicBrainz, then
+ * inserted — autoFetchMissing kicks off the Soulseek fetch, exactly like the
+ * regular "Add songs" flow.
+ */
+export async function addRecommendationToPlaylistAction(
+  playlistId: string,
+  rec: RecommendationAddInput,
+): Promise<Result> {
+  const auth = await requireUserId();
+  if (!auth.ok) return auth;
+  try {
+    let payload: AddTrackPayload;
+    if (rec.albumMbid && rec.albumPosition != null) {
+      payload = {
+        recordingMbid:
+          rec.recordingMbid ?? `${rec.albumMbid}:${rec.albumPosition}`,
+        trackFileId: null,
+        albumMbid: rec.albumMbid,
+        albumPosition: rec.albumPosition,
+        title: rec.title,
+        artistName: rec.artistName,
+        albumTitle: rec.albumTitle,
+        coverUrl: rec.coverUrl,
+        durationMs: null,
+      };
+    } else {
+      const resolved = await resolveSong(rec, { includeSingles: true });
+      if (!resolved) {
+        return { ok: false, error: "Couldn't find this track to download." };
+      }
+      payload = {
+        recordingMbid:
+          resolved.recordingMbid ??
+          `${resolved.albumMbid}:${resolved.albumPosition}`,
+        trackFileId: null,
+        albumMbid: resolved.albumMbid,
+        albumPosition: resolved.albumPosition,
+        title: resolved.title,
+        artistName: resolved.artistName,
+        albumTitle: resolved.albumTitle,
+        coverUrl: resolved.coverUrl,
+        durationMs: resolved.durationMs,
+      };
+    }
+
+    await addTrackToPlaylist(auth.userId, playlistId, payload);
+    await autoFetchMissing(auth.userId, [payload]);
+    revalidatePath("/playlists");
+    revalidatePath(`/playlists/${playlistId}`);
+    return { ok: true };
   } catch (err) {
     return { ok: false, error: errorMessage(err) };
   }

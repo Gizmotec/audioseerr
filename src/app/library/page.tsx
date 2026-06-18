@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { getLikedSet, trackLikeTargetId } from "@/lib/likes";
 import { isSetupComplete } from "@/lib/settings";
 import { isAdmin } from "@/lib/userLibrary";
 import { LibraryView, type LibraryTrack } from "./LibraryView";
@@ -56,6 +57,11 @@ export default async function LibraryPage() {
     streamUrl: `/api/stream/local/${r.id}`,
   }));
 
+  const likeTargetIds = tracks
+    .map((t) => trackLikeTargetId(t.recordingMbid, t.albumMbid, t.albumPosition))
+    .filter((x): x is string => !!x);
+  const likedTrackIds = [...(await getLikedSet(userId, "TRACK", likeTargetIds))];
+
   const isEmpty = tracks.length === 0;
 
   return (
@@ -83,7 +89,11 @@ export default async function LibraryPage() {
           </p>
         </div>
       ) : (
-        <LibraryView tracks={tracks} canDelete={admin} />
+        <LibraryView
+          tracks={tracks}
+          canDelete={admin}
+          likedTrackIds={likedTrackIds}
+        />
       )}
     </main>
   );

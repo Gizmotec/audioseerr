@@ -1,24 +1,19 @@
 "use client";
 
-import {
-  CheckCircle2,
-  Disc3,
-  Download,
-  Loader2,
-  Pause,
-  Play,
-  X,
-} from "lucide-react";
+import { Check, Disc3, Download, Heart, Loader2, Pause, Play, X } from "lucide-react";
 import { useState, useTransition } from "react";
 import { usePreviewPlayer } from "@/components/PreviewPlayer";
 import { requestDiscoveryTrackAction } from "@/app/discover/actions";
+import { toggleTrackLikeAction } from "@/lib/actions/likes";
 import type { DiscoveryTrack } from "@/lib/deezer";
 import { cn } from "@/lib/utils";
 
 /**
- * A discover shelf of individual songs: 30s preview + inline download. Each
- * track is resolved to MusicBrainz on download (server action), so the row owns
- * its own idle → resolving → done/error state. Renders nothing when empty.
+ * A discover shelf of individual songs as large album-cover cards in a
+ * horizontal scroller (mirrors DiscoveryRow). Each card hover-reveals a play
+ * button for the 30s preview and a download button that resolves the song to
+ * MusicBrainz on click (server action), so the card owns its idle → resolving →
+ * done/error state. Renders nothing when empty.
  */
 export function DiscoveryTrackList({
   title,
@@ -32,18 +27,25 @@ export function DiscoveryTrackList({
   return (
     <section className="space-y-3">
       <h2 className="text-lg font-medium">{title}</h2>
-      <ol className="divide-y divide-border/50">
-        {tracks.map((track, i) => (
-          <DiscoveryTrackRow key={`${i}-${track.title}-${track.artistName}`} track={track} />
-        ))}
-      </ol>
+      <div className="-mx-4 overflow-x-auto px-4 md:-mx-6 md:px-6">
+        <ul className="flex gap-4 pb-2">
+          {tracks.map((track, i) => (
+            <li
+              key={`${i}-${track.title}-${track.artistName}`}
+              className="w-36 shrink-0 sm:w-40"
+            >
+              <DiscoveryTrackCard track={track} />
+            </li>
+          ))}
+        </ul>
+      </div>
     </section>
   );
 }
 
 type DownloadState = "idle" | "resolving" | "done" | "error";
 
-function DiscoveryTrackRow({ track }: { track: DiscoveryTrack }) {
+function DiscoveryTrackCard({ track }: { track: DiscoveryTrack }) {
   const player = usePreviewPlayer();
   const [state, setState] = useState<DownloadState>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +53,8 @@ function DiscoveryTrackRow({ track }: { track: DiscoveryTrack }) {
 
   const playable = !!track.previewUrl;
   const isActive = playable && player.isCurrent(track.previewUrl!);
+  const isPlaying = isActive && player.state === "playing";
+  const isLoading = isActive && player.state === "loading";
 
   const togglePreview = () => {
     if (!track.previewUrl) return;
@@ -60,6 +64,14 @@ function DiscoveryTrackRow({ track }: { track: DiscoveryTrack }) {
       artistName: track.artistName,
       coverUrl: track.coverUrl,
       previewUrl: track.previewUrl,
+      // No MB ids for a Deezer preview; the bar resolves it on like via the
+      // album title (with title + artist).
+      likeSeed: {
+        recordingMbid: null,
+        albumMbid: null,
+        albumPosition: null,
+        albumTitle: track.albumTitle,
+      },
     });
   };
 
@@ -84,40 +96,13 @@ function DiscoveryTrackRow({ track }: { track: DiscoveryTrack }) {
   };
 
   return (
-    <li
-      className={cn(
-        "flex items-center gap-3 py-2.5",
-        isActive && "bg-secondary/40",
-      )}
-    >
-      <button
-        type="button"
-        onClick={togglePreview}
-        disabled={!playable}
+    <div className="flex flex-col gap-2">
+      <div
         className={cn(
-          "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border",
-          playable
-            ? "border-border hover:border-foreground hover:text-foreground"
-            : "border-border/50 text-muted-foreground/40",
+          "group relative aspect-square overflow-hidden rounded-md bg-secondary",
+          isActive && "ring-2 ring-foreground",
         )}
-        aria-label={
-          playable
-            ? isActive && player.state === "playing"
-              ? "Pause preview"
-              : "Play preview"
-            : "No preview available"
-        }
       >
-        {isActive && player.state === "loading" ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : isActive && player.state === "playing" ? (
-          <Pause className="h-4 w-4" />
-        ) : (
-          <Play className="h-4 w-4" />
-        )}
-      </button>
-
-      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-secondary">
         {track.coverUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -125,84 +110,151 @@ function DiscoveryTrackRow({ track }: { track: DiscoveryTrack }) {
             alt=""
             loading="lazy"
             referrerPolicy="no-referrer"
-            className="h-full w-full object-cover"
+            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-muted-foreground/40">
-            <Disc3 className="h-1/2 w-1/2" />
+            <Disc3 className="h-1/3 w-1/3" />
           </div>
         )}
+
+        {/* Preview play / pause — fills the cover; surfaces on hover or when active. */}
+        <button
+          type="button"
+          onClick={togglePreview}
+          disabled={!playable}
+          aria-label={
+            playable
+              ? isPlaying
+                ? "Pause preview"
+                : "Play preview"
+              : "No preview available"
+          }
+          className={cn(
+            "absolute inset-0 flex items-center justify-center bg-black/30 text-white transition-opacity",
+            playable
+              ? isActive
+                ? "opacity-100"
+                : "opacity-0 group-hover:opacity-100"
+              : "pointer-events-none opacity-0",
+          )}
+        >
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-foreground text-background shadow-lg">
+            {isLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : isPlaying ? (
+              <Pause className="h-5 w-5 fill-current" />
+            ) : (
+              <Play className="h-5 w-5 fill-current" />
+            )}
+          </span>
+        </button>
+
+        {/* Like (top-left) — resolves the preview to MusicBrainz and pulls it
+            into the library on like. */}
+        <CardLikeButton track={track} />
+
+        {/* Added badge (bottom-left), mirrors InLibraryBadge. */}
+        {state === "done" && (
+          <span
+            className="absolute bottom-1.5 left-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/90 text-white shadow-sm"
+            title="Added to your library"
+            aria-label="Added to your library"
+          >
+            <Check className="h-3 w-3" strokeWidth={3} />
+          </span>
+        )}
+
+        {/* Download (not-yet-added) — top-right. */}
+        {state !== "done" && (
+          <button
+            type="button"
+            onClick={download}
+            disabled={state === "resolving"}
+            title={state === "error" ? (error ?? "Try again") : "Download track"}
+            aria-label={
+              state === "error" ? (error ?? "Download failed, retry") : "Download track"
+            }
+            className={cn(
+              "absolute top-1.5 right-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-zinc-900/80 text-white shadow-sm transition-colors hover:bg-zinc-900 disabled:opacity-70",
+              state === "error" && "bg-destructive/90 hover:bg-destructive",
+            )}
+          >
+            {state === "resolving" ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : state === "error" ? (
+              <X className="h-3.5 w-3.5" />
+            ) : (
+              <Download className="h-3.5 w-3.5" />
+            )}
+          </button>
+        )}
       </div>
 
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm" title={track.title}>
+      <div className="space-y-0.5">
+        <p className="truncate text-sm font-medium leading-snug" title={track.title}>
           {track.title}
         </p>
-        <p className="truncate text-xs text-muted-foreground">
+        <p className="truncate text-xs text-muted-foreground" title={track.artistName}>
           {track.artistName}
-          {track.albumTitle ? ` · ${track.albumTitle}` : ""}
         </p>
       </div>
-
-      <span className="hidden shrink-0 text-xs text-muted-foreground tabular-nums sm:inline">
-        {formatDuration(track.durationMs)}
-      </span>
-
-      <DownloadControl state={state} error={error} onClick={download} />
-    </li>
+    </div>
   );
 }
 
-function DownloadControl({
-  state,
-  error,
-  onClick,
-}: {
-  state: DownloadState;
-  error: string | null;
-  onClick: () => void;
-}) {
-  if (state === "done") {
-    return (
-      <span
-        className="inline-flex h-8 w-8 shrink-0 items-center justify-center text-emerald-500"
-        title="Added to your library"
-        aria-label="Added to your library"
-      >
-        <CheckCircle2 className="h-4 w-4" />
-      </span>
-    );
-  }
+/**
+ * Heart overlay for a discover card. The song has no MusicBrainz ids yet, so a
+ * like resolves it on the server and (because a like means "I want this") pulls
+ * it into the library. Starts unliked — a previously-liked preview re-syncs to
+ * its true state from the server's reply on the first click.
+ */
+function CardLikeButton({ track }: { track: DiscoveryTrack }) {
+  const [liked, setLiked] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  const submit = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (pending) return;
+    const next = !liked;
+    setLiked(next);
+    startTransition(async () => {
+      const res = await toggleTrackLikeAction({
+        title: track.title,
+        artistName: track.artistName,
+        albumTitle: track.albumTitle,
+        coverUrl: track.coverUrl,
+        durationMs: track.durationMs,
+      });
+      if (!res.ok) {
+        setLiked(!next);
+        return;
+      }
+      setLiked(res.liked);
+    });
+  };
 
   return (
-    <span className="relative inline-flex h-8 w-8 shrink-0 items-center justify-center">
-      <button
-        type="button"
-        onClick={onClick}
-        disabled={state === "resolving"}
-        title={state === "error" ? (error ?? "Try again") : "Download track"}
-        aria-label={state === "error" ? (error ?? "Download failed, retry") : "Download track"}
-        className={cn(
-          "flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-60",
-          state === "error" && "text-destructive hover:text-destructive",
-        )}
-      >
-        {state === "resolving" ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : state === "error" ? (
-          <X className="h-4 w-4" />
-        ) : (
-          <Download className="h-4 w-4" />
-        )}
-      </button>
-    </span>
+    <button
+      type="button"
+      onClick={submit}
+      aria-pressed={liked}
+      aria-label={liked ? `Unlike ${track.title}` : `Like ${track.title}`}
+      className={cn(
+        "absolute top-1.5 left-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-zinc-900/80 shadow-sm transition-colors hover:bg-zinc-900 disabled:opacity-70",
+        liked ? "text-rose-400" : "text-white",
+      )}
+    >
+      {pending ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : (
+        <Heart
+          className="h-3.5 w-3.5"
+          fill={liked ? "currentColor" : "none"}
+          strokeWidth={liked ? 0 : 2}
+        />
+      )}
+    </button>
   );
-}
-
-function formatDuration(ms: number | null): string {
-  if (!ms || ms <= 0) return "—";
-  const seconds = Math.round(ms / 1000);
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m}:${s.toString().padStart(2, "0")}`;
 }

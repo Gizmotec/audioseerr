@@ -345,3 +345,70 @@ export async function getArtistTopTracks(
       .filter((t) => t.name.length > 0);
   });
 }
+
+type LastFmSimilarTracksResponse = {
+  similartracks?: {
+    track?: Array<{
+      name?: string;
+      mbid?: string;
+      // Last.fm returns match as a stringified float ("0.97…") on this endpoint.
+      match?: string | number;
+      // playcount is a bare number here (unlike the chart endpoints' strings).
+      playcount?: string | number;
+      artist?: { name?: string; mbid?: string };
+    }>;
+  };
+};
+
+export type LastFmSimilarTrack = {
+  name: string;
+  artistName: string;
+  /** Recording MBID when Last.fm has one — null otherwise. */
+  mbid: string | null;
+  /** Similarity score 0–1; the relevance signal we rank candidates by. */
+  match: number;
+  playcount: number;
+};
+
+/**
+ * Tracks similar to a seed song — Last.fm's `track.getsimilar`. This is the
+ * engine behind playlist recommendations: given a song already in a playlist,
+ * surface songs that "fit" alongside it. Prefer the recording MBID when we have
+ * a real one (disambiguates covers/remakes); otherwise fall back to
+ * artist+track name with autocorrect on. Returns [] on any error so a single
+ * bad seed never sinks the whole recommendation batch.
+ */
+export async function getSimilarTracks(
+  config: LastFmConfig,
+  seed: { mbid?: string | null; artist: string; track: string },
+  limit = 30,
+): Promise<LastFmSimilarTrack[]> {
+  const idKey = (seed.mbid ?? `${seed.artist}|${seed.track}`).toLowerCase();
+  const cacheKey = `lastfm:track.getsimilar:${idKey}:${limit}`;
+  return withCache<LastFmSimilarTrack[]>(cacheKey, 24 * 60 * 60, async () => {
+    const params: Record<string, string> = seed.mbid
+      ? { method: "track.getsimilar", mbid: seed.mbid, limit: String(limit) }
+      : {
+          method: "track.getsimilar",
+          artist: seed.artist,
+          track: seed.track,
+          limit: String(limit),
+          autocorrect: "1",
+        };
+    let data: LastFmSimilarTracksResponse;
+    try {
+      data = await lastFmFetch<LastFmSimilarTracksResponse>(config, params);
+    } catch {
+      return [];
+    }
+    return (data.similartracks?.track ?? [])
+      .map((t) => ({
+        name: t.name ?? "",
+        artistName: t.artist?.name ?? "",
+        mbid: t.mbid && t.mbid.length > 0 ? t.mbid : null,
+        match: t.match != null ? Number(t.match) || 0 : 0,
+        playcount: t.playcount != null ? Number(t.playcount) || 0 : 0,
+      }))
+      .filter((t) => t.name.length > 0 && t.artistName.length > 0);
+  });
+}

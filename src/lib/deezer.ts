@@ -312,6 +312,81 @@ export async function getDeezerTrackArtwork({
   });
 }
 
+type DeezerSearchTracksFullResponse = {
+  data?: Array<{
+    id: number;
+    title: string;
+    preview?: string;
+    duration?: number; // seconds
+    artist?: { name?: string };
+    album?: {
+      title?: string;
+      cover_xl?: string;
+      cover_big?: string;
+      cover_medium?: string;
+    };
+  }>;
+};
+
+export type DeezerTrackMatch = {
+  title: string;
+  artistName: string;
+  albumTitle: string | null;
+  coverUrl: string | null;
+  previewUrl: string | null;
+  durationMs: number | null;
+};
+
+/**
+ * Resolve a song known only by artist + title (e.g. a Last.fm recommendation)
+ * to a concrete Deezer track, returning its album title, cover, 30s preview and
+ * duration. Used to enrich playlist recommendations: the album title is what
+ * makes a suggestion downloadable (it's the key the MusicBrainz resolver needs),
+ * and the preview lets the user audition before adding.
+ *
+ * Strict on purpose — only an exact (normalized) artist *and* title match is
+ * accepted. A loose match would attach the wrong album and download the wrong
+ * song, so we'd rather return null and let the caller drop the candidate.
+ */
+export async function findDeezerTrack({
+  artistName,
+  trackName,
+}: {
+  artistName: string;
+  trackName: string;
+}): Promise<DeezerTrackMatch | null> {
+  const cacheKey = `deezer:track:match:v1:${normalizeTrackTitle(artistName)}:${normalizeTrackTitle(trackName)}`;
+  return withCache<DeezerTrackMatch | null>(cacheKey, 7 * 24 * 60 * 60, async () => {
+    let search: DeezerSearchTracksFullResponse;
+    try {
+      search = await deezerFetch<DeezerSearchTracksFullResponse>("/search/track", {
+        q: `${artistName} ${trackName}`,
+        limit: "10",
+      });
+    } catch {
+      return null;
+    }
+
+    const wantArtist = normalizeTrackTitle(artistName);
+    const wantTrack = normalizeTrackTitle(trackName);
+    const hit = (search.data ?? []).find(
+      (t) =>
+        normalizeTrackTitle(t.artist?.name ?? "") === wantArtist &&
+        normalizeTrackTitle(t.title) === wantTrack,
+    );
+    if (!hit) return null;
+
+    return {
+      title: hit.title,
+      artistName: hit.artist?.name ?? artistName,
+      albumTitle: hit.album?.title ?? null,
+      coverUrl: pickTrackCover(hit),
+      previewUrl: hit.preview ? hit.preview : null,
+      durationMs: typeof hit.duration === "number" ? hit.duration * 1000 : null,
+    };
+  });
+}
+
 // Maps Audioseerr's genre slugs to Deezer's numeric genre IDs (from /genre).
 // Slugs without an entry fall through to a Last.fm lookup at the call-site.
 const DEEZER_GENRE_IDS: Record<string, number> = {

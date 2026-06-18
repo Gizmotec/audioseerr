@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { MostLovedChart, TopArtistsChart } from "@/components/ChartList";
 import { DiscoveryTrackList } from "@/components/DiscoveryTrackList";
+import { MixCards } from "@/app/discover/MixCards";
 import { enrichArtistArtwork } from "@/lib/chartArtwork";
 import { getDeezerChartTracks, getDeezerNewReleaseTracks } from "@/lib/deezer";
 import { getGlobalTopArtists } from "@/lib/lastfm";
@@ -37,6 +38,10 @@ export default async function DiscoverPage() {
   if (!session?.user?.id) {
     redirect("/login");
   }
+  const viewer = {
+    id: session.user.id,
+    role: (session.user as { role?: string }).role,
+  };
 
   const settings = await getSettings();
   const lastFmKey = settings.lastFmApiKey;
@@ -89,6 +94,8 @@ export default async function DiscoverPage() {
         <h2 className="text-lg font-medium">Search</h2>
         <SearchBar initialQuery="" />
       </section>
+
+      <MixCards viewer={viewer} />
 
       <DiscoveryTrackList title="Trending now" tracks={trendingNow} />
 

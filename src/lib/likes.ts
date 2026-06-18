@@ -2,6 +2,11 @@ import { prisma } from "@/lib/db";
 import { getAlbum } from "@/lib/musicbrainz";
 import type { PlaylistDetail, PlaylistSummary, PlaylistTrackRow } from "@/lib/playlists";
 
+// Re-exported so existing server-side callers can keep importing it from here.
+// The definition lives in the client-safe likeKeys module (no Prisma import) so
+// client components can use it without dragging better-sqlite3 into the bundle.
+export { trackLikeTargetId } from "@/lib/likeKeys";
+
 export type LikeTargetType = "TRACK" | "ALBUM" | "ARTIST";
 
 export const LIKED_SONGS_PLAYLIST_ID = "liked";

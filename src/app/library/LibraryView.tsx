@@ -15,11 +15,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { type QueueItem, usePreviewPlayer } from "@/components/PreviewPlayer";
+import { TrackLikeButton } from "@/components/TrackLikeButton";
 import { Input } from "@/components/ui/input";
 import {
   deleteLibraryAlbumAction,
   deleteLibraryTrackAction,
 } from "@/lib/actions/library";
+import { trackLikeTargetId } from "@/lib/likeKeys";
 import { cn } from "@/lib/utils";
 
 export type LibraryTrack = {
@@ -50,13 +52,16 @@ function normalize(s: string): string {
 export function LibraryView({
   tracks,
   canDelete,
+  likedTrackIds = [],
 }: {
   tracks: LibraryTrack[];
   canDelete: boolean;
+  likedTrackIds?: string[];
 }) {
   const player = usePreviewPlayer();
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("recent");
+  const likedSet = useMemo(() => new Set(likedTrackIds), [likedTrackIds]);
 
   const visible = useMemo(() => {
     const q = normalize(query.trim());
@@ -98,6 +103,12 @@ export function LibraryView({
         recordingMbid: t.recordingMbid ?? undefined,
         albumMbid: t.albumMbid,
         durationMs: t.durationMs ?? undefined,
+        likeSeed: {
+          recordingMbid: t.recordingMbid,
+          albumMbid: t.albumMbid,
+          albumPosition: t.albumPosition,
+          albumTitle: t.albumTitle,
+        },
       })),
     [visible],
   );
@@ -276,6 +287,27 @@ export function LibraryView({
                     Failed to load
                   </span>
                 )}
+
+                <TrackLikeButton
+                  track={{
+                    recordingMbid: t.recordingMbid,
+                    albumMbid: t.albumMbid,
+                    albumPosition: t.albumPosition,
+                    title: t.title,
+                    artistName: t.artistName,
+                    albumTitle: t.albumTitle,
+                    coverUrl: t.coverUrl,
+                    durationMs: t.durationMs,
+                  }}
+                  initialLiked={likedSet.has(
+                    trackLikeTargetId(
+                      t.recordingMbid,
+                      t.albumMbid,
+                      t.albumPosition,
+                    ) ?? "",
+                  )}
+                  variant="icon"
+                />
 
                 <span className="hidden shrink-0 text-xs text-muted-foreground tabular-nums sm:inline">
                   {formatDuration(t.durationMs)}

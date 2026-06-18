@@ -32,7 +32,10 @@ import {
   useState,
   useTransition,
 } from "react";
+import { PlaylistRecommendations } from "@/components/PlaylistRecommendations";
 import { type QueueItem, usePreviewPlayer } from "@/components/PreviewPlayer";
+import { TrackLikeButton } from "@/components/TrackLikeButton";
+import { trackLikeTargetId } from "@/lib/likeKeys";
 import {
   addTracksToPlaylistAction,
   deletePlaylistAction,
@@ -71,6 +74,8 @@ type Props = {
   canManageSharing?: boolean;
   /** Initial shared flag for the toggle. */
   initialShared?: boolean;
+  /** Track like target-ids (see trackLikeTargetId) the viewer has already liked. */
+  likedTrackIds?: string[];
 };
 
 export function PlaylistDetail({
@@ -84,9 +89,11 @@ export function PlaylistDetail({
   ownerUsername = null,
   canManageSharing = false,
   initialShared = false,
+  likedTrackIds = [],
 }: Props) {
   const player = usePreviewPlayer();
   const router = useRouter();
+  const likedSet = useMemo(() => new Set(likedTrackIds), [likedTrackIds]);
   const [pendingRowId, setPendingRowId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
@@ -116,6 +123,12 @@ export function PlaylistDetail({
         recordingMbid: t.recordingMbid,
         albumMbid: t.albumMbid,
         durationMs: t.durationMs ?? undefined,
+        likeSeed: {
+          recordingMbid: t.recordingMbid ?? null,
+          albumMbid: t.albumMbid,
+          albumPosition: t.albumPosition,
+          albumTitle: t.albumTitle,
+        },
       })),
     [tracks],
   );
@@ -390,6 +403,27 @@ export function PlaylistDetail({
                   </span>
                 )}
 
+                <TrackLikeButton
+                  track={{
+                    recordingMbid: t.recordingMbid,
+                    albumMbid: t.albumMbid,
+                    albumPosition: t.albumPosition,
+                    title: t.title,
+                    artistName: t.artistName,
+                    albumTitle: t.albumTitle,
+                    coverUrl: t.coverUrl,
+                    durationMs: t.durationMs,
+                  }}
+                  initialLiked={likedSet.has(
+                    trackLikeTargetId(
+                      t.recordingMbid,
+                      t.albumMbid,
+                      t.albumPosition,
+                    ) ?? "",
+                  )}
+                  variant="icon"
+                />
+
                 <span className="hidden shrink-0 text-xs text-muted-foreground tabular-nums sm:inline">
                   {formatDuration(t.durationMs)}
                 </span>
@@ -440,6 +474,12 @@ export function PlaylistDetail({
           })}
         </ol>
       ) : null}
+
+      {/* Spotify-style suggestions, shown on editable playlists once there are a
+          few tracks to learn from (server enforces the same minimum). */}
+      {!readOnly && tracks.length >= 3 && (
+        <PlaylistRecommendations playlistId={playlistId} />
+      )}
     </div>
   );
 }

@@ -7,9 +7,11 @@ import { BackLink } from "@/components/BackLink";
 import { buildPlaylistStreamLookup } from "@/lib/downloadedTracks";
 import {
   getAllLikes,
+  getLikedSet,
   getLikedSongsPlaylist,
   LIKED_SONGS_PLAYLIST_ID,
   type LikedRow,
+  trackLikeTargetId,
 } from "@/lib/likes";
 import { getPlaylist } from "@/lib/playlists";
 import { isSetupComplete } from "@/lib/settings";
@@ -74,6 +76,13 @@ export default async function PlaylistPage({ params }: { params: RouteParams }) 
       fetching: !streamUrl && fetchingKeys.has(t.recordingMbid),
     };
   });
+  const likeTargetIds = playlist.tracks
+    .map((t) => trackLikeTargetId(t.recordingMbid, t.albumMbid, t.albumPosition))
+    .filter((x): x is string => !!x);
+  const likedTrackIds = [
+    ...(await getLikedSet(userId, "TRACK", likeTargetIds)),
+  ];
+
   const ambientCoverUrl =
     playlist.coverUrl ?? playlist.tracks.find((t) => t.coverUrl)?.coverUrl;
 
@@ -94,6 +103,7 @@ export default async function PlaylistPage({ params }: { params: RouteParams }) 
         ownerUsername={playlist.ownerUsername}
         canManageSharing={playlist.isOwner && playlist.system !== "liked-songs"}
         initialShared={playlist.isShared}
+        likedTrackIds={likedTrackIds}
       />
 
       {likedAlbums.length > 0 && (
