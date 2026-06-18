@@ -183,7 +183,22 @@ Phase 2 hardening after adversarial review:
   (not any pre-owned track), with a title-token tiebreak in duration matching.
 - **Done.** The Lidarr album loop got the same stuck-state guard as the slskd paths.
 
+Phase 3 hardening after adversarial review:
+- **Done.** Shuffle Library streamed from the deleted Lidarr route — repointed to
+  the local route by DownloadedTrack id.
+- **Done.** Downloading one single no longer locks the whole album (album "in
+  library" + dedup now require full-album coverage).
+- **Done.** Library track picker is viewer-scoped (no cross-user leak); artist
+  delete scopes by release-group MBIDs (no name-collision destruction);
+  syncDownloadedLibrary prunes unowned albums; migration is create-only.
+
 Still open (consciously deferred — low impact):
+- Drop the dead "Downloading"/"Missing" library tabs + stale "Lidarr" UI copy
+  (cosmetic; statuses are now always "downloaded").
+- Migration position mapping uses Lidarr's track order; multi-release editions
+  may need a re-request (documented in the script).
+- Drop the vestigial `LibraryItem.lidarrId` + lidarr/prowlarr/qbittorrent
+  `Settings` columns once the migration is confirmed.
 - Partial albums are marked AVAILABLE (missing tracks render as non-playable);
   a distinct "incomplete" status is a future nicety.
 - Auto-fallback to the next-best peer/folder when a transfer errors mid-flight
