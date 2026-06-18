@@ -363,6 +363,7 @@ export async function searchAlbums(query: string, limit = 25): Promise<MbAlbum[]
 export async function findAlbumByArtistTitle(
   artist: string,
   title: string,
+  opts?: { includeSingles?: boolean },
 ): Promise<MbAlbum | null> {
   const a = artist.trim();
   const t = title.trim();
@@ -371,10 +372,12 @@ export async function findAlbumByArtistTitle(
   const escape = (s: string) => s.replace(/(["\\])/g, "\\$1");
   // Constrain artist (phrase match), but leave the title as free text so
   // suffixes like "(Remastered)" that aren't in MB's release-group title
-  // still find their parent release group.
+  // still find their parent release group. Discover passes includeSingles so a
+  // charting single (its own release-group, primary type Single) still resolves.
   const titleTerms = t.replace(/[()[\]{}"\\]/g, " ").trim();
-  const lucene = `artist:"${escape(a)}" AND (${titleTerms}) AND primarytype:(Album OR EP)`;
-  const cacheKey = `mb:resolve:rg:v2:${a.toLowerCase()}|${t.toLowerCase()}`;
+  const types = opts?.includeSingles ? "Album OR EP OR Single" : "Album OR EP";
+  const lucene = `artist:"${escape(a)}" AND (${titleTerms}) AND primarytype:(${types})`;
+  const cacheKey = `mb:resolve:rg:v2:${opts?.includeSingles ? "s:" : ""}${a.toLowerCase()}|${t.toLowerCase()}`;
 
   return withCache<MbAlbum | null>(cacheKey, 60 * 60, async () => {
     const data = await mbFetch<MbReleaseGroupSearchResponse>("/release-group", {

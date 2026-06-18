@@ -336,6 +336,36 @@ export type DeezerChartAlbum = {
   coverUrl: string | null;
 };
 
+/**
+ * A song surfaced on the (track-first) discover page. Carries only what Deezer
+ * gives us — no MusicBrainz ids — so downloading one is resolved to MB on click
+ * (see requestDiscoveryTrackAction), not at page load.
+ */
+export type DiscoveryTrack = {
+  title: string;
+  artistName: string;
+  albumTitle: string | null;
+  coverUrl: string | null;
+  previewUrl: string | null;
+  durationMs: number | null;
+};
+
+type DeezerChartTracksResponse = {
+  data?: Array<{
+    id: number;
+    title: string;
+    preview?: string;
+    duration?: number; // seconds
+    artist?: { name?: string };
+    album?: {
+      title?: string;
+      cover_xl?: string;
+      cover_big?: string;
+      cover_medium?: string;
+    };
+  }>;
+};
+
 type DeezerChartAlbumsResponse = {
   data?: Array<{
     id: number;
@@ -424,6 +454,89 @@ export async function getDeezerNewReleaseAlbums(
         coverUrl: a.cover_xl ?? a.cover_big ?? a.cover_medium ?? null,
       }))
       .filter((a) => a.title.length > 0);
+  });
+}
+
+/**
+ * Top tracks chart for a Deezer genre, or the global chart when `genreSlug` is
+ * null (Deezer genre id 0). The track-first analogue of getDeezerChartAlbums —
+ * the same play-activity chart, but at the song level. Unknown slugs return [].
+ */
+export async function getDeezerChartTracks(
+  genreSlug: string | null,
+  limit = 12,
+): Promise<DiscoveryTrack[]> {
+  const id =
+    genreSlug === null ? 0 : DEEZER_GENRE_IDS[genreSlug.toLowerCase()];
+  if (id === undefined) return [];
+  const cacheKey = `deezer:chart:tracks:${id}:${limit}`;
+  return withCache<DiscoveryTrack[]>(cacheKey, 60 * 60, async () => {
+    let data: DeezerChartTracksResponse;
+    try {
+      data = await deezerFetch<DeezerChartTracksResponse>(
+        `/chart/${id}/tracks`,
+        { limit: String(limit) },
+      );
+    } catch {
+      return [];
+    }
+    return (data.data ?? [])
+      .map<DiscoveryTrack>((t) => ({
+        title: t.title,
+        artistName: t.artist?.name ?? "Unknown artist",
+        albumTitle: t.album?.title ?? null,
+        coverUrl: pickTrackCover(t),
+        previewUrl: t.preview ? t.preview : null,
+        durationMs: typeof t.duration === "number" ? t.duration * 1000 : null,
+      }))
+      .filter((t) => t.title.length > 0);
+  });
+}
+
+/**
+ * "Fresh tracks" for the discover page: Deezer editorial new releases (albums),
+ * each resolved to its opening track so the shelf reads as songs. Best-effort —
+ * an album whose tracklist fails to load is dropped.
+ */
+export async function getDeezerNewReleaseTracks(
+  limit = 12,
+): Promise<DiscoveryTrack[]> {
+  const cacheKey = `deezer:editorial:release-tracks:${limit}`;
+  return withCache<DiscoveryTrack[]>(cacheKey, 60 * 60, async () => {
+    let data: DeezerEditorialReleasesResponse;
+    try {
+      data = await deezerFetch<DeezerEditorialReleasesResponse>(
+        "/editorial/0/releases",
+        { limit: String(limit) },
+      );
+    } catch {
+      return [];
+    }
+    const albums = (data.data ?? []).filter((a) => (a.title ?? "").length > 0);
+    const resolved = await Promise.all(
+      albums.map(async (a): Promise<DiscoveryTrack | null> => {
+        let album: DeezerAlbumResponse;
+        try {
+          album = await deezerFetch<DeezerAlbumResponse>(`/album/${a.id}`);
+        } catch {
+          return null;
+        }
+        const first = [...(album.tracks?.data ?? [])].sort(
+          (x, y) => (x.track_position ?? 0) - (y.track_position ?? 0),
+        )[0];
+        if (!first) return null;
+        return {
+          title: first.title,
+          artistName: a.artist?.name ?? "Unknown artist",
+          albumTitle: a.title,
+          coverUrl: a.cover_xl ?? a.cover_big ?? a.cover_medium ?? null,
+          previewUrl: first.preview ? first.preview : null,
+          durationMs:
+            typeof first.duration === "number" ? first.duration * 1000 : null,
+        };
+      }),
+    );
+    return resolved.filter((t): t is DiscoveryTrack => t !== null);
   });
 }
 

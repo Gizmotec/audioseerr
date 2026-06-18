@@ -23,7 +23,7 @@ export function SearchBar({ initialQuery }: { initialQuery: string }) {
         name="q"
         autoFocus
         autoComplete="off"
-        placeholder="Search albums…"
+        placeholder="Search artists, songs, or albums…"
         value={value}
         onChange={(e) => setValue(e.target.value)}
         className="h-11 text-base"

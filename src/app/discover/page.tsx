@@ -2,18 +2,13 @@ import { Library, Search } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import {
-  MostLovedChart,
-  TopArtistsChart,
-  TopTracksChart,
-} from "@/components/ChartList";
-import { DiscoveryRow } from "@/components/DiscoveryRow";
-import { enrichArtistArtwork, enrichTrackArtwork } from "@/lib/chartArtwork";
-import { buildLibraryIndex } from "@/lib/library";
+import { MostLovedChart, TopArtistsChart } from "@/components/ChartList";
+import { DiscoveryTrackList } from "@/components/DiscoveryTrackList";
+import { enrichArtistArtwork } from "@/lib/chartArtwork";
+import { getDeezerChartTracks, getDeezerNewReleaseTracks } from "@/lib/deezer";
+import { getGlobalTopArtists } from "@/lib/lastfm";
 import { getMostLoved } from "@/lib/mostLoved";
 import { getSettings, isSetupComplete } from "@/lib/settings";
-import { getDeezerChartAlbums, getDeezerNewReleaseAlbums } from "@/lib/deezer";
-import { getGlobalTopArtists, getGlobalTopTracks } from "@/lib/lastfm";
 import { SearchBar } from "@/app/search/SearchBar";
 
 export const dynamic = "force-dynamic";
@@ -46,32 +41,24 @@ export default async function DiscoverPage() {
   const settings = await getSettings();
   const lastFmKey = settings.lastFmApiKey;
 
-  const [settled, newReleases, topTracks, topArtists, mostLoved, library] =
+  const [trendingNow, freshTracks, genreRows, topArtists, mostLoved] =
     await Promise.all([
+      getDeezerChartTracks(null, 12).catch(() => []),
+      getDeezerNewReleaseTracks(12).catch(() => []),
       Promise.all(
-        DISCOVER_TAGS.map(async (tag) => {
-          try {
-            return { tag, albums: await getDeezerChartAlbums(tag, 12) };
-          } catch {
-            return { tag, albums: [] };
-          }
-        }),
+        DISCOVER_TAGS.map(async (tag) => ({
+          tag,
+          tracks: await getDeezerChartTracks(tag, 12).catch(() => []),
+        })),
       ),
-      getDeezerNewReleaseAlbums(12).catch(() => []),
-      lastFmKey
-        ? getGlobalTopTracks({ apiKey: lastFmKey }, 10)
-            .then(enrichTrackArtwork)
-            .catch(() => [])
-        : Promise.resolve([]),
       lastFmKey
         ? getGlobalTopArtists({ apiKey: lastFmKey }, 12)
             .then(enrichArtistArtwork)
             .catch(() => [])
         : Promise.resolve([]),
       getMostLoved(10),
-      buildLibraryIndex(),
     ]);
-  const rows = settled.filter((r) => r.albums.length > 0);
+  const genreTrackRows = genreRows.filter((r) => r.tracks.length > 0);
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-10 px-4 py-10 md:px-6">
@@ -85,8 +72,8 @@ export default async function DiscoverPage() {
             Find what belongs in your library next.
           </h1>
           <p className="text-sm leading-6 text-muted-foreground md:text-base">
-            Search albums, scan new releases, and follow what other listeners
-            are playing before sending it to Lidarr.
+            Preview what&rsquo;s trending and add individual songs straight to
+            your library.
           </p>
         </div>
         <Link
@@ -99,31 +86,25 @@ export default async function DiscoverPage() {
       </header>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-medium">Find an album</h2>
+        <h2 className="text-lg font-medium">Search</h2>
         <SearchBar initialQuery="" />
       </section>
 
-      <DiscoveryRow
-        title="Top new releases"
-        albums={newReleases}
-        library={library}
-      />
+      <DiscoveryTrackList title="Trending now" tracks={trendingNow} />
 
-      <TopTracksChart tracks={topTracks} />
+      <DiscoveryTrackList title="Fresh tracks" tracks={freshTracks} />
+
+      {genreTrackRows.map((r) => (
+        <DiscoveryTrackList
+          key={r.tag}
+          title={`Trending in ${r.tag}`}
+          tracks={r.tracks}
+        />
+      ))}
 
       <TopArtistsChart artists={topArtists} />
 
       <MostLovedChart items={mostLoved} />
-
-      {rows.map((r) => (
-        <DiscoveryRow
-          key={r.tag}
-          title={`Trending in ${r.tag}`}
-          href={`/genre/${encodeURIComponent(r.tag)}`}
-          albums={r.albums}
-          library={library}
-        />
-      ))}
 
       <section className="space-y-3">
         <h2 className="text-lg font-medium">Browse by genre</h2>
