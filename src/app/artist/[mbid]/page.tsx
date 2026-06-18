@@ -200,11 +200,6 @@ export default async function ArtistPage({ params }: { params: RouteParams }) {
                         primaryType: rg.primaryType,
                         coverUrl: rg.coverUrl,
                       }}
-                      libraryHit={library.lookup({
-                        mbid: rg.mbid,
-                        artistName: artist.name,
-                        title: rg.title,
-                      })}
                       liked={likedAlbums.has(rg.mbid)}
                     />
                   </li>

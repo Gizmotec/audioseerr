@@ -1,7 +1,11 @@
 import { prisma } from "@/lib/db";
 import type { LibraryTileItem } from "@/app/library/LibraryAlbumTile";
 import type { LibraryStatus } from "@/lib/library";
-import { libraryWhereForViewer, type LibraryViewer } from "@/lib/userLibrary";
+import {
+  isAdmin,
+  libraryWhereForViewer,
+  type LibraryViewer,
+} from "@/lib/userLibrary";
 
 // Last.fm-style scrobble threshold. A "play" is recorded once playback crosses
 // 50% of the track OR 4 minutes, whichever happens first. Tracks shorter than
@@ -138,4 +142,126 @@ export async function getMostPlayedAlbums(
     ];
   });
   return joinPlayedAlbumsWithLibrary(rows, viewer);
+}
+
+// --- Track-level history (the track-first Home) -----------------------------
+
+export type PlayedTrackItem = {
+  id: string;
+  title: string;
+  artistName: string;
+  albumTitle: string | null;
+  albumMbid: string;
+  albumPosition: number;
+  coverUrl: string | null;
+  durationMs: number | null;
+  recordingMbid: string | null;
+  lastPlayedAt: Date;
+  playCount: number;
+};
+
+/**
+ * Resolve grouped PlayHistory rows (keyed by recordingMbid) to the viewer's
+ * own, playable DownloadedTrack. Plays of tracks the viewer no longer owns drop
+ * out — there's nothing to stream. PlayHistory has no album position, so the
+ * join key is recordingMbid (always set on a scrobble).
+ */
+async function joinPlayedTracksWithLibrary(
+  rows: { recordingMbid: string; lastPlayedAt: Date; playCount: number }[],
+  viewer: LibraryViewer,
+): Promise<PlayedTrackItem[]> {
+  if (rows.length === 0 || !viewer) return [];
+  const tracks = await prisma.downloadedTrack.findMany({
+    where: {
+      recordingMbid: { in: rows.map((r) => r.recordingMbid) },
+      ...(isAdmin(viewer) ? {} : { users: { some: { userId: viewer.id } } }),
+    },
+    select: {
+      id: true,
+      recordingMbid: true,
+      title: true,
+      artistName: true,
+      albumTitle: true,
+      albumMbid: true,
+      albumPosition: true,
+      coverUrl: true,
+      durationMs: true,
+    },
+  });
+  const byRecording = new Map(
+    tracks.flatMap((t) => (t.recordingMbid ? [[t.recordingMbid, t] as const] : [])),
+  );
+  return rows.flatMap((row) => {
+    const t = byRecording.get(row.recordingMbid);
+    if (!t) return [];
+    return [
+      {
+        id: t.id,
+        title: t.title,
+        artistName: t.artistName,
+        albumTitle: t.albumTitle,
+        albumMbid: t.albumMbid,
+        albumPosition: t.albumPosition,
+        coverUrl: t.coverUrl,
+        durationMs: t.durationMs,
+        recordingMbid: t.recordingMbid,
+        lastPlayedAt: row.lastPlayedAt,
+        playCount: row.playCount,
+      },
+    ];
+  });
+}
+
+export async function getRecentlyPlayedTracks(
+  userId: string,
+  limit = 12,
+  viewer: LibraryViewer = { id: userId },
+): Promise<PlayedTrackItem[]> {
+  const groups = await prisma.playHistory.groupBy({
+    by: ["recordingMbid"],
+    where: { userId },
+    _max: { playedAt: true },
+    _count: { _all: true },
+    orderBy: { _max: { playedAt: "desc" } },
+    take: limit,
+  });
+  const rows = groups.flatMap((g) =>
+    g._max.playedAt
+      ? [
+          {
+            recordingMbid: g.recordingMbid,
+            lastPlayedAt: g._max.playedAt,
+            playCount: g._count._all,
+          },
+        ]
+      : [],
+  );
+  return joinPlayedTracksWithLibrary(rows, viewer);
+}
+
+export async function getMostPlayedTracks(
+  userId: string,
+  limit = 12,
+  viewer: LibraryViewer = { id: userId },
+): Promise<PlayedTrackItem[]> {
+  const groups = await prisma.playHistory.groupBy({
+    by: ["recordingMbid"],
+    where: { userId },
+    _max: { playedAt: true },
+    _count: { _all: true },
+    orderBy: { _count: { recordingMbid: "desc" } },
+    take: limit,
+  });
+  const rows = groups.flatMap((g) =>
+    g._max.playedAt
+      ? [
+          {
+            recordingMbid: g.recordingMbid,
+            lastPlayedAt: g._max.playedAt,
+            playCount: g._count._all,
+          },
+        ]
+      : [],
+  );
+  return joinPlayedTracksWithLibrary(rows, viewer);
 }

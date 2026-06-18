@@ -3,23 +3,19 @@
 import { Disc3 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import { InLibraryBadge } from "@/components/InLibraryBadge";
 import { LikedBadge } from "@/components/LikedBadge";
 import type { LibraryHit } from "@/lib/library";
 import type { MbAlbum } from "@/lib/musicbrainz";
 
 export function AlbumCard({
   album,
-  libraryHit,
   liked,
 }: {
   album: MbAlbum;
-  libraryHit?: LibraryHit | null;
   liked?: boolean;
 }) {
   const [imgOk, setImgOk] = useState(true);
   const year = album.firstReleaseDate?.slice(0, 4);
-  const trackLine = formatTrackLine(libraryHit ?? null);
 
   return (
     <Link
@@ -42,7 +38,6 @@ export function AlbumCard({
             <Disc3 className="h-1/3 w-1/3" />
           </div>
         )}
-        <InLibraryBadge status={libraryHit?.status ?? null} />
         <LikedBadge liked={!!liked} />
       </div>
       <div className="space-y-0.5">
@@ -58,7 +53,6 @@ export function AlbumCard({
         >
           {album.artistName}
           {year ? ` · ${year}` : ""}
-          {trackLine ? ` · ${trackLine}` : ""}
         </p>
       </div>
     </Link>

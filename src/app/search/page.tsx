@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { TopTracksList } from "@/components/TopTracksList";
 import { loadArtistLanding } from "@/lib/artistLanding";
-import { buildLibraryIndex } from "@/lib/library";
 import { getLikedSet } from "@/lib/likes";
 import {
   type MbAlbum,
@@ -69,8 +68,6 @@ export default async function SearchPage({
     redirect("/login");
   }
   const userId = session.user.id;
-  const role = (session.user as { role?: string }).role;
-  const viewer = { id: userId, role };
 
   const { q } = await searchParams;
   const query = q?.trim() ?? "";
@@ -119,8 +116,7 @@ export default async function SearchPage({
     }
   }
 
-  const [library, recent, likedAlbums] = await Promise.all([
-    buildLibraryIndex(viewer),
+  const [recent, likedAlbums] = await Promise.all([
     query ? Promise.resolve([]) : getRecentSearches(userId),
     getLikedSet(
       userId,
@@ -215,7 +211,6 @@ export default async function SearchPage({
               <li key={album.mbid}>
                 <AlbumCard
                   album={album}
-                  libraryHit={library.lookup(album)}
                   liked={likedAlbums.has(album.mbid)}
                 />
               </li>

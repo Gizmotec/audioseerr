@@ -3,10 +3,7 @@
 import { Disc3 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import { InLibraryBadge } from "@/components/InLibraryBadge";
 import { LikedBadge } from "@/components/LikedBadge";
-import type { LibraryHit } from "@/lib/library";
-import { formatTrackLine } from "@/app/search/AlbumCard";
 
 export type DiscoveryAlbum = {
   mbid: string | null;
@@ -17,15 +14,12 @@ export type DiscoveryAlbum = {
 
 export function DiscoveryAlbumCard({
   album,
-  libraryHit,
   liked,
 }: {
   album: DiscoveryAlbum;
-  libraryHit?: LibraryHit | null;
   liked?: boolean;
 }) {
   const [imgOk, setImgOk] = useState(album.coverUrl !== null);
-  const trackLine = formatTrackLine(libraryHit ?? null);
 
   // Without an MBID (e.g. Deezer chart cards), bounce through a server route
   // that resolves artist+title to an MBID via MusicBrainz, then redirects to
@@ -55,7 +49,6 @@ export function DiscoveryAlbumCard({
             <Disc3 className="h-1/3 w-1/3" />
           </div>
         )}
-        <InLibraryBadge status={libraryHit?.status ?? null} />
         <LikedBadge liked={!!liked} />
       </div>
       <div className="space-y-0.5">
@@ -70,7 +63,6 @@ export function DiscoveryAlbumCard({
           title={album.artistName}
         >
           {album.artistName}
-          {trackLine ? ` · ${trackLine}` : ""}
         </p>
       </div>
     </Link>

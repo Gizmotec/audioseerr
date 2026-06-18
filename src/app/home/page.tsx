@@ -10,32 +10,24 @@ import {
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import {
-  LibraryAlbumTile,
-  type LibraryTileItem,
-} from "@/app/library/LibraryAlbumTile";
 import { PlaylistTile } from "@/app/playlists/PlaylistTile";
 import { SearchBar } from "@/app/search/SearchBar";
+import { OwnedTrackList, type OwnedTrack } from "@/components/OwnedTrackList";
 import { ShuffleLibraryButton } from "@/components/ShuffleLibraryButton";
 import { prisma } from "@/lib/db";
 import { getLikedSongsPlaylistSummary } from "@/lib/likes";
 import {
-  getMostPlayedAlbums,
-  getRecentlyPlayedAlbums,
-  type PlayedAlbumItem,
+  getMostPlayedTracks,
+  getRecentlyPlayedTracks,
+  type PlayedTrackItem,
 } from "@/lib/playHistory";
 import { listPlaylists } from "@/lib/playlists";
 import { isSetupComplete } from "@/lib/settings";
-import { libraryWhereForViewer } from "@/lib/userLibrary";
+import { isAdmin } from "@/lib/userLibrary";
 
 export const dynamic = "force-dynamic";
 
-type ArtistSummary = {
-  name: string;
-  albumCount: number;
-  downloadedCount: number;
-  trackFileCount: number;
-};
+const streamUrl = (id: string) => `/api/stream/local/${id}`;
 
 export default async function HomePage() {
   if (!(await isSetupComplete())) {
@@ -48,44 +40,51 @@ export default async function HomePage() {
   }
   const role = (session.user as { role?: string }).role;
   const viewer = { id: userId, role };
+  // Admins see every downloaded track; everyone else only what they own.
+  const ownedWhere = isAdmin(viewer)
+    ? {}
+    : { users: { some: { userId } } };
 
-  const [libraryRows, likedSongs, playlists, recentlyPlayed, mostPlayed] =
+  const [recentRows, likedSongs, playlists, recentlyPlayed, mostPlayed, artistGroups] =
     await Promise.all([
-      prisma.libraryItem.findMany({
-        where: { ...libraryWhereForViewer(viewer), status: "downloaded" },
+      prisma.downloadedTrack.findMany({
+        where: ownedWhere,
         select: {
-          mbid: true,
-          status: true,
-          artistName: true,
+          id: true,
           title: true,
-          trackFileCount: true,
-          totalTrackCount: true,
-          lastSyncedAt: true,
+          artistName: true,
+          albumTitle: true,
+          albumMbid: true,
+          coverUrl: true,
+          durationMs: true,
+          recordingMbid: true,
         },
-        orderBy: [{ artistName: "asc" }, { title: "asc" }],
+        orderBy: { createdAt: "desc" },
+        take: 8,
       }),
       getLikedSongsPlaylistSummary(userId),
       listPlaylists(userId),
-      getRecentlyPlayedAlbums(userId, 10, viewer),
-      getMostPlayedAlbums(userId, 10, viewer),
+      getRecentlyPlayedTracks(userId, 8, viewer),
+      getMostPlayedTracks(userId, 8, viewer),
+      prisma.downloadedTrack.groupBy({
+        by: ["artistName"],
+        where: ownedWhere,
+        _count: { _all: true },
+        orderBy: { _count: { artistName: "desc" } },
+        take: 6,
+      }),
     ]);
 
-  const libraryItems: (LibraryTileItem & { lastSyncedAt: Date })[] =
-    libraryRows.map((row) => ({
-      mbid: row.mbid,
-      title: row.title,
-      artistName: row.artistName,
-      status: row.status as LibraryTileItem["status"],
-      trackFileCount: row.trackFileCount,
-      totalTrackCount: row.totalTrackCount,
-      lastSyncedAt: row.lastSyncedAt,
-    }));
-
-  const recentAlbums = [...libraryItems]
-    .sort((a, b) => b.lastSyncedAt.getTime() - a.lastSyncedAt.getTime())
-    .slice(0, 10);
-  const artistSummaries = topArtists(libraryItems).slice(0, 6);
+  const recentlyAdded: OwnedTrack[] = recentRows.map((t) => ({
+    ...t,
+    streamUrl: streamUrl(t.id),
+  }));
+  const isEmpty = recentlyAdded.length === 0;
   const recentPlaylists = [likedSongs, ...playlists].slice(0, 5);
+  const topArtists = artistGroups.map((g) => ({
+    name: g.artistName,
+    trackCount: g._count._all,
+  }));
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-4 py-8 md:px-6">
@@ -99,8 +98,8 @@ export default async function HomePage() {
             Your music, ready when you are.
           </h1>
           <p className="text-sm leading-6 text-muted-foreground md:text-base">
-            A collection-first view of downloaded albums, playable tracks, and
-            the playlists you keep coming back to.
+            The songs you&rsquo;ve downloaded, what you&rsquo;ve been playing,
+            and the playlists you keep coming back to.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -113,7 +112,7 @@ export default async function HomePage() {
             Discover
           </Link>
           <Link
-            href="/library?status=downloaded"
+            href="/library"
             className="inline-flex h-9 items-center gap-2 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
           >
             <Disc3 className="h-4 w-4" />
@@ -122,52 +121,35 @@ export default async function HomePage() {
         </div>
       </header>
 
-      {libraryItems.length === 0 ? (
+      {isEmpty ? (
         <EmptyLibrary />
       ) : (
         <>
-          <section className="space-y-3">
-            <SectionHeader
-              title="Downloaded albums"
-              href="/library?status=downloaded"
-              action="Open library"
-            />
-            <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-              {recentAlbums.map((item) => (
-                <li key={item.mbid}>
-                  <LibraryAlbumTile item={item} />
-                </li>
-              ))}
-            </ul>
-          </section>
+          <OwnedTrackList
+            title="Recently added"
+            tracks={recentlyAdded}
+            icon={Disc3}
+            seeAllHref="/library"
+          />
 
-          {recentlyPlayed.length > 0 && (
-            <PlayedAlbumsSection
-              title="Recently played"
-              icon={Clock}
-              albums={recentlyPlayed}
-              caption={(item) => formatRelativeTime(item.lastPlayedAt)}
-            />
-          )}
+          <OwnedTrackList
+            title="Recently played"
+            tracks={toOwned(recentlyPlayed, (t) => formatRelativeTime(t.lastPlayedAt))}
+            icon={Clock}
+          />
 
-          {mostPlayed.length > 0 && (
-            <PlayedAlbumsSection
-              title="Most played"
-              icon={Flame}
-              albums={mostPlayed}
-              caption={(item) =>
-                `${item.playCount} ${item.playCount === 1 ? "play" : "plays"}`
-              }
-            />
-          )}
+          <OwnedTrackList
+            title="Most played"
+            tracks={toOwned(
+              mostPlayed,
+              (t) => `${t.playCount} ${t.playCount === 1 ? "play" : "plays"}`,
+            )}
+            icon={Flame}
+          />
 
           <section className="grid gap-8 lg:grid-cols-2">
             <div className="space-y-3">
-              <SectionHeader
-                title="Playlists"
-                href="/playlists"
-                action="See all"
-              />
+              <SectionHeader title="Playlists" href="/playlists" action="See all" />
               {recentPlaylists.length > 0 ? (
                 <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                   {recentPlaylists.map((playlist) => (
@@ -180,18 +162,14 @@ export default async function HomePage() {
                 <EmptyPanel
                   icon={ListMusic}
                   title="No playlists yet"
-                  body="Create one from albums you already have."
+                  body="Build one from songs you already have."
                   href="/playlists"
                   action="Create playlist"
                 />
               )}
             </div>
             <div className="space-y-3">
-              <SectionHeader
-                title="Quick search"
-                href="/discover"
-                action="Full discover"
-              />
+              <SectionHeader title="Quick search" href="/discover" action="Full discover" />
               <div className="rounded-md border border-border bg-secondary/15 p-4">
                 <SearchBar initialQuery="" />
               </div>
@@ -205,37 +183,52 @@ export default async function HomePage() {
             </div>
           </section>
 
-          <section className="space-y-3">
-            <SectionHeader title="Top artists in your library" />
-            <ol className="grid gap-2 md:grid-cols-2">
-              {artistSummaries.map((artist, index) => (
-                <li
-                  key={artist.name}
-                  className="grid min-h-16 grid-cols-[2rem_1fr_auto] items-center gap-3 rounded-md border border-border bg-secondary/15 px-3 py-3"
-                >
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <span className="min-w-0">
+          {topArtists.length > 0 && (
+            <section className="space-y-3">
+              <SectionHeader title="Top artists in your library" />
+              <ol className="grid gap-2 md:grid-cols-2">
+                {topArtists.map((artist, index) => (
+                  <li
+                    key={artist.name}
+                    className="grid min-h-16 grid-cols-[2rem_1fr_auto] items-center gap-3 rounded-md border border-border bg-secondary/15 px-3 py-3"
+                  >
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
                     <span className="block truncate text-sm font-medium">
                       {artist.name}
                     </span>
-                    <span className="block truncate text-xs text-muted-foreground">
-                      {artist.downloadedCount} downloaded ·{" "}
-                      {artist.trackFileCount} tracks
+                    <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
+                      {artist.trackCount}{" "}
+                      {artist.trackCount === 1 ? "track" : "tracks"}
                     </span>
-                  </span>
-                  <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
-                    {artist.albumCount}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </section>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
         </>
       )}
     </main>
   );
+}
+
+function toOwned(
+  tracks: PlayedTrackItem[],
+  caption: (t: PlayedTrackItem) => string,
+): OwnedTrack[] {
+  return tracks.map((t) => ({
+    id: t.id,
+    title: t.title,
+    artistName: t.artistName,
+    albumTitle: t.albumTitle,
+    albumMbid: t.albumMbid,
+    coverUrl: t.coverUrl,
+    durationMs: t.durationMs,
+    recordingMbid: t.recordingMbid,
+    streamUrl: streamUrl(t.id),
+    caption: caption(t),
+  }));
 }
 
 function SectionHeader({
@@ -298,8 +291,8 @@ function EmptyLibrary() {
       <Disc3 className="mx-auto mb-4 h-8 w-8 text-muted-foreground/60" />
       <h2 className="text-lg font-medium">No downloaded music yet</h2>
       <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-        Requested and downloading albums stay out of Home until Lidarr has
-        finished putting the files on disk.
+        Songs show up here once a request finishes downloading. Find something on
+        Discover to get started.
       </p>
       <div className="mt-5 flex flex-wrap justify-center gap-2">
         <Link
@@ -310,7 +303,7 @@ function EmptyLibrary() {
           Discover music
         </Link>
         <Link
-          href="/library?status=downloaded"
+          href="/library"
           className="inline-flex h-9 items-center gap-2 rounded-md border border-border px-3 text-sm text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
         >
           <Library className="h-4 w-4" />
@@ -321,40 +314,8 @@ function EmptyLibrary() {
   );
 }
 
-function PlayedAlbumsSection({
-  title,
-  icon: Icon,
-  albums,
-  caption,
-}: {
-  title: string;
-  icon: React.ComponentType<{ className?: string }>;
-  albums: PlayedAlbumItem[];
-  caption: (item: PlayedAlbumItem) => string;
-}) {
-  return (
-    <section className="space-y-3">
-      <header className="flex items-baseline gap-2">
-        <Icon className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-lg font-medium">{title}</h2>
-      </header>
-      <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-        {albums.map((item) => (
-          <li key={item.mbid} className="flex flex-col gap-1.5">
-            <LibraryAlbumTile item={item} />
-            <p className="px-0.5 text-xs text-muted-foreground">
-              {caption(item)}
-            </p>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-// Compact "5m ago" / "2d ago" / "3w ago" formatter — keeps tile captions short
-// without pulling in a date library. Falls back to a date for anything older
-// than a year.
+// Compact "5m ago" / "2d ago" / "3w ago" formatter — keeps captions short
+// without pulling in a date library. Falls back to a date past a year.
 function formatRelativeTime(when: Date): string {
   const diffMs = Date.now() - when.getTime();
   if (diffMs < 60_000) return "just now";
@@ -368,36 +329,5 @@ function formatRelativeTime(when: Date): string {
   if (weeks < 5) return `${weeks}w ago`;
   const months = Math.floor(days / 30);
   if (months < 12) return `${months}mo ago`;
-  return when.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-  });
-}
-
-function topArtists(
-  items: (LibraryTileItem & { lastSyncedAt: Date })[],
-): ArtistSummary[] {
-  const artists = new Map<string, ArtistSummary>();
-  for (const item of items) {
-    const current =
-      artists.get(item.artistName) ??
-      ({
-        name: item.artistName,
-        albumCount: 0,
-        downloadedCount: 0,
-        trackFileCount: 0,
-      } satisfies ArtistSummary);
-    current.albumCount += 1;
-    current.trackFileCount += item.trackFileCount;
-    if (item.status === "downloaded") current.downloadedCount += 1;
-    artists.set(item.artistName, current);
-  }
-
-  return Array.from(artists.values()).sort((a, b) => {
-    if (b.albumCount !== a.albumCount) return b.albumCount - a.albumCount;
-    if (b.trackFileCount !== a.trackFileCount) {
-      return b.trackFileCount - a.trackFileCount;
-    }
-    return a.name.localeCompare(b.name);
-  });
+  return when.toLocaleDateString(undefined, { year: "numeric", month: "short" });
 }

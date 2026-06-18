@@ -3,19 +3,16 @@ import {
   type DiscoveryAlbum,
   DiscoveryAlbumCard,
 } from "@/components/DiscoveryAlbumCard";
-import type { LibraryIndex } from "@/lib/library";
 
 export function DiscoveryRow({
   title,
   href,
   albums,
-  library,
   likedAlbums,
 }: {
   title: string;
   href?: string;
   albums: DiscoveryAlbum[];
-  library?: LibraryIndex;
   likedAlbums?: Set<string>;
 }) {
   if (albums.length === 0) return null;
@@ -39,7 +36,6 @@ export function DiscoveryRow({
             <li key={`${a.mbid ?? i}-${a.title}`} className="w-36 shrink-0 sm:w-40">
               <DiscoveryAlbumCard
                 album={a}
-                libraryHit={library?.lookup(a) ?? null}
                 liked={a.mbid ? likedAlbums?.has(a.mbid) : false}
               />
             </li>
