@@ -26,6 +26,30 @@ async function deleteFiles(tracks: { filePath: string }[]): Promise<void> {
   }
 }
 
+export async function deleteLibraryTrackAction(
+  downloadedTrackId: string,
+): Promise<ActionResult> {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard;
+
+  const track = await prisma.downloadedTrack.findUnique({
+    where: { id: downloadedTrackId },
+    select: { filePath: true, albumMbid: true },
+  });
+  if (!track) return { ok: false, error: "Track not found." };
+
+  await deleteFiles([{ filePath: track.filePath }]);
+  // DownloadedTrack delete cascades to its UserDownloadedTrack rows. LibraryItem
+  // (the album rollup) is left to syncDownloadedLibrary to reconcile.
+  await prisma.downloadedTrack
+    .delete({ where: { id: downloadedTrackId } })
+    .catch(() => {});
+
+  revalidatePath("/library");
+  revalidatePath(`/album/${track.albumMbid}`);
+  return { ok: true };
+}
+
 export async function deleteLibraryAlbumAction(
   mbid: string,
 ): Promise<ActionResult> {

@@ -2,22 +2,14 @@ import { ArrowLeft, Disc3 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { ShuffleLibraryButton } from "@/components/ShuffleLibraryButton";
 import { prisma } from "@/lib/db";
-import type { LibraryStatus } from "@/lib/library";
 import { isSetupComplete } from "@/lib/settings";
-import { libraryWhereForViewer } from "@/lib/userLibrary";
-import { LibraryView, type StatusFilter } from "./LibraryView";
+import { isAdmin } from "@/lib/userLibrary";
+import { LibraryView, type LibraryTrack } from "./LibraryView";
 
 export const dynamic = "force-dynamic";
 
-type SearchParams = Promise<{ status?: string }>;
-
-export default async function LibraryPage({
-  searchParams,
-}: {
-  searchParams: SearchParams;
-}) {
+export default async function LibraryPage() {
   if (!(await isSetupComplete())) {
     redirect("/setup");
   }
@@ -27,36 +19,44 @@ export default async function LibraryPage({
     redirect("/login");
   }
   const role = (session.user as { role?: string }).role;
-  const isAdmin = role === "ADMIN";
-  const { status } = await searchParams;
-  const initialStatus = parseStatusFilter(status);
+  const viewer = { id: userId, role };
+  const admin = isAdmin(viewer);
 
-  // Reads from LibraryItem (Lidarr-synced every 15 min) but scoped to the
-  // viewer's UserLibraryItem rows — admin sees everything, regular users see
-  // only what they've requested or had assigned to them.
-  const rows = await prisma.libraryItem.findMany({
-    where: libraryWhereForViewer({ id: userId, role }),
+  // Track-first library: read the actual downloaded files (DownloadedTrack),
+  // scoped to what the viewer owns via UserDownloadedTrack. Admins see every
+  // track; regular users see only the ones they've requested or had granted.
+  // (We no longer read the album rollup LibraryItem here — that's why one
+  // downloaded song no longer surfaces the whole album.)
+  const rows = await prisma.downloadedTrack.findMany({
+    where: admin ? {} : { users: { some: { userId } } },
     select: {
-      mbid: true,
-      status: true,
-      artistName: true,
+      id: true,
       title: true,
-      trackFileCount: true,
-      totalTrackCount: true,
+      artistName: true,
+      albumTitle: true,
+      albumMbid: true,
+      albumPosition: true,
+      coverUrl: true,
+      durationMs: true,
+      recordingMbid: true,
     },
-    orderBy: [{ artistName: "asc" }, { title: "asc" }],
+    orderBy: { createdAt: "desc" },
   });
 
-  const items = rows.map((r) => ({
-    mbid: r.mbid,
+  const tracks: LibraryTrack[] = rows.map((r) => ({
+    id: r.id,
     title: r.title,
     artistName: r.artistName,
-    status: r.status as LibraryStatus,
-    trackFileCount: r.trackFileCount,
-    totalTrackCount: r.totalTrackCount,
+    albumTitle: r.albumTitle,
+    albumMbid: r.albumMbid,
+    albumPosition: r.albumPosition,
+    coverUrl: r.coverUrl,
+    durationMs: r.durationMs,
+    recordingMbid: r.recordingMbid,
+    streamUrl: `/api/stream/local/${r.id}`,
   }));
 
-  const isEmpty = items.length === 0;
+  const isEmpty = tracks.length === 0;
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 md:px-6">
@@ -67,22 +67,11 @@ export default async function LibraryPage({
         <ArrowLeft className="h-4 w-4" /> Home
       </Link>
 
-      <header className="mt-4 mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Library</h1>
-          <p className="text-sm text-muted-foreground">
-            Albums in your Lidarr library.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3 sm:justify-end">
-          {!isEmpty && <ShuffleLibraryButton variant="secondary" />}
-          {!isEmpty && (
-            <p className="text-sm text-muted-foreground">
-              {items.length.toLocaleString()}{" "}
-              {items.length === 1 ? "album" : "albums"}
-            </p>
-          )}
-        </div>
+      <header className="mt-4 mb-8">
+        <h1 className="text-3xl font-semibold tracking-tight">Library</h1>
+        <p className="text-sm text-muted-foreground">
+          Every track you&rsquo;ve downloaded.
+        </p>
       </header>
 
       {isEmpty ? (
@@ -90,29 +79,12 @@ export default async function LibraryPage({
           <Disc3 className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" />
           <p>Nothing in the library yet.</p>
           <p className="mt-1">
-            Approved requests show up here once Lidarr finishes downloading
-            them.
+            Tracks show up here once a request finishes downloading.
           </p>
         </div>
       ) : (
-        <LibraryView
-          items={items}
-          canDelete={isAdmin}
-          initialStatus={initialStatus}
-        />
+        <LibraryView tracks={tracks} canDelete={admin} />
       )}
     </main>
   );
-}
-
-function parseStatusFilter(status: string | undefined): StatusFilter {
-  if (
-    status === "all" ||
-    status === "downloaded" ||
-    status === "downloading" ||
-    status === "missing"
-  ) {
-    return status;
-  }
-  return "downloaded";
 }
