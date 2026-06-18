@@ -37,7 +37,11 @@ export async function syncDownloadedLibrary(): Promise<{ albums: number }> {
   }
 
   const now = new Date();
+  const kept: string[] = [];
   for (const [mbid, a] of albums) {
+    // An album nobody owns (e.g. all owners deleted) shouldn't surface.
+    if (a.users.size === 0) continue;
+    kept.push(mbid);
     await prisma.libraryItem.upsert({
       where: { mbid },
       update: {
@@ -72,5 +76,9 @@ export async function syncDownloadedLibrary(): Promise<{ albums: number }> {
     }
   }
 
-  return { albums: albums.size };
+  // Prune albums that no longer have any owned downloaded tracks (UserLibraryItem
+  // rows cascade away with the LibraryItem).
+  await prisma.libraryItem.deleteMany({ where: { mbid: { notIn: kept } } });
+
+  return { albums: kept.length };
 }

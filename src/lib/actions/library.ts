@@ -55,13 +55,23 @@ export async function deleteLibraryArtistAction(
   const artist = await getArtist(artistMbid);
   if (!artist) return { ok: false, error: "Artist not found." };
 
+  // Scope by the artist's release-group MBIDs (the album identity), never by
+  // display name — name matching would miss collaborations and could destroy a
+  // different same-named artist's shared files.
+  const albumMbids = artist.releaseGroups.map((rg) => rg.mbid);
+  if (albumMbids.length === 0) {
+    return { ok: false, error: "No releases found for this artist." };
+  }
+
   const tracks = await prisma.downloadedTrack.findMany({
-    where: { artistName: artist.name },
+    where: { albumMbid: { in: albumMbids } },
     select: { filePath: true },
   });
   await deleteFiles(tracks);
-  await prisma.downloadedTrack.deleteMany({ where: { artistName: artist.name } });
-  await prisma.libraryItem.deleteMany({ where: { artistName: artist.name } });
+  await prisma.downloadedTrack.deleteMany({
+    where: { albumMbid: { in: albumMbids } },
+  });
+  await prisma.libraryItem.deleteMany({ where: { mbid: { in: albumMbids } } });
 
   revalidatePath("/library");
   revalidatePath(`/artist/${artistMbid}`);

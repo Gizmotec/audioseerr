@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { isAdmin, type LibraryViewer } from "@/lib/userLibrary";
 
 export type PlaylistSummary = {
   id: string;
@@ -500,10 +501,12 @@ export async function moveTrack(
  * for migrated tracks that lack one; the playlist resolves streamability by
  * (albumMbid, position) regardless.
  */
-export async function listAvailablePlaylistTracks(): Promise<
-  AvailablePlaylistTrack[]
-> {
+export async function listAvailablePlaylistTracks(
+  viewer: LibraryViewer,
+): Promise<AvailablePlaylistTrack[]> {
+  if (!viewer) return [];
   const rows = await prisma.downloadedTrack.findMany({
+    where: isAdmin(viewer) ? {} : { users: { some: { userId: viewer.id } } },
     orderBy: [
       { artistName: "asc" },
       { albumTitle: "asc" },

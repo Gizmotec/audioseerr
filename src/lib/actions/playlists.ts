@@ -286,10 +286,15 @@ export async function listMyPlaylistsAction(): Promise<
 export async function listAvailablePlaylistTracksAction(): Promise<
   Result<{ tracks: Awaited<ReturnType<typeof listAvailablePlaylistTracks>> }>
 > {
-  const auth = await requireUserId();
-  if (!auth.ok) return auth;
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) return { ok: false, error: "Not signed in." };
+  const viewer = {
+    id: userId,
+    role: (session.user as { role?: string }).role ?? null,
+  };
   try {
-    const tracks = await listAvailablePlaylistTracks();
+    const tracks = await listAvailablePlaylistTracks(viewer);
     return { ok: true, tracks };
   } catch (err) {
     return { ok: false, error: errorMessage(err) };

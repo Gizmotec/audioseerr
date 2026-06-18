@@ -11,9 +11,16 @@
 // It reads the existing LibraryItem (downloaded albums) + UserLibraryItem
 // (per-user visibility) from the DB and Lidarr's track/trackfile API for the
 // on-disk paths, then upserts one DownloadedTrack per track (keyed on
-// albumMbid + absolute position) and attaches each user. Idempotent — safe to
-// re-run. recordingMbid is left null (Lidarr doesn't expose it); the album page
-// and playlists resolve migrated tracks by albumMbid + position.
+// albumMbid + absolute position) and attaches each user. Idempotent and
+// create-only — safe to re-run; it never overwrites rows a later slskd download
+// populated. recordingMbid is left null (Lidarr doesn't expose it); the album
+// page and playlists resolve migrated tracks by albumMbid + position.
+//
+// Known limitation: position is taken from Lidarr's absoluteTrackNumber, which
+// matches the app for single-release albums. For release-groups where Lidarr's
+// imported release differs from MusicBrainz's preferred one (some multi-disc /
+// deluxe editions), a few tracks may not line up and will show as
+// not-downloaded — re-request those albums to refetch them via slskd.
 
 import "dotenv/config";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
@@ -96,7 +103,9 @@ for (const album of albums) {
 
       const dt = await prisma.downloadedTrack.upsert({
         where: { albumMbid_albumPosition: { albumMbid: album.mbid, albumPosition: pos } },
-        update: { filePath, title: t.title ?? `Track ${pos}` },
+        // Create-only: never overwrite a row a later slskd download already
+        // populated (its filePath/format/recordingMbid are authoritative).
+        update: {},
         create: {
           recordingMbid: null,
           albumMbid: album.mbid,

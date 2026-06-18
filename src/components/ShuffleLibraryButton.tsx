@@ -30,11 +30,12 @@ export function ShuffleLibraryButton({
 
       const queue = shuffle(
         res.tracks.map<QueueItem>((track) => ({
-          id: `library:${track.trackFileId}`,
+          // `key` is the DownloadedTrack id; the slskd library streams from it.
+          id: `library:${track.key}`,
           title: track.title,
           artistName: track.artistName,
           coverUrl: track.coverUrl ?? null,
-          streamUrl: `/api/stream/${track.trackFileId}`,
+          streamUrl: `/api/stream/local/${track.key}`,
           recordingMbid: track.recordingMbid,
           albumMbid: track.albumMbid,
           durationMs: track.durationMs ?? undefined,

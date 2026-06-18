@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { executeRequestApproval } from "@/app/admin/requests/actions";
 import { prisma } from "@/lib/db";
 import { attachDownloadedTrackToUser } from "@/lib/downloadedTracks";
+import { getAlbum } from "@/lib/musicbrainz";
 import { getSettings } from "@/lib/settings";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
@@ -43,13 +44,18 @@ export async function requestAlbumAction(input: {
   });
   if (existing) return { ok: false, error: "You've already requested this album." };
 
-  // slskd dedup: if this album is already in our own track library (downloaded
-  // by anyone), grant this user visibility instead of downloading it again.
+  // slskd dedup: if this album is ALREADY FULLY in our own track library
+  // (downloaded by anyone), grant this user visibility instead of downloading
+  // it again. A partial set (e.g. one previously-requested single) falls through
+  // so the full folder gets fetched and the gaps fill in.
   const ownedTracks = await prisma.downloadedTrack.findMany({
     where: { albumMbid: input.mbid },
     select: { id: true },
   });
-  if (ownedTracks.length > 0) {
+  const album = await getAlbum(input.mbid);
+  const totalTracks = album?.tracks.length ?? 0;
+  const fullyOwned = totalTracks > 0 && ownedTracks.length >= totalTracks;
+  if (fullyOwned) {
     await prisma.request.create({
       data: {
         type: "ALBUM",

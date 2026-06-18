@@ -6,7 +6,7 @@ import { resolveAppleMusicUrl } from "@/lib/appleMusic";
 import { prisma } from "@/lib/db";
 import { findAlbumPreviews, normalizeTrackTitle } from "@/lib/deezer";
 import { buildDownloadedTrackLookup } from "@/lib/downloadedTracks";
-import { getLibraryHit, getLibraryHitByName } from "@/lib/library";
+import type { LibraryStatus } from "@/lib/library";
 import { getLikedSet, isLiked } from "@/lib/likes";
 import { getAlbum, type MbTrack } from "@/lib/musicbrainz";
 import { listPlaylists } from "@/lib/playlists";
@@ -82,15 +82,6 @@ export default async function AlbumPage({
     existingTrackStatuses[request.mbid] ??= request.status as ExistingRequestStatus;
   }
 
-  // Whether the viewer's slice of the library covers this album. Admin sees
-  // everything; regular users only see albums in their UserLibraryItem rows.
-  // MBID first, then artist+title fallback because release-group MBIDs
-  // diverge across MB / Last.fm / Lidarr for the same nominal album.
-  const libraryHit =
-    (await getLibraryHit(album.mbid, viewer)) ??
-    (await getLibraryHitByName(album.artistName, album.title, viewer));
-  const libraryStatus = libraryHit?.status ?? null;
-
   // Deezer match runs in parallel-ish (MB call already happened), best-effort.
   let previews: Awaited<ReturnType<typeof findAlbumPreviews>> = null;
   try {
@@ -103,6 +94,13 @@ export default async function AlbumPage({
   // allowed to stream. This is the single source of playability now that
   // everything is served from our own library.
   const downloadedLookup = await buildDownloadedTrackLookup(viewer, album.mbid);
+  // Only treat the album as "in your library" when every track is present —
+  // otherwise the album-level Request button stays available so the user can
+  // fetch the rest (a single downloaded track shouldn't lock the album).
+  const libraryStatus: LibraryStatus | null =
+    album.tracks.length > 0 && downloadedLookup.size >= album.tracks.length
+      ? "downloaded"
+      : null;
 
   const tracks: TrackWithPreview[] = album.tracks.map((t) => {
     const dz = previews?.trackByTitle[normalizeTrackTitle(t.title)];
