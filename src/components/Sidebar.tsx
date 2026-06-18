@@ -6,8 +6,6 @@ import {
   Library,
   ListMusic,
   Settings as SettingsIcon,
-  ShieldCheck,
-  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { auth, signOut } from "@/auth";
@@ -41,32 +39,18 @@ export async function Sidebar() {
           Library
         </SidebarLink>
         <SidebarLink href="/requests" icon={<Inbox className="h-4 w-4" />}>
-          My requests
+          Requests
         </SidebarLink>
         <SidebarLink href="/bug-report" icon={<Bug className="h-4 w-4" />}>
           Bug report
         </SidebarLink>
         {role === "ADMIN" && (
-          <>
-            <SidebarLink
-              href="/admin/requests"
-              icon={<ShieldCheck className="h-4 w-4" />}
-            >
-              Queue
-            </SidebarLink>
-            <SidebarLink
-              href="/admin/users"
-              icon={<Users className="h-4 w-4" />}
-            >
-              Users
-            </SidebarLink>
-            <SidebarLink
-              href="/admin/settings"
-              icon={<SettingsIcon className="h-4 w-4" />}
-            >
-              Settings
-            </SidebarLink>
-          </>
+          <SidebarLink
+            href="/admin/settings"
+            icon={<SettingsIcon className="h-4 w-4" />}
+          >
+            Settings
+          </SidebarLink>
         )}
       </nav>
 

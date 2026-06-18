@@ -1,6 +1,8 @@
 import { ArrowLeft, Disc3, Music2 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AdminRequestRow } from "@/app/admin/requests/AdminRequestRow";
+import { SyncNowButton } from "@/app/admin/requests/SyncNowButton";
 import { auth } from "@/auth";
 import { StatusBadge } from "@/components/StatusBadge";
 import { prisma } from "@/lib/db";
@@ -17,9 +19,108 @@ export default async function RequestsPage() {
   if (!session?.user?.id) {
     redirect("/login");
   }
+  const isAdmin = (session.user as { role?: string }).role === "ADMIN";
 
+  if (isAdmin) {
+    return <AdminRequestsView />;
+  }
+
+  return <MyRequestsView userId={session.user.id} />;
+}
+
+// Admin: everyone's requests, with the approval queue first and approve/decline
+// inline. This is the former /admin/requests "Queue" folded into Requests.
+async function AdminRequestsView() {
+  const [pending, recent] = await Promise.all([
+    prisma.request.findMany({
+      where: { status: "PENDING" },
+      orderBy: { requestedAt: "asc" },
+      include: { requestedBy: { select: { username: true } } },
+    }),
+    prisma.request.findMany({
+      where: { status: { not: "PENDING" } },
+      orderBy: { requestedAt: "desc" },
+      take: 20,
+      include: { requestedBy: { select: { username: true } } },
+    }),
+  ]);
+
+  const toRow = (r: (typeof pending)[number]) => ({
+    id: r.id,
+    type: r.type,
+    mbid: r.mbid,
+    title: r.title,
+    artistName: r.artistName,
+    coverUrl: r.coverUrl,
+    albumMbid: r.albumMbid,
+    albumTitle: r.albumTitle,
+    downloadTitle: r.downloadTitle,
+    status: r.status,
+    declineReason: r.declineReason,
+    requestedBy: r.requestedBy.username,
+    requestedAt: r.requestedAt.toISOString(),
+  });
+
+  return (
+    <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-8 md:px-6">
+      <Link
+        href="/home"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4" /> Home
+      </Link>
+
+      <header className="mt-4 mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Requests</h1>
+          <p className="text-sm text-muted-foreground">
+            Approve or decline incoming requests. Approving fetches it from Soulseek.
+          </p>
+        </div>
+        <SyncNowButton />
+      </header>
+
+      <section className="mb-10">
+        <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-muted-foreground">
+          Pending {pending.length > 0 ? `(${pending.length})` : ""}
+        </h2>
+        {pending.length === 0 ? (
+          <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+            No pending requests.
+          </div>
+        ) : (
+          <ul className="divide-y divide-border/50">
+            {pending.map((r) => (
+              <AdminRequestRow key={r.id} request={toRow(r)} isPending />
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section>
+        <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-muted-foreground">
+          Recent activity
+        </h2>
+        {recent.length === 0 ? (
+          <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+            Nothing here yet.
+          </div>
+        ) : (
+          <ul className="divide-y divide-border/50">
+            {recent.map((r) => (
+              <AdminRequestRow key={r.id} request={toRow(r)} isPending={false} />
+            ))}
+          </ul>
+        )}
+      </section>
+    </main>
+  );
+}
+
+// Regular user: just their own requests, with unrequest.
+async function MyRequestsView({ userId }: { userId: string }) {
   const requests = await prisma.request.findMany({
-    where: { requestedById: session.user.id },
+    where: { requestedById: userId },
     orderBy: { requestedAt: "desc" },
   });
 
@@ -95,7 +196,7 @@ export default async function RequestsPage() {
                   </p>
                   {r.downloadTitle && (
                     <p className="truncate text-xs text-muted-foreground">
-                      Torrent: {r.downloadTitle}
+                      Download: {r.downloadTitle}
                     </p>
                   )}
                   {(r.status === "DECLINED" || r.status === "FAILED") &&
