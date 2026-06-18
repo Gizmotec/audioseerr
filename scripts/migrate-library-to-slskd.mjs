@@ -99,6 +99,18 @@ const maps = parsePathMap(settings?.mediaPathMap);
 const albums = await prisma.libraryItem.findMany({
   where: { status: "downloaded", trackFileCount: { gt: 0 } },
 });
+
+// Read all per-user visibility up front and group by album, so a concurrent
+// syncDownloadedLibrary tick can't prune UserLibraryItem rows mid-migration.
+const usersByMbid = new Map();
+for (const r of await prisma.userLibraryItem.findMany({
+  select: { userId: true, mbid: true },
+})) {
+  const list = usersByMbid.get(r.mbid) ?? [];
+  list.push(r.userId);
+  usersByMbid.set(r.mbid, list);
+}
+
 console.log(`Migrating ${albums.length} downloaded album(s)…`);
 
 let tracksCreated = 0;
@@ -113,11 +125,7 @@ for (const album of albums) {
     ]);
     const pathById = new Map(files.map((f) => [f.id, f.path]));
 
-    const userRows = await prisma.userLibraryItem.findMany({
-      where: { mbid: album.mbid },
-      select: { userId: true },
-    });
-    const userIds = userRows.map((r) => r.userId);
+    const userIds = usersByMbid.get(album.mbid) ?? [];
 
     for (const t of tracks) {
       if (!t.hasFile || !t.trackFileId) continue;
