@@ -136,7 +136,7 @@ function coverUrl(mbid: string): string {
   return `https://coverartarchive.org/release-group/${mbid}/front-250`;
 }
 
-function normalizeName(s: string): string {
+export function normalizeName(s: string): string {
   return s
     .toLowerCase()
     .replace(/[^\p{L}\p{N} ]/gu, " ")
