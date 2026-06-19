@@ -49,7 +49,9 @@ export async function requestAlbumAction(input: {
   // it again. A partial set (e.g. one previously-requested single) falls through
   // so the full folder gets fetched and the gaps fill in.
   const ownedTracks = await prisma.downloadedTrack.findMany({
-    where: { albumMbid: input.mbid },
+    // A pre-downloaded temp single doesn't count as owning the album track —
+    // let the real album fetch proceed (which will graduate any temp singles).
+    where: { albumMbid: input.mbid, ephemeral: false },
     select: { id: true },
   });
   const album = await getAlbum(input.mbid);

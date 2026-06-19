@@ -174,6 +174,8 @@ async function joinPlayedTracksWithLibrary(
   const tracks = await prisma.downloadedTrack.findMany({
     where: {
       recordingMbid: { in: rows.map((r) => r.recordingMbid) },
+      // Don't surface unkept pre-downloaded temp tracks in recently/most played.
+      ephemeral: false,
       ...(isAdmin(viewer) ? {} : { users: { some: { userId: viewer.id } } }),
     },
     select: {

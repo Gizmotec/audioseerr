@@ -41,9 +41,12 @@ export default async function HomePage() {
   const role = (session.user as { role?: string }).role;
   const viewer = { id: userId, role };
   // Admins see every downloaded track; everyone else only what they own.
-  const ownedWhere = isAdmin(viewer)
-    ? {}
-    : { users: { some: { userId } } };
+  // ephemeral: false keeps pre-downloaded discovery temp tracks off Home until
+  // the user keeps them.
+  const ownedWhere = {
+    ephemeral: false,
+    ...(isAdmin(viewer) ? {} : { users: { some: { userId } } }),
+  };
 
   const [recentRows, likedSongs, playlists, recentlyPlayed, mostPlayed, artistGroups] =
     await Promise.all([

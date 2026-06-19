@@ -172,7 +172,12 @@ type OwnedTrack = {
 async function getOwnedTracks(viewer: LibraryViewer): Promise<OwnedTrack[]> {
   if (!viewer) return [];
   return prisma.downloadedTrack.findMany({
-    where: isAdmin(viewer) ? {} : { users: { some: { userId: viewer.id } } },
+    // Real library only — pre-downloaded temp tracks must not count as
+    // "familiar" or get excluded from the mix's "new" pool.
+    where: {
+      ephemeral: false,
+      ...(isAdmin(viewer) ? {} : { users: { some: { userId: viewer.id } } }),
+    },
     select: {
       id: true,
       title: true,

@@ -506,7 +506,12 @@ export async function listAvailablePlaylistTracks(
 ): Promise<AvailablePlaylistTrack[]> {
   if (!viewer) return [];
   const rows = await prisma.downloadedTrack.findMany({
-    where: isAdmin(viewer) ? {} : { users: { some: { userId: viewer.id } } },
+    // ephemeral: false — temp discovery tracks aren't addable from the picker
+    // until kept (adding one would graduate it anyway).
+    where: {
+      ephemeral: false,
+      ...(isAdmin(viewer) ? {} : { users: { some: { userId: viewer.id } } }),
+    },
     orderBy: [
       { artistName: "asc" },
       { albumTitle: "asc" },

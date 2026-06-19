@@ -27,10 +27,12 @@ export type EnsureTrackInput = {
 export async function ensureTrackRequested(
   userId: string,
   input: EnsureTrackInput,
+  opts: { ephemeral?: boolean; expiresAt?: Date | null } = {},
 ): Promise<void> {
   try {
     const mbid =
       input.recordingMbid ?? `${input.albumMbid}:${input.albumPosition}`;
+    const ephemeral = opts.ephemeral ?? false;
 
     const existing = await prisma.request.findFirst({
       where: {
@@ -39,9 +41,19 @@ export async function ensureTrackRequested(
         mbid,
         status: { in: ["PENDING", "APPROVED", "DOWNLOADING", "AVAILABLE"] },
       },
-      select: { id: true },
+      select: { id: true, ephemeral: true },
     });
-    if (existing) return;
+    if (existing) {
+      // A real (non-ephemeral) request for a track that's currently being
+      // pre-downloaded clears the temp flag, so it lands permanent (graduation).
+      if (!ephemeral && existing.ephemeral) {
+        await prisma.request.update({
+          where: { id: existing.id },
+          data: { ephemeral: false, expiresAt: null },
+        });
+      }
+      return;
+    }
 
     // Cross-user dedup: the file may already be on disk from someone else's
     // request — grant visibility instead of downloading it again.
@@ -56,6 +68,13 @@ export async function ensureTrackRequested(
     });
     if (downloaded) {
       await attachDownloadedTrackToUser(userId, downloaded.id);
+      // A real request keeps an already-downloaded temp track (graduation).
+      if (!ephemeral) {
+        await prisma.downloadedTrack.updateMany({
+          where: { id: downloaded.id, ephemeral: true },
+          data: { ephemeral: false, expiresAt: null },
+        });
+      }
       return;
     }
 
@@ -77,6 +96,8 @@ export async function ensureTrackRequested(
         albumPosition: input.albumPosition,
         requestedById: userId,
         status: "PENDING",
+        ephemeral,
+        expiresAt: opts.expiresAt ?? null,
       },
     });
 

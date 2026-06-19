@@ -26,6 +26,7 @@ type Initial = {
   slskdDownloadPath: string;
   lastFmApiKey: string;
   mediaPathMap: string;
+  preDownloadMixes: boolean;
 };
 
 type EnvFlags = {
@@ -57,6 +58,9 @@ export function SettingsForm({
 
   const [lastFmApiKey, setLastFmApiKey] = useState(initial.lastFmApiKey);
   const [mediaPathMap, setMediaPathMap] = useState(initial.mediaPathMap);
+  const [preDownloadMixes, setPreDownloadMixes] = useState(
+    initial.preDownloadMixes,
+  );
 
   async function probeSlskd() {
     setSlskdTesting(true);
@@ -87,6 +91,7 @@ export function SettingsForm({
         slskdDownloadPath,
         lastFmApiKey,
         mediaPathMap,
+        preDownloadMixes,
       });
       if (!res.ok) {
         setError(res.error);
@@ -228,6 +233,38 @@ export function SettingsForm({
             onChange={(e) => setLastFmApiKey(e.target.value)}
             placeholder="Optional — enables tag charts and genre browsing"
           />
+        </CardContent>
+      </Card>
+
+      {/* Discovery pre-download */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Discovery pre-download</CardTitle>
+          <CardDescription>
+            Eagerly download Daily Mix and Discover Weekly tracks ahead of time so
+            they play full-length instantly.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              checked={preDownloadMixes}
+              onChange={(e) => setPreDownloadMixes(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-foreground"
+            />
+            <span className="space-y-1">
+              <span className="block text-sm font-medium">
+                Pre-download mix tracks
+              </span>
+              <span className="block text-xs text-muted-foreground">
+                A daily job fetches each mix&apos;s new songs into temporary
+                storage. Anything you don&apos;t like or add to a playlist is
+                auto-deleted (daily after ~2 days, weekly after ~8). Needs a
+                Last.fm API key.
+              </span>
+            </span>
+          </label>
         </CardContent>
       </Card>
 

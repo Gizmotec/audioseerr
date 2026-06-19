@@ -2,10 +2,12 @@ import { ArrowLeft, Compass, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { normalizeTrackTitle } from "@/lib/deezer";
+import { buildEphemeralTrackLookup } from "@/lib/downloadedTracks";
 import { getLikedSet, trackLikeTargetId } from "@/lib/likes";
 import { getOrGenerateMix, type MixKind } from "@/lib/mixes";
 import { isSetupComplete } from "@/lib/settings";
-import { MixDetail } from "./MixDetail";
+import { MixDetail, type PreloadedMixTracks } from "./MixDetail";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +32,29 @@ export default async function MixPage({
     redirect("/login");
   }
   const role = (session.user as { role?: string }).role;
-  const mix = await getOrGenerateMix({ id: userId, role }, kind);
+  const viewer = { id: userId, role };
+  const mix = await getOrGenerateMix(viewer, kind);
+
+  // Render-time upgrade: a "new" pick that's been pre-downloaded (an ephemeral
+  // temp track) plays full-length instead of a 30s preview. Match loosely on
+  // normalized artist|title (the temp track's title is MB-resolved).
+  const ephemeral = await buildEphemeralTrackLookup(viewer);
+  const preloaded: PreloadedMixTracks = {};
+  if (ephemeral.size > 0) {
+    mix.tracks.forEach((t, i) => {
+      if (t.kind !== "new") return;
+      const match = ephemeral.get(
+        `${normalizeTrackTitle(t.artistName)}|${normalizeTrackTitle(t.title)}`,
+      );
+      if (match) {
+        preloaded[i] = {
+          downloadedTrackId: match.downloadedTrackId,
+          recordingMbid: match.recordingMbid,
+          albumMbid: match.albumMbid,
+        };
+      }
+    });
+  }
 
   // Only library tracks carry stable ids; "new" preview picks resolve on like.
   const likeTargetIds = mix.tracks.flatMap((t) =>
@@ -104,7 +128,11 @@ export default async function MixPage({
             </p>
           </div>
         ) : (
-          <MixDetail tracks={mix.tracks} likedTrackIds={likedTrackIds} />
+          <MixDetail
+            tracks={mix.tracks}
+            likedTrackIds={likedTrackIds}
+            preloaded={preloaded}
+          />
         )}
       </section>
     </main>

@@ -2,6 +2,7 @@
 
 import {
   CheckCircle2,
+  Clock,
   Disc3,
   Download,
   Library,
@@ -20,55 +21,76 @@ import type { MixTrack } from "@/lib/mixes";
 import { cn } from "@/lib/utils";
 
 /**
+ * Per-index info for "new" mix picks that have been pre-downloaded into temp
+ * storage — they play full-length (and scrobble) instead of a 30s preview.
+ */
+export type PreloadedMixTracks = Record<
+  number,
+  { downloadedTrackId: string; recordingMbid: string | null; albumMbid: string }
+>;
+
+/**
  * Full mix view. The whole mix is one playback queue: library tracks stream in
  * full (and scrobble), new tracks play their 30s preview (no scrobble) and carry
- * a Download button wired to the existing discovery request flow. Tracks without
- * any playable URL are skipped by the player when auto-advancing.
+ * a Download button wired to the existing discovery request flow. A "new" track
+ * that's been pre-downloaded (temp) plays full instead and shows a Temporary
+ * marker. Tracks without any playable URL are skipped on auto-advance.
  */
 export function MixDetail({
   tracks,
   likedTrackIds = [],
+  preloaded = {},
 }: {
   tracks: MixTrack[];
   likedTrackIds?: string[];
+  preloaded?: PreloadedMixTracks;
 }) {
   const player = usePreviewPlayer();
   const likedSet = useMemo(() => new Set(likedTrackIds), [likedTrackIds]);
 
   const queue = useMemo<QueueItem[]>(
     () =>
-      tracks.map((t, i) => ({
-        id: `mix-${i}`,
-        title: t.title,
-        artistName: t.artistName,
-        coverUrl: t.coverUrl,
-        streamUrl:
-          t.kind === "library"
-            ? `/api/stream/local/${t.downloadedTrackId}`
-            : t.previewUrl,
-        // Only library streams scrobble; previews are 30s auditions.
-        recordingMbid:
-          t.kind === "library"
-            ? (t.recordingMbid ?? `local:${t.downloadedTrackId}`)
-            : undefined,
-        albumMbid: t.kind === "library" ? t.albumMbid : undefined,
-        durationMs: t.durationMs ?? undefined,
-        likeSeed:
-          t.kind === "library"
-            ? {
-                recordingMbid: t.recordingMbid,
-                albumMbid: t.albumMbid,
-                albumPosition: t.albumPosition,
-                albumTitle: t.albumTitle,
-              }
-            : {
-                recordingMbid: null,
-                albumMbid: null,
-                albumPosition: null,
-                albumTitle: t.albumTitle,
-              },
-      })),
-    [tracks],
+      tracks.map((t, i) => {
+        // A pre-downloaded "new" pick streams full off its temp file.
+        const pre = t.kind === "new" ? preloaded[i] : undefined;
+        return {
+          id: `mix-${i}`,
+          title: t.title,
+          artistName: t.artistName,
+          coverUrl: t.coverUrl,
+          streamUrl:
+            t.kind === "library"
+              ? `/api/stream/local/${t.downloadedTrackId}`
+              : pre
+                ? `/api/stream/local/${pre.downloadedTrackId}`
+                : t.previewUrl,
+          // Full streams (library or pre-downloaded) scrobble; previews don't.
+          recordingMbid:
+            t.kind === "library"
+              ? (t.recordingMbid ?? `local:${t.downloadedTrackId}`)
+              : pre
+                ? (pre.recordingMbid ?? `local:${pre.downloadedTrackId}`)
+                : undefined,
+          albumMbid:
+            t.kind === "library" ? t.albumMbid : pre ? pre.albumMbid : undefined,
+          durationMs: t.durationMs ?? undefined,
+          likeSeed:
+            t.kind === "library"
+              ? {
+                  recordingMbid: t.recordingMbid,
+                  albumMbid: t.albumMbid,
+                  albumPosition: t.albumPosition,
+                  albumTitle: t.albumTitle,
+                }
+              : {
+                  recordingMbid: null,
+                  albumMbid: null,
+                  albumPosition: null,
+                  albumTitle: t.albumTitle,
+                },
+        };
+      }),
+    [tracks, preloaded],
   );
 
   const playableCount = queue.filter((q) => q.streamUrl).length;
@@ -98,6 +120,7 @@ export function MixDetail({
             queueId={`mix-${i}`}
             onPlay={() => player.playQueue(queue, i)}
             playable={!!queue[i].streamUrl}
+            isPreloaded={track.kind === "new" && !!preloaded[i]}
             initialLiked={
               track.kind === "library"
                 ? likedSet.has(
@@ -123,12 +146,14 @@ function MixRow({
   queueId,
   onPlay,
   playable,
+  isPreloaded,
   initialLiked,
 }: {
   track: MixTrack;
   queueId: string;
   onPlay: () => void;
   playable: boolean;
+  isPreloaded: boolean;
   initialLiked: boolean;
 }) {
   const player = usePreviewPlayer();
@@ -239,6 +264,14 @@ function MixRow({
           aria-label="In your library"
         >
           <Library className="h-4 w-4" />
+        </span>
+      ) : isPreloaded ? (
+        <span
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center text-amber-500/80"
+          title="Temporary — kept in your library if you like it or add it to a playlist, otherwise auto-deleted"
+          aria-label="Temporary download"
+        >
+          <Clock className="h-4 w-4" />
         </span>
       ) : (
         <NewTrackDownload track={track} />

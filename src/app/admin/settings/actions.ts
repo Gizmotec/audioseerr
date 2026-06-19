@@ -24,6 +24,7 @@ const saveInput = z.object({
   slskdDownloadPath: z.string(),
   lastFmApiKey: z.string(),
   mediaPathMap: z.string(),
+  preDownloadMixes: z.boolean(),
 });
 
 export type SaveResult = { ok: true } | { ok: false; error: string };
@@ -69,6 +70,7 @@ export async function saveAdminSettingsAction(
       : null,
     lastFmApiKey: data.lastFmApiKey.trim() ? data.lastFmApiKey.trim() : null,
     mediaPathMap: data.mediaPathMap.trim() ? data.mediaPathMap.trim() : null,
+    preDownloadMixes: data.preDownloadMixes,
   });
 
   revalidatePath("/admin/settings");

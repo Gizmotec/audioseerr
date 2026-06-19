@@ -101,6 +101,7 @@ async function SettingsTab() {
         slskdDownloadPath: settings.slskdDownloadPath ?? "",
         lastFmApiKey: settings.lastFmApiKey ?? "",
         mediaPathMap: settings.mediaPathMap ?? "",
+        preDownloadMixes: settings.preDownloadMixes,
       }}
       env={env}
     />

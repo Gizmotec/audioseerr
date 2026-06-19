@@ -9,6 +9,9 @@ import { prisma } from "@/lib/db";
  */
 export async function syncDownloadedLibrary(): Promise<{ albums: number }> {
   const tracks = await prisma.downloadedTrack.findMany({
+    // Exclude pre-downloaded temp tracks — otherwise their albums surface into
+    // the LibraryItem index (Home shelves, badges), defeating "hidden until kept".
+    where: { ephemeral: false },
     select: {
       albumMbid: true,
       artistName: true,

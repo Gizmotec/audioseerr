@@ -13,6 +13,7 @@ export type SettingsView = {
   slskdDownloadPath: string | null;
   lastFmApiKey: string | null;
   mediaPathMap: string | null;
+  preDownloadMixes: boolean;
 };
 
 export async function getSettings(): Promise<SettingsView> {
@@ -29,6 +30,7 @@ export async function getSettings(): Promise<SettingsView> {
     slskdDownloadPath: row.slskdDownloadPath,
     lastFmApiKey: row.lastFmApiKey,
     mediaPathMap: row.mediaPathMap,
+    preDownloadMixes: row.preDownloadMixes,
   };
 }
 
@@ -39,6 +41,7 @@ export type SettingsUpdate = {
   lastFmApiKey?: string | null;
   mediaPathMap?: string | null;
   setupComplete?: boolean;
+  preDownloadMixes?: boolean;
 };
 
 export async function saveSettings(update: SettingsUpdate): Promise<void> {

@@ -29,7 +29,9 @@ export default async function LibraryPage() {
   // (We no longer read the album rollup LibraryItem here — that's why one
   // downloaded song no longer surfaces the whole album.)
   const rows = await prisma.downloadedTrack.findMany({
-    where: admin ? {} : { users: { some: { userId } } },
+    // ephemeral: false — pre-downloaded discovery-mix temp tracks stay out of
+    // the library until the user keeps them (likes / adds to a playlist).
+    where: { ephemeral: false, ...(admin ? {} : { users: { some: { userId } } }) },
     select: {
       id: true,
       title: true,

@@ -7,6 +7,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { prisma } from "@/lib/db";
+import { normalizeTrackTitle } from "@/lib/deezer";
 import { baseName } from "@/lib/slskd";
 import { applyPathMap, parsePathMap } from "@/lib/streaming";
 import { isAdmin, type LibraryViewer } from "@/lib/userLibrary";
@@ -97,6 +98,7 @@ export async function upsertDownloadedTrack(
   fields: DownloadedTrackFields,
   absFilePath: string,
   userId: string,
+  opts: { ephemeral?: boolean; expiresAt?: Date | null } = {},
 ): Promise<string | null> {
   let sizeBytes: number | null = null;
   try {
@@ -121,6 +123,10 @@ export async function upsertDownloadedTrack(
       sizeBytes,
       recordingMbid: fields.recordingMbid,
       durationMs: fields.durationMs ?? undefined,
+      // A non-ephemeral (re)download graduates an existing temp track to
+      // permanent; an ephemeral re-download must never downgrade a permanent
+      // track, so it leaves the flags untouched.
+      ...(opts.ephemeral ? {} : { ephemeral: false, expiresAt: null }),
     },
     create: {
       recordingMbid: fields.recordingMbid,
@@ -134,6 +140,8 @@ export async function upsertDownloadedTrack(
       filePath: absFilePath,
       format,
       sizeBytes,
+      ephemeral: opts.ephemeral ?? false,
+      expiresAt: opts.expiresAt ?? null,
     },
   });
 
@@ -159,6 +167,8 @@ export async function registerDownloadedTrack(
     },
     absFilePath,
     request.requestedById,
+    // A discovery-mix pre-download lands as an ephemeral (temp) track.
+    { ephemeral: request.ephemeral, expiresAt: request.expiresAt },
   );
 }
 
@@ -204,6 +214,9 @@ export async function buildDownloadedTrackLookup(
   const rows = await prisma.downloadedTrack.findMany({
     where: {
       albumMbid,
+      // The album page shows real library tracks only; a pre-downloaded temp
+      // track stays "not owned" here until kept.
+      ephemeral: false,
       ...(isAdmin(viewer)
         ? {}
         : { users: { some: { userId: viewer.id } } }),
@@ -237,6 +250,51 @@ export async function buildPlaylistStreamLookup(
   });
   for (const row of rows) {
     out.set(`${row.albumMbid}:${row.albumPosition}`, row.id);
+  }
+  return out;
+}
+
+export type EphemeralTrackMatch = {
+  downloadedTrackId: string;
+  recordingMbid: string | null;
+  albumMbid: string;
+  albumPosition: number;
+};
+
+/**
+ * Map of normalized `artist|title` → the viewer's pre-downloaded **temp**
+ * (ephemeral) tracks. Drives the mix render-time upgrade: a "new" mix pick that
+ * has been pre-downloaded plays full-length instead of a 30s preview. Keyed
+ * loosely (normalized artist + title) because the temp track's title comes from
+ * MusicBrainz resolution, not the original Deezer pick.
+ */
+export async function buildEphemeralTrackLookup(
+  viewer: LibraryViewer,
+): Promise<Map<string, EphemeralTrackMatch>> {
+  const out = new Map<string, EphemeralTrackMatch>();
+  if (!viewer) return out;
+  const rows = await prisma.downloadedTrack.findMany({
+    where: {
+      ephemeral: true,
+      ...(isAdmin(viewer) ? {} : { users: { some: { userId: viewer.id } } }),
+    },
+    select: {
+      id: true,
+      title: true,
+      artistName: true,
+      recordingMbid: true,
+      albumMbid: true,
+      albumPosition: true,
+    },
+  });
+  for (const r of rows) {
+    const key = `${normalizeTrackTitle(r.artistName)}|${normalizeTrackTitle(r.title)}`;
+    out.set(key, {
+      downloadedTrackId: r.id,
+      recordingMbid: r.recordingMbid,
+      albumMbid: r.albumMbid,
+      albumPosition: r.albumPosition,
+    });
   }
   return out;
 }

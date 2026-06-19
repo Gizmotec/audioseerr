@@ -106,6 +106,11 @@ model Request {
   // file to its album position, computed at approval (with candidate durations)
   // so the sync job can register each finished track without re-matching.
   slskdFilesJson   String?
+  // Set when this TRACK request is a discovery-mix pre-download: the resulting
+  // DownloadedTrack is created ephemeral with this expiry. A non-ephemeral
+  // request landing on the same track graduates it to permanent.
+  ephemeral        Boolean       @default(false)
+  expiresAt        DateTime?
 
   @@index([status])
   @@index([requestedById])
@@ -171,6 +176,10 @@ model Settings {
   // Empty/null means no remapping.
   mediaPathMap           String?
   setupComplete          Boolean @default(false)
+  // When true, a cron job pre-downloads each enabled user's Daily/Discover mix
+  // "new" tracks into temporary (ephemeral) storage so they play full-length
+  // instantly; unkept temp tracks are auto-pruned (src/lib/jobs).
+  preDownloadMixes       Boolean @default(false)
 }
 
 // Snapshot of a Spotify playlist's track IDs at the time of the user's last
@@ -356,10 +365,19 @@ model DownloadedTrack {
   bitrate       Int?
   sizeBytes     Int?
   createdAt     DateTime @default(now())
+  // Discovery-mix pre-download temp tracks. ephemeral=true means this was
+  // auto-fetched for a Daily/Discover mix and is hidden from the library until
+  // the user keeps it (likes it or adds it to a playlist → graduated to
+  // ephemeral=false). expiresAt is when an unkept temp track becomes eligible
+  // for the prune job (src/lib/jobs/pruneEphemeralTracks). Real library tracks
+  // keep the defaults and are structurally out of the prune's scope.
+  ephemeral     Boolean  @default(false)
+  expiresAt     DateTime?
   users         UserDownloadedTrack[]
 
   @@unique([albumMbid, albumPosition])
   @@index([recordingMbid])
+  @@index([ephemeral, expiresAt])
 }
 
 // Per-user visibility onto DownloadedTrack, mirroring UserLibraryItem. The file
