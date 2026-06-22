@@ -1,9 +1,11 @@
 "use client";
 
-import { Loader2, Pause, Play } from "lucide-react";
+import { Check, Download, Loader2, Pause, Play, X } from "lucide-react";
+import { useState, useTransition } from "react";
 import { usePreviewPlayer } from "@/components/PreviewPlayer";
 import { useTrackMenu } from "@/components/TrackMenu";
 import { YouTubeButton } from "@/components/YouTubeButton";
+import { requestDiscoveryTrackAction } from "@/app/discover/actions";
 import type { DeezerArtistTopTrack } from "@/lib/deezer";
 
 export type ArtistTopTrack = DeezerArtistTopTrack & {
@@ -111,6 +113,12 @@ export function TopTracksList({
                 </span>
               )}
               <YouTubeButton artistName={artistName} trackTitle={t.title} />
+              <DownloadTrackButton
+                title={t.title}
+                artistName={artistName}
+                albumTitle={t.albumTitle}
+                coverUrl={t.albumCover ?? artistImageUrl}
+              />
               <span className="text-xs text-muted-foreground tabular-nums">
                 {formatDuration(t.durationMs)}
               </span>
@@ -119,6 +127,85 @@ export function TopTracksList({
         })}
       </ol>
     </section>
+  );
+}
+
+type DownloadState = "idle" | "resolving" | "done" | "error";
+
+/** Request a single Deezer top track — resolves title+artist to MusicBrainz on
+ *  the server (same path as discover cards), owning its own idle→done state. */
+function DownloadTrackButton({
+  title,
+  artistName,
+  albumTitle,
+  coverUrl,
+}: {
+  title: string;
+  artistName: string;
+  albumTitle: string | null;
+  coverUrl: string | null;
+}) {
+  const [state, setState] = useState<DownloadState>("idle");
+  const [error, setError] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
+
+  const download = () => {
+    if (state === "resolving" || state === "done") return;
+    setState("resolving");
+    setError(null);
+    startTransition(async () => {
+      const res = await requestDiscoveryTrackAction({
+        title,
+        artistName,
+        albumTitle,
+        coverUrl,
+      });
+      if (res.ok) {
+        setState("done");
+      } else {
+        setState("error");
+        setError(res.error);
+      }
+    });
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={download}
+      disabled={state === "resolving" || state === "done"}
+      title={
+        state === "done"
+          ? "Added to your library"
+          : state === "error"
+            ? (error ?? "Try again")
+            : "Download track"
+      }
+      aria-label={
+        state === "done"
+          ? "Added to your library"
+          : state === "error"
+            ? (error ?? "Download failed, retry")
+            : "Download track"
+      }
+      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground disabled:cursor-default ${
+        state === "done"
+          ? "text-emerald-400"
+          : state === "error"
+            ? "text-destructive"
+            : ""
+      }`}
+    >
+      {state === "resolving" ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : state === "done" ? (
+        <Check className="h-4 w-4" />
+      ) : state === "error" ? (
+        <X className="h-4 w-4" />
+      ) : (
+        <Download className="h-4 w-4" />
+      )}
+    </button>
   );
 }
 
