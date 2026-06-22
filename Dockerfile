@@ -25,8 +25,22 @@ FROM node:20-bookworm-slim AS runner
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        openssl ca-certificates tini \
+        openssl ca-certificates tini curl \
     && rm -rf /var/lib/apt/lists/*
+
+# yt-dlp: extracts ad-free, audio-only YouTube streams for in-app full-song
+# previews (see src/lib/youtubeAudio.ts). Self-contained binary — no Python at
+# runtime. Pinned to the build arch. Update by rebuilding the image.
+RUN set -eux; \
+    case "$(dpkg --print-architecture)" in \
+        amd64) asset=yt-dlp_linux ;; \
+        arm64) asset=yt-dlp_linux_aarch64 ;; \
+        *) echo "unsupported arch for yt-dlp" >&2; exit 1 ;; \
+    esac; \
+    curl -fsSL "https://github.com/yt-dlp/yt-dlp/releases/latest/download/${asset}" \
+        -o /usr/local/bin/yt-dlp; \
+    chmod +x /usr/local/bin/yt-dlp; \
+    /usr/local/bin/yt-dlp --version
 
 ENV NODE_ENV=production
 ENV PORT=3000

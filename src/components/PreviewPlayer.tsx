@@ -142,6 +142,15 @@ const DEFAULT_QUEUE_CONTROLS: QueueControls = {
   hasPrev: false,
 };
 
+// Single previews stream the full song, extracted ad-free from YouTube
+// server-side (/api/stream/youtube), with the 30s previewUrl as automatic
+// fallback. When yt-dlp can't resolve a stream (incl. dev, where it isn't
+// installed) the route fails fast and the player drops to the preview.
+function youtubeStreamUrl(artistName: string, title: string): string {
+  const params = new URLSearchParams({ artist: artistName, title });
+  return `/api/stream/youtube?${params.toString()}`;
+}
+
 function readStoredVolume(): number {
   if (typeof window === "undefined") return 1;
   const stored = window.localStorage.getItem("audioseerr.volume");
@@ -202,6 +211,11 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
     meta: ScrobbleMeta;
     scrobbled: boolean;
   } | null>(null);
+
+  // For a single preview playing the YouTube full-song stream, holds the 30s
+  // previewUrl to retry with if the stream errors. Null in queue mode and once
+  // the fallback has been used (so we never loop).
+  const fallbackRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -299,6 +313,8 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
 
   const playQueueItem = useCallback(
     (el: HTMLAudioElement, item: QueueItem) => {
+      // Queue items already carry their own stream URL — no YouTube fallback.
+      fallbackRef.current = null;
       setCurrent({
         id: item.id,
         title: item.title,
@@ -408,10 +424,22 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
         const item = queue[idx];
         if (item) markFailed(item.id);
         advance(1);
-      } else {
-        setState("idle");
-        setCurrentTime(0);
+        return;
       }
+      // Single preview: if the YouTube full-song stream failed, fall back once
+      // to the 30s previewUrl before giving up.
+      const fb = fallbackRef.current;
+      if (fb) {
+        fallbackRef.current = null;
+        el.src = fb;
+        el.currentTime = 0;
+        setCurrentTime(0);
+        setDuration(0);
+        el.play().catch(() => {});
+        return;
+      }
+      setState("idle");
+      setCurrentTime(0);
     });
     audioRef.current = el;
     return el;
@@ -434,7 +462,15 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
       queueIndexRef.current = -1;
       refreshQueueControls();
       setCurrent(track);
-      playUrlInElement(el, track.previewUrl, scrobbleMetaFor(track));
+      // Default: play the full song from YouTube (ad-free, resolved + proxied
+      // server-side), keeping the 30s previewUrl as the fallback if extraction
+      // or playback fails. The row stays keyed by track.id either way.
+      const useYt = !!track.artistName.trim() && !!track.title.trim();
+      fallbackRef.current = useYt ? track.previewUrl : null;
+      const primary = useYt
+        ? youtubeStreamUrl(track.artistName, track.title)
+        : track.previewUrl;
+      playUrlInElement(el, primary, scrobbleMetaFor(track));
     },
     [current, state, ensureAudio, playUrlInElement, refreshQueueControls],
   );
