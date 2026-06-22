@@ -72,7 +72,7 @@ export default async function GenrePage({ params }: { params: RouteParams }) {
           )}
         </div>
       ) : (
-        <DiscoveryTrackList title="Trending tracks" tracks={tracks} />
+        <DiscoveryTrackList title="Trending tracks" tracks={tracks} layout="grid" />
       )}
     </main>
   );

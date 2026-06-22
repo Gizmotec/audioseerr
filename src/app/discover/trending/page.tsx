@@ -46,7 +46,7 @@ export default async function TrendingPage() {
           <p>No trending tracks right now.</p>
         </div>
       ) : (
-        <DiscoveryTrackList title="Trending tracks" tracks={tracks} />
+        <DiscoveryTrackList title="Trending tracks" tracks={tracks} layout="grid" />
       )}
     </main>
   );

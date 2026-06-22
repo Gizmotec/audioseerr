@@ -21,11 +21,14 @@ export function DiscoveryTrackList({
   title,
   tracks,
   href,
+  layout = "shelf",
 }: {
   title: string;
   tracks: DiscoveryTrack[];
   /** When set, renders a "See more" link to a full page of this shelf. */
   href?: string;
+  /** "shelf" = horizontal scroller (homepage); "grid" = full-page wrapping rows. */
+  layout?: "shelf" | "grid";
 }) {
   if (tracks.length === 0) return null;
 
@@ -43,18 +46,28 @@ export function DiscoveryTrackList({
           </Link>
         )}
       </div>
-      <div className="-mx-4 overflow-x-auto px-4 md:-mx-6 md:px-6">
-        <ul className="flex gap-4 pb-2">
+      {layout === "grid" ? (
+        <ul className="grid grid-cols-3 gap-x-4 gap-y-6 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
           {tracks.map((track, i) => (
-            <li
-              key={`${i}-${track.title}-${track.artistName}`}
-              className="w-36 shrink-0 sm:w-40"
-            >
+            <li key={`${i}-${track.title}-${track.artistName}`}>
               <DiscoveryTrackCard track={track} />
             </li>
           ))}
         </ul>
-      </div>
+      ) : (
+        <div className="-mx-4 overflow-x-auto px-4 md:-mx-6 md:px-6">
+          <ul className="flex gap-4 pb-2">
+            {tracks.map((track, i) => (
+              <li
+                key={`${i}-${track.title}-${track.artistName}`}
+                className="w-36 shrink-0 sm:w-40"
+              >
+                <DiscoveryTrackCard track={track} />
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </section>
   );
 }

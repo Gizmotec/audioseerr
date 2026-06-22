@@ -1,4 +1,4 @@
-import { Library, Search } from "lucide-react";
+import { Disc3, Library, Search } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
@@ -15,6 +15,18 @@ import { SearchBar } from "@/app/search/SearchBar";
 export const dynamic = "force-dynamic";
 
 const DISCOVER_TAGS = ["pop", "rock", "electronic"];
+
+// Shown as album-art cards atop "Browse by genre"; everything else in
+// GENRE_CHIPS renders as a tag chip below.
+const MAIN_GENRES = ["pop", "rock", "hip-hop", "electronic", "dance", "r&b"];
+
+// Display overrides for slugs that don't title-case cleanly.
+const GENRE_LABELS: Record<string, string> = {
+  "hip-hop": "Hip-Hop",
+  "r&b": "R&B",
+};
+const genreLabel = (slug: string) => GENRE_LABELS[slug] ?? slug;
+
 // Deezer-charted genres (real track charts, no Last.fm key needed) plus a few
 // popular tags that fall back to Last.fm. The /genre/[tag] page handles both.
 const GENRE_CHIPS = [
@@ -56,7 +68,7 @@ export default async function DiscoverPage() {
   const settings = await getSettings();
   const lastFmKey = settings.lastFmApiKey;
 
-  const [trendingNow, freshTracks, genreRows, topArtists, mostLoved] =
+  const [trendingNow, freshTracks, genreRows, topArtists, mostLoved, genreCards] =
     await Promise.all([
       getDeezerChartTracks(null, 12).catch(() => []),
       getDeezerNewReleaseTracks(12).catch(() => []),
@@ -72,6 +84,12 @@ export default async function DiscoverPage() {
             .catch(() => [])
         : Promise.resolve([]),
       getMostLoved(10),
+      Promise.all(
+        MAIN_GENRES.map(async (slug) => {
+          const tracks = await getDeezerChartTracks(slug, 1).catch(() => []);
+          return { slug, coverUrl: tracks[0]?.coverUrl ?? null };
+        }),
+      ),
     ]);
   const genreTrackRows = genreRows.filter((r) => r.tracks.length > 0);
 
@@ -128,16 +146,43 @@ export default async function DiscoverPage() {
 
       <MostLovedChart items={mostLoved} />
 
-      <section className="space-y-3">
+      <section className="space-y-4">
         <h2 className="text-lg font-medium">Browse by genre</h2>
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          {genreCards.map(({ slug, coverUrl }) => (
+            <li key={slug}>
+              <Link
+                href={`/genre/${encodeURIComponent(slug)}`}
+                className="group relative flex aspect-square items-end overflow-hidden rounded-lg bg-secondary"
+              >
+                {coverUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={coverUrl}
+                    alt=""
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+                ) : (
+                  <Disc3 className="absolute inset-0 m-auto h-1/3 w-1/3 text-muted-foreground/40" />
+                )}
+                <span className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-transparent" />
+                <span className="relative p-3 text-base font-semibold capitalize text-white drop-shadow">
+                  {genreLabel(slug)}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
         <ul className="flex flex-wrap gap-2">
-          {GENRE_CHIPS.map((g) => (
+          {GENRE_CHIPS.filter((g) => !MAIN_GENRES.includes(g)).map((g) => (
             <li key={g}>
               <Link
                 href={`/genre/${encodeURIComponent(g)}`}
                 className="inline-flex rounded-full border border-border bg-secondary/40 px-3 py-1 text-sm capitalize hover:border-foreground hover:bg-secondary"
               >
-                {g}
+                {genreLabel(g)}
               </Link>
             </li>
           ))}
