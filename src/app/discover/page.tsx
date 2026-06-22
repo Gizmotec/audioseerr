@@ -13,7 +13,9 @@ import {
 } from "@/lib/deezer";
 import { getGlobalTopArtists } from "@/lib/lastfm";
 import { getMostLoved } from "@/lib/mostLoved";
+import { listSystemPlaylists } from "@/lib/playlists";
 import { getSettings, isSetupComplete } from "@/lib/settings";
+import { PlaylistTile } from "@/app/playlists/PlaylistTile";
 import { SearchBar } from "@/app/search/SearchBar";
 
 export const dynamic = "force-dynamic";
@@ -65,8 +67,15 @@ export default async function DiscoverPage() {
   const settings = await getSettings();
   const lastFmKey = settings.lastFmApiKey;
 
-  const [trendingNow, freshTracks, genreRows, topArtists, mostLoved, genreCards] =
-    await Promise.all([
+  const [
+    trendingNow,
+    freshTracks,
+    genreRows,
+    topArtists,
+    mostLoved,
+    genreCards,
+    systemPlaylists,
+  ] = await Promise.all([
       getDeezerChartTracks(null, 12).catch(() => []),
       getDeezerNewReleaseTracks(12).catch(() => []),
       Promise.all(
@@ -87,6 +96,7 @@ export default async function DiscoverPage() {
           return { slug, coverUrl: tracks[0]?.coverUrl ?? null };
         }),
       ),
+      listSystemPlaylists().catch(() => []),
     ]);
   const genreTrackRows = genreRows.filter((r) => r.tracks.length > 0);
 
@@ -121,6 +131,25 @@ export default async function DiscoverPage() {
       </section>
 
       <MixCards viewer={viewer} />
+
+      {systemPlaylists.length > 0 && (
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-lg font-medium">Featured playlists</h2>
+            <p className="text-sm text-muted-foreground">
+              Mood and genre playlists that refresh weekly. Subscribe to one to
+              auto-download its picks.
+            </p>
+          </div>
+          <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            {systemPlaylists.map((p) => (
+              <li key={p.id}>
+                <PlaylistTile playlist={p} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <DiscoveryTrackList
         title="Trending now"
