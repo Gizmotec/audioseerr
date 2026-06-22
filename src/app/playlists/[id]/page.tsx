@@ -229,7 +229,15 @@ async function SystemPlaylistPage({
       <header className="mt-6 flex flex-col gap-5 border-b border-border pb-8 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex items-end gap-5">
           <div className="relative h-36 w-36 shrink-0 overflow-hidden rounded-lg bg-secondary shadow-sm">
-            {gridCovers.length >= 4 ? (
+            {playlist.coverUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={playlist.coverUrl}
+                alt=""
+                referrerPolicy="no-referrer"
+                className="h-full w-full object-cover"
+              />
+            ) : gridCovers.length >= 4 ? (
               <div className="grid h-full w-full grid-cols-2 grid-rows-2">
                 {gridCovers.map((url, i) => (
                   // eslint-disable-next-line @next/next/no-img-element

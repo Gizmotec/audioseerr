@@ -4,6 +4,8 @@
 // (isSystem=true) by slug, and refreshSystemPlaylist() repopulates a row's tracks
 // each week. The cron that drives the schedule is src/lib/jobs/refreshSystemPlaylists.
 
+import { existsSync } from "node:fs";
+import path from "node:path";
 import { type DiscoveryTrack, trackMatchKey } from "@/lib/deezer";
 import { prisma } from "@/lib/db";
 import { getGenrePreviewTracks } from "@/lib/genreFallbackTracks";
@@ -111,6 +113,14 @@ const TARGET_TRACKS = 30;
 // matches, so the pool shrinks a lot before we reach TARGET_TRACKS.
 const POOL_PER_TAG = 40;
 
+// Convention-over-config cover: a playlist gets a custom cover by dropping
+// public/playlist-covers/<slug>.png — no code change needed. Returns the public
+// URL when the file exists, else null (UI falls back to a track-art mosaic).
+function coverForSlug(slug: string): string | null {
+  const file = path.join(process.cwd(), "public", "playlist-covers", `${slug}.png`);
+  return existsSync(file) ? `/playlist-covers/${slug}.png` : null;
+}
+
 /** Upsert the SYSTEM_PLAYLISTS definitions into Playlist rows by slug. New rows
  * are marked due immediately (nextRefreshAt=now); existing rows keep their
  * schedule. Also clears any stale PlaylistTrack rows left over from the earlier
@@ -125,12 +135,14 @@ export async function seedSystemPlaylists(now = new Date()): Promise<void> {
         description: def.description,
         isSystem: true,
         tagsJson: JSON.stringify(def.tags),
+        coverUrl: coverForSlug(def.slug),
         nextRefreshAt: now,
       },
       update: {
         name: def.name,
         description: def.description,
         tagsJson: JSON.stringify(def.tags),
+        coverUrl: coverForSlug(def.slug),
       },
     });
   }
