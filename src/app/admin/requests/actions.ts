@@ -10,7 +10,6 @@ import {
   groupAlbumFolders,
   matchAlbumFiles,
   pickBestAlbumFolder,
-  pickBestTrackFile,
   searchTracks,
   type SlskdConfig,
 } from "@/lib/slskd";
@@ -82,63 +81,27 @@ async function approveTrackRequest(
     };
   }
 
-  const slskd: SlskdConfig = {
-    url: settings.slskdUrl,
-    apiKey: settings.slskdApiKey,
-  };
+  // Queue it; the background sync job runs the Soulseek search with a generous
+  // window (peers trickle in over ~20s) and fails over across peers on a bad
+  // transfer. Searching inline here would block playlist imports ~20s per track.
+  await prisma.request.update({
+    where: { id: request.id },
+    data: {
+      status: "APPROVED",
+      approvedAt: new Date(),
+      declineReason: null,
+      slskdUsername: null,
+      slskdFile: null,
+      slskdCandidatesJson: null,
+      downloadTitle: null,
+    },
+  });
 
-  try {
-    // Best-effort expected duration — the strongest signal for rejecting the
-    // wrong file (remix/live/extended/mislabel) among noisy Soulseek results.
-    let durationSec: number | null = null;
-    if (request.albumMbid && request.albumPosition != null) {
-      try {
-        const album = await getAlbum(request.albumMbid);
-        const mbTrack = album?.tracks.find(
-          (t) => t.absolutePosition === request.albumPosition,
-        );
-        if (mbTrack?.lengthMs) durationSec = Math.round(mbTrack.lengthMs / 1000);
-      } catch {
-        // Duration is a bonus signal; proceed without it.
-      }
-    }
-
-    const query = `${request.artistName} ${request.title}`;
-    const candidates = await searchTracks(slskd, query);
-    const best = pickBestTrackFile(candidates, {
-      artistName: request.artistName,
-      trackTitle: request.title,
-      durationSec,
-    });
-
-    if (!best) {
-      const reason = buildNoMatchReason(query, candidates.length);
-      await markFailed(request.id, reason);
-      revalidateTrackRequestPaths(request);
-      return { ok: false, error: reason };
-    }
-
-    await enqueueDownload(slskd, best.username, [
-      { filename: best.filename, size: best.size },
-    ]);
-
-    await prisma.request.update({
-      where: { id: request.id },
-      data: {
-        status: "DOWNLOADING",
-        approvedAt: new Date(),
-        declineReason: null,
-        slskdUsername: best.username,
-        slskdFile: best.filename,
-        downloadTitle: baseName(best.filename),
-      },
-    });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Soulseek download failed.";
-    await markFailed(request.id, msg);
-    revalidateTrackRequestPaths(request);
-    return { ok: false, error: msg };
-  }
+  // Nudge the job so a single request starts within seconds rather than on the
+  // 2-min tick. Fire-and-forget; the job's own guard de-dupes concurrent runs.
+  void import("@/lib/jobs/syncActiveRequests")
+    .then((m) => m.syncActiveRequests())
+    .catch(() => {});
 
   revalidateTrackRequestPaths(request);
   return { ok: true };
@@ -255,13 +218,6 @@ async function markFailed(requestId: string, reason: string) {
     where: { id: requestId },
     data: { status: "FAILED", declineReason: reason },
   });
-}
-
-function buildNoMatchReason(query: string, candidateCount: number): string {
-  if (candidateCount === 0) {
-    return `Soulseek returned no files for "${query}".`;
-  }
-  return `Soulseek returned ${candidateCount} files for "${query}" but none matched the track closely enough (title or duration).`;
 }
 
 function revalidateTrackRequestPaths(request: {

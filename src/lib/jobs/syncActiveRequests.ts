@@ -10,13 +10,32 @@ import { getSettings } from "@/lib/settings";
 import {
   type AlbumFileMatch,
   albumFolderOf,
+  baseName,
   classifyTransfer,
+  enqueueDownload,
   getDownloadTransfer,
   listUserDownloads,
   matchAlbumFiles,
+  rankTrackCandidates,
+  searchTracks,
   type SlskdConfig,
 } from "@/lib/slskd";
 import { syncDownloadedLibrary } from "./syncDownloadedLibrary";
+
+// Background Soulseek search window. Generous because peers trickle responses in
+// over ~15-25s; the old inline 4s/8s window missed slow peers and produced false
+// "no files" for songs that are actually shared. We're off the request path here
+// so a long search is fine.
+const SEARCH_TIMEOUT_MS = 15000;
+const SEARCH_MAX_WAIT_MS = 30000;
+// Searches per run, so a big playlist import can't monopolise one cycle and
+// starve transfer/library reconciliation; the rest get searched next tick.
+// ponytail: serial + capped; raise or parallelise if drain latency matters.
+const SEARCH_BUDGET_PER_RUN = 5;
+// Ranked candidates kept for peer failover on transfer errors.
+const CANDIDATE_SHORTLIST = 8;
+
+type TrackCandidate = { username: string; filename: string; size: number };
 
 let running = false;
 
@@ -41,6 +60,14 @@ export async function syncActiveRequests(): Promise<{
         ? { url: settings.slskdUrl, apiKey: settings.slskdApiKey }
         : null;
 
+    let changed = 0;
+
+    // Search pass: newly-approved TRACK requests (no transfer enqueued yet) get
+    // their Soulseek search here — in the background, with a generous window.
+    // Runs before the reconciliation queries so a fresh approval isn't skipped
+    // by the empty-inflight early-return below.
+    if (slskdConfig) changed += await runTrackSearches(slskdConfig);
+
     const trackRequests = slskdConfig ? await prisma.request.findMany({
       where: {
         status: { in: ["APPROVED", "DOWNLOADING"] },
@@ -58,7 +85,8 @@ export async function syncActiveRequests(): Promise<{
       },
     }) : [];
     if (trackRequests.length === 0 && slskdAlbumRequests.length === 0) {
-      return { scanned: 0, changed: 0 };
+      if (changed > 0) await syncDownloadedLibrary().catch(() => {});
+      return { scanned: 0, changed };
     }
 
     // Give a request this long to make progress before we give up and mark it
@@ -68,8 +96,6 @@ export async function syncActiveRequests(): Promise<{
     const nowMs = Date.now();
     const isStuck = (approvedAt: Date | null) =>
       approvedAt != null && nowMs - approvedAt.getTime() > STUCK_AFTER_MS;
-
-    let changed = 0;
 
     for (const req of trackRequests) {
       try {
@@ -101,6 +127,12 @@ export async function syncActiveRequests(): Promise<{
         const state = classifyTransfer(transfer.state);
 
         if (state === "failed") {
+          // The chosen peer errored — fail over to the next-ranked candidate
+          // before giving up. Only mark FAILED once the shortlist is exhausted.
+          if (await failoverTrack(slskdConfig, req)) {
+            changed++;
+            continue;
+          }
           await prisma.request.update({
             where: { id: req.id },
             data: {
@@ -300,4 +332,141 @@ export async function syncActiveRequests(): Promise<{
   } finally {
     running = false;
   }
+}
+
+/**
+ * Search Soulseek for newly-approved TRACK requests and start the best download,
+ * keeping a ranked shortlist for failover. Bounded per run. Returns the number
+ * of requests moved out of APPROVED (to DOWNLOADING or FAILED).
+ */
+async function runTrackSearches(slskdConfig: SlskdConfig): Promise<number> {
+  const pending = await prisma.request.findMany({
+    where: { status: "APPROVED", type: "TRACK", slskdFile: null },
+    orderBy: { approvedAt: "asc" },
+    take: SEARCH_BUDGET_PER_RUN,
+  });
+
+  let changed = 0;
+  for (const req of pending) {
+    try {
+      // Expected duration: the strongest signal for rejecting the wrong file
+      // (remix/live/extended/mislabel) among noisy Soulseek results.
+      let durationSec: number | null = null;
+      if (req.albumMbid && req.albumPosition != null) {
+        try {
+          const album = await getAlbum(req.albumMbid);
+          const mbTrack = album?.tracks.find(
+            (t) => t.absolutePosition === req.albumPosition,
+          );
+          if (mbTrack?.lengthMs) durationSec = Math.round(mbTrack.lengthMs / 1000);
+        } catch {
+          // Duration is a bonus signal; proceed without it.
+        }
+      }
+
+      const query = `${req.artistName} ${req.title}`;
+      const candidates = await searchTracks(slskdConfig, query, {
+        searchTimeoutMs: SEARCH_TIMEOUT_MS,
+        maxWaitMs: SEARCH_MAX_WAIT_MS,
+      });
+      const ranked = rankTrackCandidates(candidates, {
+        artistName: req.artistName,
+        trackTitle: req.title,
+        durationSec,
+      }).slice(0, CANDIDATE_SHORTLIST);
+
+      if (ranked.length === 0) {
+        await prisma.request.update({
+          where: { id: req.id },
+          data: {
+            status: "FAILED",
+            declineReason:
+              candidates.length === 0
+                ? `Soulseek returned no files for "${query}".`
+                : `Soulseek returned ${candidates.length} files for "${query}" but none matched the track closely enough (title or duration).`,
+          },
+        });
+        changed++;
+        continue;
+      }
+
+      const shortlist: TrackCandidate[] = ranked.map((c) => ({
+        username: c.username,
+        filename: c.filename,
+        size: c.size,
+      }));
+      const head = shortlist[0]!;
+      await enqueueDownload(slskdConfig, head.username, [
+        { filename: head.filename, size: head.size },
+      ]);
+      await prisma.request.update({
+        where: { id: req.id },
+        data: {
+          status: "DOWNLOADING",
+          slskdUsername: head.username,
+          slskdFile: head.filename,
+          downloadTitle: baseName(head.filename),
+          slskdCandidatesJson: JSON.stringify(shortlist),
+        },
+      });
+      changed++;
+    } catch {
+      // Transient (slskd down, enqueue rejected): leave it APPROVED with no
+      // file so the next tick retries the search.
+    }
+  }
+  return changed;
+}
+
+/**
+ * After a failed track transfer, drop the current peer and start the next-ranked
+ * candidate. Walks past peers that refuse the enqueue. Returns true if a
+ * fallback was started, false if the shortlist is exhausted (caller marks
+ * FAILED).
+ */
+async function failoverTrack(
+  slskdConfig: SlskdConfig,
+  req: {
+    id: string;
+    slskdFile: string | null;
+    slskdCandidatesJson: string | null;
+  },
+): Promise<boolean> {
+  let shortlist: TrackCandidate[] = [];
+  if (req.slskdCandidatesJson) {
+    try {
+      shortlist = JSON.parse(req.slskdCandidatesJson) as TrackCandidate[];
+    } catch {
+      return false;
+    }
+  }
+  // Drop the candidate that just failed (matched by the current remote file).
+  let remaining = shortlist.filter((c) => c.filename !== req.slskdFile);
+
+  while (remaining.length > 0) {
+    const next = remaining[0]!;
+    try {
+      await enqueueDownload(slskdConfig, next.username, [
+        { filename: next.filename, size: next.size },
+      ]);
+    } catch {
+      // This peer won't take the download; drop it and try the next.
+      remaining = remaining.slice(1);
+      continue;
+    }
+    await prisma.request.update({
+      where: { id: req.id },
+      data: {
+        status: "DOWNLOADING",
+        slskdUsername: next.username,
+        slskdFile: next.filename,
+        downloadTitle: baseName(next.filename),
+        slskdCandidatesJson: JSON.stringify(remaining),
+        // Restart the stuck-timer for the new peer.
+        approvedAt: new Date(),
+      },
+    });
+    return true;
+  }
+  return false;
 }
