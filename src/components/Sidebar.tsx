@@ -1,5 +1,4 @@
 import {
-  Bug,
   Compass,
   Home,
   Inbox,
@@ -40,9 +39,6 @@ export async function Sidebar() {
         </SidebarLink>
         <SidebarLink href="/requests" icon={<Inbox className="h-4 w-4" />}>
           Requests
-        </SidebarLink>
-        <SidebarLink href="/bug-report" icon={<Bug className="h-4 w-4" />}>
-          Bug report
         </SidebarLink>
         {role === "ADMIN" && (
           <SidebarLink
