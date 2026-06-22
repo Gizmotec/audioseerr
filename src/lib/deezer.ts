@@ -51,6 +51,35 @@ export function normalizeTrackTitle(title: string): string {
     .trim();
 }
 
+/**
+ * Looser key for deciding two records are the SAME song across metadata sources
+ * — a downloaded copy (MusicBrainz, at request time) vs a discovery pick
+ * (Deezer). On top of normalizeTrackTitle it folds diacritics and drops the
+ * extras that only one source tends to carry: a non-parenthesised "feat."
+ * credit, a " - 2024 Remaster"/"- Live" qualifier, and "&" vs "and".
+ * ponytail: deliberately forgiving — may treat a remix/live cut as already-owned
+ * and hide it from a mix. Fine for discovery; tighten with album/MBID matching
+ * if real songs start getting hidden.
+ */
+export function trackMatchKey(artist: string, title: string): string {
+  return `${matchNormalize(artist)}|${matchNormalize(title)}`;
+}
+
+function matchNormalize(value: string): string {
+  return value
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "") // strip diacritics (Beyoncé → Beyonce)
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, "") // (remastered)
+    .replace(/\[[^\]]*\]/g, "") // [explicit]
+    .replace(/\s+-\s+.*$/, "") // " - 2024 Remaster", " - Live at X"
+    .replace(/\b(?:feat|ft|featuring)\b\.?.*$/i, "") // feat. credits
+    .replace(/&/g, " and ")
+    .replace(/[^\p{L}\p{N} ]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 async function deezerFetch<T>(path: string, params: Record<string, string> = {}): Promise<T> {
   const qs = new URLSearchParams(params).toString();
   const url = `${DEEZER_BASE}${path}${qs ? `?${qs}` : ""}`;
@@ -395,7 +424,7 @@ const DEEZER_GENRE_IDS: Record<string, number> = {
   electronic: 106, // Deezer "Electro"
   "hip-hop": 116, // Deezer "Rap/Hip Hop"
   dance: 113,
-  "r&b": 165,
+  rnb: 165, // Deezer "R&B" — slug avoids "&" so it survives URL round-trips
   alternative: 85,
   jazz: 129,
   classical: 98,
@@ -473,6 +502,17 @@ type DeezerEditorialReleasesResponse = {
 
 export function hasDeezerChartGenre(slug: string): boolean {
   return slug.toLowerCase() in DEEZER_GENRE_IDS;
+}
+
+// Genre slugs whose title-cased form needs an override (acronyms, ampersands).
+const GENRE_LABELS: Record<string, string> = {
+  "hip-hop": "Hip-Hop",
+  rnb: "R&B",
+};
+
+/** Human label for a genre slug; falls back to the slug (callers title-case). */
+export function genreLabel(slug: string): string {
+  return GENRE_LABELS[slug.toLowerCase()] ?? slug;
 }
 
 /**

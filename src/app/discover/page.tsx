@@ -6,7 +6,11 @@ import { MostLovedChart, TopArtistsChart } from "@/components/ChartList";
 import { DiscoveryTrackList } from "@/components/DiscoveryTrackList";
 import { MixCards } from "@/app/discover/MixCards";
 import { enrichArtistArtwork } from "@/lib/chartArtwork";
-import { getDeezerChartTracks, getDeezerNewReleaseTracks } from "@/lib/deezer";
+import {
+  genreLabel,
+  getDeezerChartTracks,
+  getDeezerNewReleaseTracks,
+} from "@/lib/deezer";
 import { getGlobalTopArtists } from "@/lib/lastfm";
 import { getMostLoved } from "@/lib/mostLoved";
 import { getSettings, isSetupComplete } from "@/lib/settings";
@@ -18,14 +22,7 @@ const DISCOVER_TAGS = ["pop", "rock", "electronic"];
 
 // Shown as album-art cards atop "Browse by genre"; everything else in
 // GENRE_CHIPS renders as a tag chip below.
-const MAIN_GENRES = ["pop", "rock", "hip-hop", "electronic", "dance", "r&b"];
-
-// Display overrides for slugs that don't title-case cleanly.
-const GENRE_LABELS: Record<string, string> = {
-  "hip-hop": "Hip-Hop",
-  "r&b": "R&B",
-};
-const genreLabel = (slug: string) => GENRE_LABELS[slug] ?? slug;
+const MAIN_GENRES = ["pop", "rock", "hip-hop", "electronic", "dance", "rnb"];
 
 // Deezer-charted genres (real track charts, no Last.fm key needed) plus a few
 // popular tags that fall back to Last.fm. The /genre/[tag] page handles both.
@@ -35,7 +32,7 @@ const GENRE_CHIPS = [
   "hip-hop",
   "electronic",
   "dance",
-  "r&b",
+  "rnb",
   "alternative",
   "indie",
   "jazz",

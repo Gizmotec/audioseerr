@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { DiscoveryTrackList } from "@/components/DiscoveryTrackList";
 import {
   type DiscoveryTrack,
+  genreLabel,
   getDeezerChartTracks,
   hasDeezerChartGenre,
 } from "@/lib/deezer";
@@ -54,7 +55,7 @@ export default async function GenrePage({ params }: { params: RouteParams }) {
           Genre
         </p>
         <h1 className="text-3xl font-semibold capitalize tracking-tight">
-          {tag}
+          {genreLabel(tag)}
         </h1>
         <p className="text-sm text-muted-foreground">
           Trending songs — preview and add any to your library.
@@ -64,7 +65,7 @@ export default async function GenrePage({ params }: { params: RouteParams }) {
       {tracks.length === 0 ? (
         <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
           <Music2 className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" />
-          <p>No trending tracks for &ldquo;{tag}&rdquo; right now.</p>
+          <p>No trending tracks for &ldquo;{genreLabel(tag)}&rdquo; right now.</p>
           {!hasDeezerChartGenre(tag) && !lastFmKey && (
             <p className="mt-1">
               Add a Last.fm key in setup to browse niche genres.
