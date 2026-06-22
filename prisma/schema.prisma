@@ -73,6 +73,7 @@ model User {
   libraryItems   UserLibraryItem[]
   downloadedTracks UserDownloadedTrack[]
   spotifyImports SpotifyPlaylistImport[]
+  playlistSubscriptions PlaylistSubscription[]
 }
 
 model Request {
@@ -266,8 +267,10 @@ model Invite {
 // renumber the affected rows in a single transaction.
 model Playlist {
   id          String          @id @default(cuid())
-  userId      String
-  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Nullable: system (editorial) playlists have no owner. User playlists always
+  // set it; the cascade only fires for those.
+  userId      String?
+  user        User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
   name        String
   description String?
   coverUrl    String?
@@ -276,12 +279,39 @@ model Playlist {
   // "Shared with you" section. Tracks the viewer doesn't have library
   // coverage for stay listed but won't stream (Phase 2 stream gate).
   isShared    Boolean         @default(false)
+  // System (editorial) playlist: Spotify-style mood/genre playlist owned by no
+  // one, visible to everyone, and refreshed weekly from Last.fm tags. slug is
+  // the stable identity the SYSTEM_PLAYLISTS code definitions upsert against;
+  // tagsJson is the JSON array of Last.fm tags the refresh pulls from;
+  // nextRefreshAt drives the staggered weekly refresh (src/lib/jobs).
+  isSystem        Boolean     @default(false)
+  slug            String?     @unique
+  tagsJson        String?
+  nextRefreshAt   DateTime?
+  lastRefreshedAt DateTime?
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
   tracks      PlaylistTrack[]
+  subscriptions PlaylistSubscription[]
 
   @@index([userId])
   @@index([isShared])
+  @@index([isSystem, nextRefreshAt])
+}
+
+// Per-user subscription to a system (editorial) playlist. On the playlist's
+// weekly refresh, each subscriber gets the new tracks auto-downloaded into temp
+// (ephemeral) storage — the same path discovery-mix pre-download uses.
+model PlaylistSubscription {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  playlistId String
+  playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, playlistId])
+  @@index([playlistId])
 }
 
 // One play counted per track per "playthrough." A play is recorded once

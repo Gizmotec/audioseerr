@@ -3,7 +3,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { getLikedSongsPlaylistSummary } from "@/lib/likes";
-import { listPlaylists, listSharedPlaylists } from "@/lib/playlists";
+import {
+  listPlaylists,
+  listSharedPlaylists,
+  listSystemPlaylists,
+} from "@/lib/playlists";
 import { isSetupComplete } from "@/lib/settings";
 import { CreatePlaylistInline } from "./CreatePlaylistInline";
 import { PlaylistTile } from "./PlaylistTile";
@@ -20,11 +24,13 @@ export default async function PlaylistsPage() {
     redirect("/login");
   }
 
-  const [likedSongs, playlists, sharedPlaylists] = await Promise.all([
-    getLikedSongsPlaylistSummary(userId),
-    listPlaylists(userId),
-    listSharedPlaylists(userId),
-  ]);
+  const [likedSongs, playlists, sharedPlaylists, systemPlaylists] =
+    await Promise.all([
+      getLikedSongsPlaylistSummary(userId),
+      listPlaylists(userId),
+      listSharedPlaylists(userId),
+      listSystemPlaylists(),
+    ]);
   const ownPlaylists = [likedSongs, ...playlists];
 
   return (
@@ -53,6 +59,27 @@ export default async function PlaylistsPage() {
           <CreatePlaylistInline />
         </div>
       </header>
+
+      {systemPlaylists.length > 0 && (
+        <section className="mb-12 space-y-3">
+          <header>
+            <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
+              Featured
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Editorial playlists that refresh weekly. Subscribe to one to have
+              its picks auto-downloaded each week.
+            </p>
+          </header>
+          <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            {systemPlaylists.map((p) => (
+              <li key={p.id}>
+                <PlaylistTile playlist={p} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {ownPlaylists.length === 0 ? (
         <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">

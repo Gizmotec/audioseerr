@@ -3,6 +3,8 @@
 import {
   ArrowDown,
   ArrowUp,
+  Bell,
+  BellRing,
   Check,
   ChevronDown,
   Disc3,
@@ -44,6 +46,7 @@ import {
   moveTrackAction,
   removeTrackAction,
   setPlaylistSharedAction,
+  setPlaylistSubscriptionAction,
   uploadPlaylistCoverAction,
   updatePlaylistAction,
 } from "@/lib/actions/playlists";
@@ -77,6 +80,11 @@ type Props = {
   initialShared?: boolean;
   /** Track like target-ids (see trackLikeTargetId) the viewer has already liked. */
   likedTrackIds?: string[];
+  /** True for system (editorial) playlists — shows the Subscribe toggle and a
+   * "Refreshes weekly" note instead of edit controls. */
+  isSystem?: boolean;
+  /** Whether the viewer is already subscribed (system playlists only). */
+  initialSubscribed?: boolean;
 };
 
 export function PlaylistDetail({
@@ -91,6 +99,8 @@ export function PlaylistDetail({
   canManageSharing = false,
   initialShared = false,
   likedTrackIds = [],
+  isSystem = false,
+  initialSubscribed = false,
 }: Props) {
   const player = usePreviewPlayer();
   const { openTrackMenu } = useTrackMenu();
@@ -219,6 +229,7 @@ export function PlaylistDetail({
                   </span>
                 </>
               )}
+              {isSystem && <> · Refreshes weekly</>}
             </p>
             {description && (
               <p className="max-w-md text-sm text-muted-foreground/80">
@@ -253,6 +264,12 @@ export function PlaylistDetail({
             <Shuffle className="h-4 w-4" />
             Shuffle
           </button>
+          {isSystem && (
+            <SubscribeButton
+              playlistId={playlistId}
+              initialSubscribed={initialSubscribed}
+            />
+          )}
           {canManageSharing && (
             <ShareToggleButton
               playlistId={playlistId}
@@ -1088,6 +1105,60 @@ function ShareToggleButton({
         <Lock className="h-4 w-4" />
       )}
       {shared ? "Shared" : "Private"}
+    </button>
+  );
+}
+
+function SubscribeButton({
+  playlistId,
+  initialSubscribed,
+}: {
+  playlistId: string;
+  initialSubscribed: boolean;
+}) {
+  const router = useRouter();
+  const [subscribed, setSubscribed] = useState(initialSubscribed);
+  const [pending, startTransition] = useTransition();
+
+  const toggle = () => {
+    const next = !subscribed;
+    setSubscribed(next);
+    startTransition(async () => {
+      const res = await setPlaylistSubscriptionAction(playlistId, next);
+      if (!res.ok) {
+        setSubscribed(!next);
+        return;
+      }
+      router.refresh();
+    });
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      disabled={pending}
+      aria-pressed={subscribed}
+      title={
+        subscribed
+          ? "Subscribed — new picks auto-download each week. Click to unsubscribe."
+          : "Subscribe to auto-download this playlist's picks every week."
+      }
+      className={cn(
+        "inline-flex h-10 items-center gap-1.5 rounded-md border px-3 text-sm transition-colors",
+        subscribed
+          ? "border-primary/40 bg-primary/10 text-foreground hover:bg-primary/15"
+          : "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground",
+      )}
+    >
+      {pending ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : subscribed ? (
+        <BellRing className="h-4 w-4" />
+      ) : (
+        <Bell className="h-4 w-4" />
+      )}
+      {subscribed ? "Subscribed" : "Subscribe"}
     </button>
   );
 }

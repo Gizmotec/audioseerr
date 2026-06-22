@@ -4,6 +4,7 @@ import { pruneCache } from "./pruneCache";
 import { pruneEphemeralTracks } from "./pruneEphemeralTracks";
 import { pruneOldRequests } from "./pruneOldRequests";
 import { refreshCharts } from "./refreshCharts";
+import { refreshSystemPlaylists } from "./refreshSystemPlaylists";
 import { syncActiveRequests } from "./syncActiveRequests";
 import { syncDownloadedLibrary } from "./syncDownloadedLibrary";
 
@@ -52,4 +53,15 @@ export function registerJobs() {
   cron.schedule("0 5 * * 1", () => {
     void preloadMixes("weekly").catch(() => {});
   });
+
+  // System (editorial) playlists: hourly tick refreshes any whose weekly
+  // schedule is due (a few per tick — see MAX_PER_TICK). Offset to :30 so it
+  // doesn't pile on top of the on-the-hour chart refresh.
+  cron.schedule("30 * * * *", () => {
+    void refreshSystemPlaylists().catch(() => {});
+  });
+
+  // Seed the editorial playlists and start the first fill at boot so they show
+  // up without waiting for the next hour; the per-tick cap keeps it staggered.
+  void refreshSystemPlaylists().catch(() => {});
 }

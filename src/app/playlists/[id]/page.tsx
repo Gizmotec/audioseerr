@@ -13,7 +13,7 @@ import {
   type LikedRow,
   trackLikeTargetId,
 } from "@/lib/likes";
-import { getPlaylist } from "@/lib/playlists";
+import { getPlaylist, isSubscribedToPlaylist } from "@/lib/playlists";
 import { isSetupComplete } from "@/lib/settings";
 import { getActiveTrackRequestKeys } from "@/lib/trackRequests";
 import { PlaylistDetail } from "./PlaylistDetail";
@@ -47,6 +47,10 @@ export default async function PlaylistPage({ params }: { params: RouteParams }) 
       ? await getLikedSongsPlaylist(userId)
       : await getPlaylist(userId, id);
   if (!playlist) notFound();
+
+  const subscribed = playlist.isSystem
+    ? await isSubscribedToPlaylist(userId, id)
+    : false;
 
   // Resolve every row to a current Lidarr trackFileId once at SSR. Pass the
   // viewer so a shared playlist played by a non-owner only resolves rows
@@ -104,6 +108,8 @@ export default async function PlaylistPage({ params }: { params: RouteParams }) 
         canManageSharing={playlist.isOwner && playlist.system !== "liked-songs"}
         initialShared={playlist.isShared}
         likedTrackIds={likedTrackIds}
+        isSystem={playlist.isSystem ?? false}
+        initialSubscribed={subscribed}
       />
 
       {likedAlbums.length > 0 && (

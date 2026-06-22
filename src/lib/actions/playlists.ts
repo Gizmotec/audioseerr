@@ -11,6 +11,7 @@ import {
   addTrackToPlaylist,
   createPlaylist,
   deletePlaylist,
+  getPlaylist,
   getPlaylistCoverForUser,
   listAvailablePlaylistTracks,
   listPlaylists,
@@ -18,6 +19,7 @@ import {
   removeTrackFromPlaylist,
   setPlaylistCover,
   setPlaylistShared,
+  setPlaylistSubscription,
   updatePlaylist,
 } from "@/lib/playlists";
 import {
@@ -195,6 +197,57 @@ export async function setPlaylistSharedAction(
   try {
     await setPlaylistShared(auth.userId, playlistId, isShared);
     revalidatePath("/playlists");
+    revalidatePath(`/playlists/${playlistId}`);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: errorMessage(err) };
+  }
+}
+
+// Subscriber temp downloads live a week + grace, mirroring weekly mix retention.
+const SUBSCRIPTION_RETENTION_MS = 8 * 24 * 60 * 60 * 1000;
+
+/**
+ * Subscribe/unsubscribe to a system (editorial) playlist. On subscribe, kick off
+ * a temp (ephemeral) download of the current tracks so the playlist is playable
+ * now; future weekly refreshes auto-download the new picks (src/lib/jobs).
+ */
+export async function setPlaylistSubscriptionAction(
+  playlistId: string,
+  subscribe: boolean,
+): Promise<Result> {
+  const auth = await requireUserId();
+  if (!auth.ok) return auth;
+  try {
+    await setPlaylistSubscription(auth.userId, playlistId, subscribe);
+
+    if (subscribe) {
+      const playlist = await getPlaylist(auth.userId, playlistId);
+      if (playlist) {
+        const expiresAt = new Date(Date.now() + SUBSCRIPTION_RETENTION_MS);
+        await Promise.all(
+          playlist.tracks.map((t) =>
+            ensureTrackRequested(
+              auth.userId,
+              {
+                albumMbid: t.albumMbid,
+                albumTitle: t.albumTitle,
+                artistName: t.artistName,
+                coverUrl: t.coverUrl,
+                recordingMbid:
+                  t.recordingMbid === `${t.albumMbid}:${t.albumPosition}`
+                    ? null
+                    : t.recordingMbid,
+                trackTitle: t.title,
+                albumPosition: t.albumPosition,
+              },
+              { ephemeral: true, expiresAt },
+            ),
+          ),
+        );
+      }
+    }
+
     revalidatePath(`/playlists/${playlistId}`);
     return { ok: true };
   } catch (err) {

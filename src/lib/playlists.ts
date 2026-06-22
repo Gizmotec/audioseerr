@@ -13,6 +13,7 @@ export type PlaylistSummary = {
   ownerUsername: string | null;
   isOwner: boolean;
   system?: "liked-songs";
+  isSystem?: boolean;
 };
 
 export type PlaylistTrackRow = {
@@ -41,6 +42,7 @@ export type PlaylistDetail = {
   ownerUsername: string | null;
   isOwner: boolean;
   system?: "liked-songs";
+  isSystem?: boolean;
 };
 
 export type AddTrackPayload = {
@@ -69,7 +71,7 @@ function coverUrlForReleaseGroup(mbid: string): string {
 
 export async function listPlaylists(userId: string): Promise<PlaylistSummary[]> {
   const rows = await prisma.playlist.findMany({
-    where: { userId },
+    where: { userId, isSystem: false },
     orderBy: { updatedAt: "desc" },
     select: {
       id: true,
@@ -98,7 +100,7 @@ export async function listSharedPlaylists(
   viewerUserId: string,
 ): Promise<PlaylistSummary[]> {
   const rows = await prisma.playlist.findMany({
-    where: { isShared: true, userId: { not: viewerUserId } },
+    where: { isShared: true, isSystem: false, userId: { not: viewerUserId } },
     orderBy: { updatedAt: "desc" },
     select: {
       id: true,
@@ -117,7 +119,35 @@ export async function listSharedPlaylists(
     },
   });
   return rows.map((r) =>
-    summarizePlaylist(r, { isOwner: false, ownerUsername: r.user.username }),
+    summarizePlaylist(r, { isOwner: false, ownerUsername: r.user?.username ?? null }),
+  );
+}
+
+/**
+ * Lists the system (editorial) playlists shown in the "Featured" section. Owned
+ * by no one, visible to everyone, refreshed weekly (src/lib/systemPlaylists).
+ */
+export async function listSystemPlaylists(): Promise<PlaylistSummary[]> {
+  const rows = await prisma.playlist.findMany({
+    where: { isSystem: true },
+    orderBy: { name: "asc" },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      coverUrl: true,
+      updatedAt: true,
+      isShared: true,
+      tracks: {
+        select: { albumMbid: true, coverUrl: true },
+        orderBy: { position: "asc" },
+        take: 24,
+      },
+      _count: { select: { tracks: true } },
+    },
+  });
+  return rows.map((r) =>
+    summarizePlaylist(r, { isOwner: false, ownerUsername: null, isSystem: true }),
   );
 }
 
@@ -132,7 +162,7 @@ function summarizePlaylist(
     tracks: { albumMbid: string; coverUrl: string | null }[];
     _count: { tracks: number };
   },
-  ctx: { isOwner: boolean; ownerUsername: string | null },
+  ctx: { isOwner: boolean; ownerUsername: string | null; isSystem?: boolean },
 ): PlaylistSummary {
   const coverUrls: string[] = [];
   const seen = new Set<string>();
@@ -155,6 +185,7 @@ function summarizePlaylist(
     isShared: r.isShared,
     isOwner: ctx.isOwner,
     ownerUsername: ctx.ownerUsername,
+    isSystem: ctx.isSystem ?? false,
   };
 }
 
@@ -173,6 +204,7 @@ export async function getPlaylist(
       createdAt: true,
       updatedAt: true,
       isShared: true,
+      isSystem: true,
       user: { select: { username: true } },
       tracks: {
         orderBy: { position: "asc" },
@@ -194,9 +226,9 @@ export async function getPlaylist(
   });
   if (!row) return null;
   // Visibility: owner always sees their playlist; non-owner only when the
-  // playlist is shared.
+  // playlist is shared or it's a system (editorial) playlist (visible to all).
   const isOwner = row.userId === viewerUserId;
-  if (!isOwner && !row.isShared) return null;
+  if (!isOwner && !row.isShared && !row.isSystem) return null;
   return {
     id: row.id,
     name: row.name,
@@ -205,8 +237,9 @@ export async function getPlaylist(
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     isShared: row.isShared,
+    isSystem: row.isSystem,
     isOwner,
-    ownerUsername: isOwner ? null : row.user.username,
+    ownerUsername: isOwner ? null : (row.user?.username ?? null),
     tracks: row.tracks.map((track) => ({
       ...track,
       coverUrl: track.coverUrl ?? coverUrlForReleaseGroup(track.albumMbid),
@@ -542,4 +575,44 @@ export async function listAvailablePlaylistTracks(
     coverUrl: r.coverUrl ?? coverUrlForReleaseGroup(r.albumMbid),
     durationMs: r.durationMs,
   }));
+}
+
+// System-playlist subscriptions ---------------------------------------------
+
+export async function isSubscribedToPlaylist(
+  userId: string,
+  playlistId: string,
+): Promise<boolean> {
+  const row = await prisma.playlistSubscription.findUnique({
+    where: { userId_playlistId: { userId, playlistId } },
+    select: { id: true },
+  });
+  return !!row;
+}
+
+/**
+ * Subscribe/unsubscribe a user to a system playlist. Validates the target is a
+ * system playlist. Idempotent. The auto-download of current tracks on subscribe
+ * is handled by the action (it has the viewer's track list).
+ */
+export async function setPlaylistSubscription(
+  userId: string,
+  playlistId: string,
+  subscribed: boolean,
+): Promise<void> {
+  const playlist = await prisma.playlist.findFirst({
+    where: { id: playlistId, isSystem: true },
+    select: { id: true },
+  });
+  if (!playlist) throw new Error("Playlist not found.");
+
+  if (subscribed) {
+    await prisma.playlistSubscription.upsert({
+      where: { userId_playlistId: { userId, playlistId } },
+      create: { userId, playlistId },
+      update: {},
+    });
+  } else {
+    await prisma.playlistSubscription.deleteMany({ where: { userId, playlistId } });
+  }
 }

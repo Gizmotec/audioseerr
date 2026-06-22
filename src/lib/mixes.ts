@@ -105,7 +105,7 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-function seededShuffle<T>(items: T[], seed: string): T[] {
+export function seededShuffle<T>(items: T[], seed: string): T[] {
   const rng = mulberry32(hashSeed(seed));
   const out = [...items];
   for (let i = out.length - 1; i > 0; i--) {
@@ -126,7 +126,7 @@ function dailyPeriodKey(now: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-function isoWeekPeriodKey(now: Date): string {
+export function isoWeekPeriodKey(now: Date): string {
   // ISO week date: Thursday of the current week determines the week-year.
   const d = new Date(
     Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()),
