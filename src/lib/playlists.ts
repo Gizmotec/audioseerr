@@ -1,3 +1,4 @@
+import type { DiscoveryTrack } from "@/lib/deezer";
 import { prisma } from "@/lib/db";
 import { isAdmin, type LibraryViewer } from "@/lib/userLibrary";
 
@@ -137,18 +138,83 @@ export async function listSystemPlaylists(): Promise<PlaylistSummary[]> {
       description: true,
       coverUrl: true,
       updatedAt: true,
-      isShared: true,
-      tracks: {
-        select: { albumMbid: true, coverUrl: true },
+      systemTracks: {
+        select: { coverUrl: true },
         orderBy: { position: "asc" },
         take: 24,
       },
-      _count: { select: { tracks: true } },
+      _count: { select: { systemTracks: true } },
     },
   });
-  return rows.map((r) =>
-    summarizePlaylist(r, { isOwner: false, ownerUsername: null, isSystem: true }),
-  );
+  return rows.map((r) => {
+    const coverUrls: string[] = [];
+    const seen = new Set<string>();
+    for (const t of r.systemTracks) {
+      if (!t.coverUrl || seen.has(t.coverUrl)) continue;
+      seen.add(t.coverUrl);
+      coverUrls.push(t.coverUrl);
+      if (coverUrls.length === 4) break;
+    }
+    return {
+      id: r.id,
+      name: r.name,
+      description: r.description,
+      trackCount: r._count.systemTracks,
+      coverUrls,
+      coverUrl: r.coverUrl ?? coverUrls[0] ?? null,
+      updatedAt: r.updatedAt,
+      isShared: false,
+      isOwner: false,
+      ownerUsername: null,
+      isSystem: true,
+    };
+  });
+}
+
+export type SystemPlaylistDetail = {
+  id: string;
+  name: string;
+  description: string | null;
+  coverUrl: string | null;
+  tracks: DiscoveryTrack[];
+};
+
+/**
+ * A system playlist with its discovery-shaped tracks (preview + album metadata,
+ * no MusicBrainz ids). The detail page upgrades owned tracks to full streams and
+ * renders the rest as previews with a download button.
+ */
+export async function getSystemPlaylistDetail(
+  playlistId: string,
+): Promise<SystemPlaylistDetail | null> {
+  const row = await prisma.playlist.findFirst({
+    where: { id: playlistId, isSystem: true },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      coverUrl: true,
+      systemTracks: {
+        orderBy: { position: "asc" },
+        select: {
+          title: true,
+          artistName: true,
+          albumTitle: true,
+          coverUrl: true,
+          previewUrl: true,
+          durationMs: true,
+        },
+      },
+    },
+  });
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    coverUrl: row.coverUrl,
+    tracks: row.systemTracks,
+  };
 }
 
 function summarizePlaylist(

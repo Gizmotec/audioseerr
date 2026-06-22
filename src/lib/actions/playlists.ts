@@ -11,8 +11,8 @@ import {
   addTrackToPlaylist,
   createPlaylist,
   deletePlaylist,
-  getPlaylist,
   getPlaylistCoverForUser,
+  getSystemPlaylistDetail,
   listAvailablePlaylistTracks,
   listPlaylists,
   moveTrack,
@@ -208,9 +208,10 @@ export async function setPlaylistSharedAction(
 const SUBSCRIPTION_RETENTION_MS = 8 * 24 * 60 * 60 * 1000;
 
 /**
- * Subscribe/unsubscribe to a system (editorial) playlist. On subscribe, kick off
- * a temp (ephemeral) download of the current tracks so the playlist is playable
- * now; future weekly refreshes auto-download the new picks (src/lib/jobs).
+ * Subscribe/unsubscribe to a system (editorial) playlist. On subscribe, the
+ * current picks are resolved to MusicBrainz and temp-downloaded in the
+ * background (detached, so the click returns immediately on this long-lived
+ * server); future weekly refreshes auto-download the new picks (src/lib/jobs).
  */
 export async function setPlaylistSubscriptionAction(
   playlistId: string,
@@ -220,38 +221,44 @@ export async function setPlaylistSubscriptionAction(
   if (!auth.ok) return auth;
   try {
     await setPlaylistSubscription(auth.userId, playlistId, subscribe);
-
     if (subscribe) {
-      const playlist = await getPlaylist(auth.userId, playlistId);
-      if (playlist) {
-        const expiresAt = new Date(Date.now() + SUBSCRIPTION_RETENTION_MS);
-        await Promise.all(
-          playlist.tracks.map((t) =>
-            ensureTrackRequested(
-              auth.userId,
-              {
-                albumMbid: t.albumMbid,
-                albumTitle: t.albumTitle,
-                artistName: t.artistName,
-                coverUrl: t.coverUrl,
-                recordingMbid:
-                  t.recordingMbid === `${t.albumMbid}:${t.albumPosition}`
-                    ? null
-                    : t.recordingMbid,
-                trackTitle: t.title,
-                albumPosition: t.albumPosition,
-              },
-              { ephemeral: true, expiresAt },
-            ),
-          ),
-        );
-      }
+      void downloadSubscribedPlaylist(auth.userId, playlistId).catch((err) => {
+        console.error("[playlists] subscribe download failed:", err);
+      });
     }
-
     revalidatePath(`/playlists/${playlistId}`);
     return { ok: true };
   } catch (err) {
     return { ok: false, error: errorMessage(err) };
+  }
+}
+
+/** Resolve each discovery-shaped track of a system playlist to MusicBrainz and
+ * queue a temp download for the user. Sequential resolves keep MB load gentle;
+ * best-effort per track. */
+async function downloadSubscribedPlaylist(
+  userId: string,
+  playlistId: string,
+): Promise<void> {
+  const detail = await getSystemPlaylistDetail(playlistId);
+  if (!detail) return;
+  const expiresAt = new Date(Date.now() + SUBSCRIPTION_RETENTION_MS);
+  for (const t of detail.tracks) {
+    const resolved = await resolveSong(t, { includeSingles: true }).catch(() => null);
+    if (!resolved) continue;
+    await ensureTrackRequested(
+      userId,
+      {
+        albumMbid: resolved.albumMbid,
+        albumTitle: resolved.albumTitle,
+        artistName: resolved.artistName,
+        coverUrl: resolved.coverUrl,
+        recordingMbid: resolved.recordingMbid,
+        trackTitle: resolved.title,
+        albumPosition: resolved.albumPosition,
+      },
+      { ephemeral: true, expiresAt },
+    );
   }
 }
 

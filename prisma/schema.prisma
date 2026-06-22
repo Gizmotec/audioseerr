@@ -292,11 +292,32 @@ model Playlist {
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
   tracks      PlaylistTrack[]
+  systemTracks SystemPlaylistTrack[]
   subscriptions PlaylistSubscription[]
 
   @@index([userId])
   @@index([isShared])
   @@index([isSystem, nextRefreshAt])
+}
+
+// Tracks of a system (editorial) playlist. Unlike PlaylistTrack (a resolved
+// library row), these are discovery-shaped: title/artist/album/cover + a Deezer
+// 30s preview, with NO MusicBrainz resolution — so the weekly refresh is cheap
+// and playlists fill fast. They render like mix "new" picks (preview + per-track
+// download); the download resolves to MusicBrainz lazily on click/subscribe.
+model SystemPlaylistTrack {
+  id          String   @id @default(cuid())
+  playlistId  String
+  playlist    Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  position    Int
+  title       String
+  artistName  String
+  albumTitle  String?
+  coverUrl    String?
+  previewUrl  String?
+  durationMs  Int?
+
+  @@index([playlistId, position])
 }
 
 // Per-user subscription to a system (editorial) playlist. On the playlist's

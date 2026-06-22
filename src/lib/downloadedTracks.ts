@@ -7,7 +7,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { prisma } from "@/lib/db";
-import { normalizeTrackTitle } from "@/lib/deezer";
+import { normalizeTrackTitle, trackMatchKey } from "@/lib/deezer";
 import { baseName } from "@/lib/slskd";
 import { applyPathMap, parsePathMap } from "@/lib/streaming";
 import { isAdmin, type LibraryViewer } from "@/lib/userLibrary";
@@ -290,6 +290,39 @@ export async function buildEphemeralTrackLookup(
   for (const r of rows) {
     const key = `${normalizeTrackTitle(r.artistName)}|${normalizeTrackTitle(r.title)}`;
     out.set(key, {
+      downloadedTrackId: r.id,
+      recordingMbid: r.recordingMbid,
+      albumMbid: r.albumMbid,
+      albumPosition: r.albumPosition,
+    });
+  }
+  return out;
+}
+
+/**
+ * Map of normalized `artist|title` → ANY downloaded track the viewer can stream
+ * (real or pre-downloaded temp). Drives the system-playlist render-time upgrade:
+ * a discovery-shaped track the viewer already owns plays full-length instead of
+ * its 30s preview.
+ */
+export async function buildOwnedTrackLookup(
+  viewer: LibraryViewer,
+): Promise<Map<string, EphemeralTrackMatch>> {
+  const out = new Map<string, EphemeralTrackMatch>();
+  if (!viewer) return out;
+  const rows = await prisma.downloadedTrack.findMany({
+    where: isAdmin(viewer) ? {} : { users: { some: { userId: viewer.id } } },
+    select: {
+      id: true,
+      title: true,
+      artistName: true,
+      recordingMbid: true,
+      albumMbid: true,
+      albumPosition: true,
+    },
+  });
+  for (const r of rows) {
+    out.set(trackMatchKey(r.artistName, r.title), {
       downloadedTrackId: r.id,
       recordingMbid: r.recordingMbid,
       albumMbid: r.albumMbid,
