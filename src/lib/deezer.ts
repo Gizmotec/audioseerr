@@ -392,14 +392,21 @@ export async function findDeezerTrack({
 const DEEZER_GENRE_IDS: Record<string, number> = {
   pop: 132,
   rock: 152,
-  electronic: 106,
-  "hip-hop": 116,
+  electronic: 106, // Deezer "Electro"
+  "hip-hop": 116, // Deezer "Rap/Hip Hop"
+  dance: 113,
+  "r&b": 165,
   alternative: 85,
   jazz: 129,
   classical: 98,
   metal: 464,
   folk: 466,
-  soul: 169,
+  soul: 169, // Deezer "Soul & Funk"
+  reggae: 144,
+  country: 84,
+  blues: 153,
+  latin: 197,
+  soundtrack: 173, // Deezer "Films/Games"
 };
 
 export type DeezerChartAlbum = {

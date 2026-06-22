@@ -15,19 +15,29 @@ import { SearchBar } from "@/app/search/SearchBar";
 export const dynamic = "force-dynamic";
 
 const DISCOVER_TAGS = ["pop", "rock", "electronic"];
+// Deezer-charted genres (real track charts, no Last.fm key needed) plus a few
+// popular tags that fall back to Last.fm. The /genre/[tag] page handles both.
 const GENRE_CHIPS = [
-  "rock",
   "pop",
-  "indie",
-  "electronic",
+  "rock",
   "hip-hop",
+  "electronic",
+  "dance",
+  "r&b",
   "alternative",
+  "indie",
   "jazz",
   "classical",
   "metal",
   "folk",
-  "ambient",
   "soul",
+  "reggae",
+  "country",
+  "blues",
+  "latin",
+  "soundtrack",
+  "ambient",
+  "punk",
 ];
 
 export default async function DiscoverPage() {
@@ -97,7 +107,11 @@ export default async function DiscoverPage() {
 
       <MixCards viewer={viewer} />
 
-      <DiscoveryTrackList title="Trending now" tracks={trendingNow} />
+      <DiscoveryTrackList
+        title="Trending now"
+        tracks={trendingNow}
+        href="/discover/trending"
+      />
 
       <DiscoveryTrackList title="Fresh tracks" tracks={freshTracks} />
 
@@ -106,6 +120,7 @@ export default async function DiscoverPage() {
           key={r.tag}
           title={`Trending in ${r.tag}`}
           tracks={r.tracks}
+          href={`/genre/${encodeURIComponent(r.tag)}`}
         />
       ))}
 

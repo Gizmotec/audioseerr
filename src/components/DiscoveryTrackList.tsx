@@ -1,6 +1,7 @@
 "use client";
 
-import { Check, Disc3, Download, Heart, Loader2, Pause, Play, X } from "lucide-react";
+import { Check, ChevronRight, Disc3, Download, Heart, Loader2, Pause, Play, X } from "lucide-react";
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { usePreviewPlayer } from "@/components/PreviewPlayer";
 import { useTrackMenu } from "@/components/TrackMenu";
@@ -19,15 +20,29 @@ import { cn } from "@/lib/utils";
 export function DiscoveryTrackList({
   title,
   tracks,
+  href,
 }: {
   title: string;
   tracks: DiscoveryTrack[];
+  /** When set, renders a "See more" link to a full page of this shelf. */
+  href?: string;
 }) {
   if (tracks.length === 0) return null;
 
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-medium">{title}</h2>
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="text-lg font-medium">{title}</h2>
+        {href && (
+          <Link
+            href={href}
+            className="inline-flex shrink-0 items-center gap-0.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            See more
+            <ChevronRight className="h-4 w-4" />
+          </Link>
+        )}
+      </div>
       <div className="-mx-4 overflow-x-auto px-4 md:-mx-6 md:px-6">
         <ul className="flex gap-4 pb-2">
           {tracks.map((track, i) => (
