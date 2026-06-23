@@ -34,6 +34,10 @@ const SEARCH_MAX_WAIT_MS = 30000;
 const SEARCH_BUDGET_PER_RUN = 5;
 // Ranked candidates kept for peer failover on transfer errors.
 const CANDIDATE_SHORTLIST = 8;
+// How long to wait before re-searching a track we couldn't find. Tracks that
+// aren't on Soulseek yet (new/unreleased) stay APPROVED and get retried on this
+// cadence — possibly forever — instead of failing, since they may appear later.
+const NOT_FOUND_RETRY_MS = 30 * 60 * 1000;
 
 type TrackCandidate = { username: string; filename: string; size: number };
 
@@ -340,9 +344,17 @@ export async function syncActiveRequests(): Promise<{
  * of requests moved out of APPROVED (to DOWNLOADING or FAILED).
  */
 async function runTrackSearches(slskdConfig: SlskdConfig): Promise<number> {
+  // Fresh approvals (lastSearchedAt null) sort first in SQLite ASC, so a backlog
+  // of never-found tracks can't starve a new request out of the per-run budget.
+  const retryCutoff = new Date(Date.now() - NOT_FOUND_RETRY_MS);
   const pending = await prisma.request.findMany({
-    where: { status: "APPROVED", type: "TRACK", slskdFile: null },
-    orderBy: { approvedAt: "asc" },
+    where: {
+      status: "APPROVED",
+      type: "TRACK",
+      slskdFile: null,
+      OR: [{ lastSearchedAt: null }, { lastSearchedAt: { lt: retryCutoff } }],
+    },
+    orderBy: { lastSearchedAt: "asc" },
     take: SEARCH_BUDGET_PER_RUN,
   });
 
@@ -376,17 +388,20 @@ async function runTrackSearches(slskdConfig: SlskdConfig): Promise<number> {
       }).slice(0, CANDIDATE_SHORTLIST);
 
       if (ranked.length === 0) {
+        // Not found (yet). Keep it APPROVED and stamp lastSearchedAt so it
+        // retries on the NOT_FOUND_RETRY_MS cadence — the track may appear on
+        // Soulseek later (newly released/shared). Not a status change, so it
+        // doesn't count toward `changed` or trigger a library resync.
         await prisma.request.update({
           where: { id: req.id },
           data: {
-            status: "FAILED",
+            lastSearchedAt: new Date(),
             declineReason:
               candidates.length === 0
-                ? `Soulseek returned no files for "${query}".`
-                : `Soulseek returned ${candidates.length} files for "${query}" but none matched the track closely enough (title or duration).`,
+                ? "Not on Soulseek yet — we'll keep checking and grab it when it appears."
+                : `Found ${candidates.length} files but none matched closely enough yet — we'll keep checking.`,
           },
         });
-        changed++;
         continue;
       }
 

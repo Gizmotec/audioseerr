@@ -90,6 +90,7 @@ async function approveTrackRequest(
       status: "APPROVED",
       approvedAt: new Date(),
       declineReason: null,
+      lastSearchedAt: null,
       slskdUsername: null,
       slskdFile: null,
       slskdCandidatesJson: null,

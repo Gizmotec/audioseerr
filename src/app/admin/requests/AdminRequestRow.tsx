@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Disc3, Loader2, Music2, X } from "lucide-react";
+import { Check, Disc3, Loader2, Music2, Search, X } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
@@ -109,9 +109,15 @@ export function AdminRequestRow({
           <span className="font-mono">{request.requestedBy}</span> ·{" "}
           {formatRelative(new Date(request.requestedAt))}
         </p>
-        {request.downloadTitle && (
+        {request.downloadTitle && status !== "APPROVED" && (
           <p className="truncate text-xs text-muted-foreground">
             Torrent: {request.downloadTitle}
+          </p>
+        )}
+        {!isPending && status === "APPROVED" && (
+          <p className="flex items-center gap-1.5 truncate text-xs text-sky-300">
+            <Search className="h-3 w-3 shrink-0 animate-pulse" />
+            {request.declineReason ?? "Searching Soulseek for a match…"}
           </p>
         )}
         {!isPending &&

@@ -92,6 +92,11 @@ model Request {
   requestedBy      User          @relation(fields: [requestedById], references: [id], onDelete: Cascade)
   requestedAt      DateTime      @default(now())
   approvedAt       DateTime?
+  // Last time the background job searched Soulseek for this (TRACK) request and
+  // came up empty. Throttles re-search so not-yet-available tracks (new/
+  // unreleased) keep retrying on a cadence instead of failing. Null = never
+  // searched yet (fresh approval), so it's picked up immediately.
+  lastSearchedAt   DateTime?
   declineReason    String?
   lidarrId         Int?
   qualityProfileId Int?
