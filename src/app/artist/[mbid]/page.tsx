@@ -5,7 +5,7 @@ import { auth } from "@/auth";
 import { AlbumCard } from "@/app/search/AlbumCard";
 import { AmbientArtworkBackground } from "@/components/AmbientArtworkBackground";
 import { BackLink } from "@/components/BackLink";
-import { resolveAppleMusicUrl } from "@/lib/appleMusic";
+import { buildSevenDigitalUrl } from "@/lib/sevenDigital";
 import { getDeezerArtistBundle } from "@/lib/deezer";
 import { getArtistInfo, getArtistTopTracks } from "@/lib/lastfm";
 import { buildLibraryIndex } from "@/lib/library";
@@ -61,7 +61,6 @@ export default async function ArtistPage({ params }: { params: RouteParams }) {
     existingRequest,
     artistLiked,
     likedAlbums,
-    appleMusicUrl,
   ] = await Promise.all([
     getDeezerArtistBundle(artist.name).catch(() => null),
     lastFmKey
@@ -89,8 +88,9 @@ export default async function ArtistPage({ params }: { params: RouteParams }) {
       "ALBUM",
       artist.releaseGroups.map((rg) => rg.mbid),
     ),
-    resolveAppleMusicUrl({ artistName: artist.name }),
   ]);
+
+  const sevenDigitalUrl = buildSevenDigitalUrl({ artistName: artist.name });
 
   // Last.fm and Deezer rarely return identical track titles — Last.fm tends
   // to fold "(feat. X)" into the title while Deezer adds trailing punctuation.
@@ -170,7 +170,7 @@ export default async function ArtistPage({ params }: { params: RouteParams }) {
           existingStatus={existingStatus}
           hasLastFmKey={!!lastFmKey}
           liked={artistLiked}
-          appleMusicUrl={appleMusicUrl}
+          sevenDigitalUrl={sevenDigitalUrl}
           canRemoveFromLibrary={isAdmin && inLibraryCount > 0}
         />
       </div>

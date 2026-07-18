@@ -7,7 +7,7 @@ import {
   AddToPlaylistButton,
   type PlaylistOption,
 } from "@/components/AddToPlaylistButton";
-import { AppleMusicButton } from "@/components/AppleMusicButton";
+import { SevenDigitalButton } from "@/components/SevenDigitalButton";
 import { LikeButton } from "@/components/LikeButton";
 import { type QueueItem, usePreviewPlayer } from "@/components/PreviewPlayer";
 import { TrackLikeButton } from "@/components/TrackLikeButton";
@@ -38,7 +38,7 @@ export function AlbumDetail({
   likedRecordingMbids,
   existingTrackStatuses,
   playlists,
-  appleMusicUrl,
+  sevenDigitalUrl,
   canRemoveFromLibrary = false,
 }: {
   album: AlbumHero;
@@ -49,7 +49,7 @@ export function AlbumDetail({
   likedRecordingMbids: string[];
   existingTrackStatuses: Record<string, ExistingRequestStatus>;
   playlists: PlaylistOption[];
-  appleMusicUrl: string;
+  sevenDigitalUrl: string;
   canRemoveFromLibrary?: boolean;
 }) {
   const likedTracks = useMemo(
@@ -186,7 +186,7 @@ export function AlbumDetail({
               }}
               initialLiked={albumLiked}
             />
-            <AppleMusicButton href={appleMusicUrl} label="Buy on Apple Music" />
+            <SevenDigitalButton href={sevenDigitalUrl} label="Buy on 7digital" />
             {canRemoveFromLibrary && libraryStatus && (
               <RemoveFromLibraryButton
                 target={{

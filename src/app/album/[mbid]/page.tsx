@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { AmbientArtworkBackground } from "@/components/AmbientArtworkBackground";
 import { BackLink } from "@/components/BackLink";
 import { DownloadWatcher } from "@/components/DownloadsProgressProvider";
-import { resolveAppleMusicUrl } from "@/lib/appleMusic";
+import { buildSevenDigitalUrl } from "@/lib/sevenDigital";
 import { prisma } from "@/lib/db";
 import { findAlbumPreviews, normalizeTrackTitle } from "@/lib/deezer";
 import { buildDownloadedTrackLookup } from "@/lib/downloadedTracks";
@@ -119,7 +119,7 @@ export default async function AlbumPage({
     };
   });
 
-  const appleMusicUrl = await resolveAppleMusicUrl({
+  const sevenDigitalUrl = buildSevenDigitalUrl({
     artistName: album.artistName,
     albumTitle: album.title,
   });
@@ -174,7 +174,7 @@ export default async function AlbumPage({
         likedRecordingMbids={Array.from(likedTrackSet)}
         existingTrackStatuses={existingTrackStatuses}
         playlists={playlistOptions}
-        appleMusicUrl={appleMusicUrl}
+        sevenDigitalUrl={sevenDigitalUrl}
         canRemoveFromLibrary={isAdmin}
       />
     </main>

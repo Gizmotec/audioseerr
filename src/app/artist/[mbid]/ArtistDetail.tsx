@@ -2,7 +2,7 @@
 
 import { User } from "lucide-react";
 import { useState } from "react";
-import { AppleMusicButton } from "@/components/AppleMusicButton";
+import { SevenDigitalButton } from "@/components/SevenDigitalButton";
 import { LikeButton } from "@/components/LikeButton";
 import { RemoveFromLibraryButton } from "@/components/RemoveFromLibraryButton";
 import { type ArtistTopTrack, TopTracksList } from "@/components/TopTracksList";
@@ -28,7 +28,7 @@ export function ArtistDetail({
   existingStatus,
   hasLastFmKey,
   liked,
-  appleMusicUrl,
+  sevenDigitalUrl,
   canRemoveFromLibrary = false,
 }: {
   artist: ArtistHero;
@@ -36,7 +36,7 @@ export function ArtistDetail({
   existingStatus: ExistingArtistRequestStatus | null;
   hasLastFmKey: boolean;
   liked: boolean;
-  appleMusicUrl: string;
+  sevenDigitalUrl: string;
   canRemoveFromLibrary?: boolean;
 }) {
   const [imgOk, setImgOk] = useState(artist.imageUrl !== null);
@@ -120,7 +120,7 @@ export function ArtistDetail({
               }}
               initialLiked={liked}
             />
-            <AppleMusicButton href={appleMusicUrl} label="Find on Apple Music" />
+            <SevenDigitalButton href={sevenDigitalUrl} label="Find on 7digital" />
             {canRemoveFromLibrary && (
               <RemoveFromLibraryButton
                 target={{ type: "artist", mbid: artist.mbid, name: artist.name }}
