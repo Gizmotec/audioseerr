@@ -4,7 +4,7 @@
 //   - re-refreshes playlists whose weekly schedule is due, a few per tick so the
 //     ongoing churn stays spread out.
 // After a refresh, each subscriber gets the new tracks resolved to MusicBrainz
-// and auto-downloaded into temp (ephemeral) storage.
+// and auto-downloaded permanently into their library.
 
 import { prisma } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
@@ -16,7 +16,6 @@ import { ensureTrackRequested } from "@/lib/trackRequests";
 // they need content now). ponytail: fixed cap, fine for ~14 playlists.
 const MAX_DUE_PER_TICK = 4;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-const RETENTION_MS = 8 * 24 * 60 * 60 * 1000;
 
 export async function refreshSystemPlaylists(): Promise<{ refreshed: number }> {
   const settings = await getSettings();
@@ -56,7 +55,7 @@ export async function refreshSystemPlaylists(): Promise<{ refreshed: number }> {
         where: { id: playlist.id },
         data: { nextRefreshAt: new Date(now.getTime() + WEEK_MS) },
       });
-      if (tracks.length > 0) await downloadForSubscribers(playlist.id, tracks, now);
+      if (tracks.length > 0) await downloadForSubscribers(playlist.id, tracks);
       refreshed++;
     } catch (err) {
       console.error(`[refreshSystemPlaylists] failed for ${playlist.slug}:`, err);
@@ -65,12 +64,12 @@ export async function refreshSystemPlaylists(): Promise<{ refreshed: number }> {
   return { refreshed };
 }
 
-/** Resolve each (unresolved) track to MusicBrainz and queue a temp download for
- * every subscriber. Best-effort: a resolve/queue miss skips that track. */
+/** Resolve each (unresolved) track to MusicBrainz and queue a permanent
+ * download for every subscriber. Best-effort: a resolve/queue miss skips that
+ * track. */
 async function downloadForSubscribers(
   playlistId: string,
   tracks: { title: string; artistName: string; albumTitle: string | null; coverUrl: string | null }[],
-  now: Date,
 ): Promise<void> {
   const subs = await prisma.playlistSubscription.findMany({
     where: { playlistId },
@@ -78,7 +77,6 @@ async function downloadForSubscribers(
   });
   if (subs.length === 0) return;
 
-  const expiresAt = new Date(now.getTime() + RETENTION_MS);
   for (const t of tracks) {
     const resolved = await resolveSong(t, { includeSingles: true }).catch(() => null);
     if (!resolved) continue;
@@ -94,7 +92,7 @@ async function downloadForSubscribers(
           trackTitle: resolved.title,
           albumPosition: resolved.albumPosition,
         },
-        { ephemeral: true, expiresAt },
+        { forceApproval: true },
       );
     }
   }

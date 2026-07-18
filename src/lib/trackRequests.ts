@@ -21,13 +21,15 @@ export type EnsureTrackInput = {
  * Ensure a single track is on its way to the user's library.
  *   1. Already requested (pending/in-flight/done) → nothing to do.
  *   2. Already downloaded by anyone → just grant this user visibility.
- *   3. Otherwise create a TRACK request and, if the user is auto-approved,
- *      kick off the slskd download immediately.
+ *   3. Otherwise create a TRACK request and kick off the slskd download
+ *      immediately if the user is auto-approved — or unconditionally when
+ *      `opts.forceApproval` is set (e.g. playlist subscriptions, where the
+ *      subscribe itself is the explicit ask).
  */
 export async function ensureTrackRequested(
   userId: string,
   input: EnsureTrackInput,
-  opts: { ephemeral?: boolean; expiresAt?: Date | null } = {},
+  opts: { ephemeral?: boolean; expiresAt?: Date | null; forceApproval?: boolean } = {},
 ): Promise<void> {
   try {
     const mbid =
@@ -101,7 +103,9 @@ export async function ensureTrackRequested(
       },
     });
 
-    if (requester?.autoApproveTrack) {
+    const autoApprove =
+      opts.forceApproval === true || requester?.autoApproveTrack === true;
+    if (autoApprove) {
       const settings = await getSettings();
       // Detached: approval runs an slskd search that can take several seconds.
       // The request row already exists (so the "fetching" badge shows

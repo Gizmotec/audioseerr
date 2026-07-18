@@ -6,9 +6,9 @@ import { useState, useTransition } from "react";
 import { setPlaylistSubscriptionAction } from "@/lib/actions/playlists";
 import { cn } from "@/lib/utils";
 
-/** Subscribe toggle for a system (editorial) playlist. Subscribing kicks off a
- * temp download of the current picks; future weekly refreshes auto-download the
- * new ones. */
+/** Subscribe toggle for a system (editorial) playlist. Subscribing downloads
+ * the current picks into the user's library; future weekly refreshes
+ * auto-download the new ones too. */
 export function SubscribeButton({
   playlistId,
   initialSubscribed,
@@ -41,8 +41,8 @@ export function SubscribeButton({
       aria-pressed={subscribed}
       title={
         subscribed
-          ? "Subscribed — new picks auto-download each week. Click to unsubscribe."
-          : "Subscribe to auto-download this playlist's picks every week."
+          ? "Subscribed — all picks download to your library; new picks auto-download each week. Click to unsubscribe."
+          : "Subscribe to download this whole playlist, and auto-download new picks every week."
       }
       className={cn(
         "inline-flex h-10 items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition-colors",
