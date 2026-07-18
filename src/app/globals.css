@@ -153,8 +153,7 @@
   }
   html {
     @apply font-sans;
-  }
-  /* ponytail: themed scrollbars; Firefox + WebKit cover all current browsers */
+  }  /* ponytail: themed scrollbars; Firefox + WebKit cover all current browsers */
   * {
     scrollbar-width: thin;
     scrollbar-color: var(--surface-2) transparent;
@@ -176,4 +175,42 @@
     background: var(--muted-foreground);
     background-clip: padding-box;
   }
+}
+
+/* Collapsible sidebar. `html.sidebar-collapsed` is applied before first paint
+   by the inline script in layout.tsx and toggled by SidebarToggle. */
+:root {
+  --sidebar-width: 15rem;
+}
+html.sidebar-collapsed {
+  --sidebar-width: 4.5rem;
+}
+.sidebar {
+  width: var(--sidebar-width);
+  transition: width 0.2s ease;
+}
+.sidebar-icon-expand {
+  display: none;
+}
+html.sidebar-collapsed .sidebar-icon-collapse {
+  display: none;
+}
+html.sidebar-collapsed .sidebar-icon-expand {
+  display: block;
+}
+html.sidebar-collapsed .sidebar-label,
+html.sidebar-collapsed .sidebar-wordmark,
+html.sidebar-collapsed .sidebar-footer-note {
+  display: none;
+}
+html.sidebar-collapsed .sidebar-link,
+html.sidebar-collapsed .sidebar-footer-link {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+html.sidebar-collapsed .sidebar-header {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
 }

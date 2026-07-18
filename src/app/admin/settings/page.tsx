@@ -1,5 +1,6 @@
 import { statfs } from "node:fs/promises";
 import { ArrowLeft } from "lucide-react";
+import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { UsersAdminClient } from "@/app/admin/users/UsersAdminClient";
@@ -17,19 +18,24 @@ type Tab = "settings" | "users";
 export default async function AdminSettingsPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ tab?: string }>;
+  searchParams?: Promise<{
+    tab?: string;
+    section?: string;
+    connected?: string;
+    error?: string;
+    reason?: string;
+  }>;
 }) {
   if (!(await isSetupComplete())) {
     redirect("/setup");
   }
   const session = await auth();
   if (!session?.user) redirect("/login");
-  if ((session.user as { role?: string }).role !== "ADMIN") {
-    redirect("/home");
-  }
+  const isAdmin = (session.user as { role?: string }).role === "ADMIN";
+  const currentUserId = (session.user as { id?: string }).id ?? "";
 
-  const { tab: rawTab } = (await searchParams) ?? {};
-  const tab: Tab = rawTab === "users" ? "users" : "settings";
+  const params = (await searchParams) ?? {};
+  const tab: Tab = isAdmin && params.tab === "users" ? "users" : "settings";
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 md:px-6">
@@ -43,21 +49,34 @@ export default async function AdminSettingsPage({
       <header className="mt-4 mb-6">
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
         <p className="text-sm text-muted-foreground">
-          {tab === "users"
-            ? "Invite people to your server and decide whose requests skip approval."
-            : "Integrations, library playback, and system preferences. Changes apply immediately."}
+          {!isAdmin
+            ? "Connect your Spotify account to import playlists."
+            : tab === "users"
+              ? "Invite people to your server and decide whose requests skip approval."
+              : "Integrations, library playback, and system preferences. Changes apply immediately."}
         </p>
       </header>
 
-      <div className="mb-6 flex gap-1 border-b border-border">
-        <TabLink href="/admin/settings" label="Settings" active={tab === "settings"} />
-        <TabLink href="/admin/settings?tab=users" label="Users" active={tab === "users"} />
-      </div>
+      {isAdmin && (
+        <div className="mb-6 flex gap-1 border-b border-border">
+          <TabLink href="/admin/settings" label="Settings" active={tab === "settings"} />
+          <TabLink href="/admin/settings?tab=users" label="Users" active={tab === "users"} />
+        </div>
+      )}
 
       {tab === "users" ? (
-        <UsersTab currentUserId={(session.user as { id?: string }).id ?? ""} />
+        <UsersTab currentUserId={currentUserId} />
       ) : (
-        <SettingsTab currentUserId={(session.user as { id?: string }).id ?? ""} />
+        <SettingsTab
+          currentUserId={currentUserId}
+          isAdmin={isAdmin}
+          section={params.section}
+          oauth={{
+            connected: params.connected === "1",
+            error: params.error ?? null,
+            reason: params.reason ?? null,
+          }}
+        />
       )}
     </main>
   );
@@ -87,7 +106,17 @@ function TabLink({
   );
 }
 
-async function SettingsTab({ currentUserId }: { currentUserId: string }) {
+async function SettingsTab({
+  currentUserId,
+  isAdmin,
+  section,
+  oauth,
+}: {
+  currentUserId: string;
+  isAdmin: boolean;
+  section?: string;
+  oauth: { connected: boolean; error: string | null; reason: string | null };
+}) {
   const [settings, user] = await Promise.all([
     getSettings(),
     prisma.user.findUnique({
@@ -100,6 +129,14 @@ async function SettingsTab({ currentUserId }: { currentUserId: string }) {
     authSecret: !!process.env.AUTH_SECRET,
     audioseerrSecret: !!process.env.AUDIOSEERR_SECRET,
   };
+
+  // Derive the redirect URI from the request origin so it matches whatever
+  // host the user is actually accessing Audioseerr at. They paste this URI
+  // into their Spotify app's redirect-URI list verbatim.
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
+  const proto = h.get("x-forwarded-proto") ?? "http";
+  const redirectUri = `${proto}://${host}/api/spotify/callback`;
 
   return (
     <SettingsForm
@@ -114,9 +151,15 @@ async function SettingsTab({ currentUserId }: { currentUserId: string }) {
       env={env}
       storage={await getStorageStats(settings)}
       spotify={{
+        initialClientId: user?.spotifyClientId ?? "",
         connected: !!user?.spotifyAccessToken,
-        clientIdSaved: !!user?.spotifyClientId,
+        redirectUri,
+        oauthConnected: oauth.connected,
+        oauthError: oauth.error,
+        reason: oauth.reason,
       }}
+      isAdmin={isAdmin}
+      initialTab={section === "integrations" ? "integrations" : "general"}
     />
   );
 }

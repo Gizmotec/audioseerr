@@ -224,7 +224,7 @@ function userRow(r: Request) {
     <li key={r.id} className="flex items-center gap-4 py-3">
       <Link
         href={href}
-        className="flex h-12 w-12 shrink-0 overflow-hidden rounded-lg border-2 border-ink bg-secondary"
+        className="flex h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-secondary"
       >
         {r.coverUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -305,7 +305,7 @@ function HomeLink() {
 
 function EmptyHint({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border-2 border-dashed border-ink/40 bg-card p-10 text-center text-sm text-muted-foreground">
+    <div className="rounded-2xl border-2 border-dashed border-foreground/15 bg-card p-10 text-center text-sm text-muted-foreground">
       {children}
     </div>
   );

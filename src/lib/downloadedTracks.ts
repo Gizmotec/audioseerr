@@ -7,7 +7,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { prisma } from "@/lib/db";
-import { normalizeTrackTitle, trackMatchKey } from "@/lib/deezer";
+import { trackMatchKey } from "@/lib/deezer";
 import { baseName } from "@/lib/slskd";
 import { applyPathMap, parsePathMap } from "@/lib/streaming";
 import { isAdmin, type LibraryViewer } from "@/lib/userLibrary";
@@ -288,7 +288,7 @@ export async function buildEphemeralTrackLookup(
     },
   });
   for (const r of rows) {
-    const key = `${normalizeTrackTitle(r.artistName)}|${normalizeTrackTitle(r.title)}`;
+    const key = trackMatchKey(r.artistName, r.title);
     out.set(key, {
       downloadedTrackId: r.id,
       recordingMbid: r.recordingMbid,

@@ -73,10 +73,10 @@ export function LikeButton({ payload, initialLiked, variant = "full", label }: P
       onClick={submit}
       aria-pressed={liked}
       className={cn(
-        "inline-flex h-9 items-center gap-2 rounded-full border-2 px-4 text-sm font-bold transition-colors",
+        "inline-flex h-9 items-center gap-2 rounded-full border-2 border-transparent px-4 text-sm font-bold transition-colors",
         liked
-          ? "border-ink bg-pastel-pink text-ink hover:bg-pastel-pink/80"
-          : "border-ink bg-surface-2 text-foreground hover:bg-accent",
+          ? "bg-pastel-pink text-ink hover:bg-pastel-pink/80"
+          : "bg-surface-2 text-foreground hover:bg-accent",
       )}
     >
       <Heart

@@ -23,7 +23,7 @@ export function PlaylistTile({ playlist }: { playlist: PlaylistSummary }) {
       }
       className="group flex flex-col gap-2 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <div className="relative aspect-square overflow-hidden rounded-xl border-2 border-ink bg-surface-2">
+      <div className="relative aspect-square overflow-hidden rounded-xl bg-surface-2">
         {showSingleCover ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img

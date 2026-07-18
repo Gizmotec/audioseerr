@@ -643,10 +643,10 @@ function PreviewPlayerBar({
   const pct = safeDuration > 0 ? (currentTime / safeDuration) * 100 : 0;
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-ink bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:left-60">
+    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-foreground/10 bg-surface transition-[left] duration-200 md:left-[var(--sidebar-width)]">
       <div className="mx-auto flex w-full max-w-5xl items-center gap-3 px-4 py-3 md:gap-4 md:px-6">
         <div className="flex min-w-0 flex-1 items-center gap-3 md:flex-none md:w-64">
-          <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border-2 border-ink bg-secondary">
+          <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-secondary">
             {coverOk && current.coverUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -846,7 +846,7 @@ function PlayPauseButton({
       type="button"
       onClick={onClick}
       aria-label={playing ? "Pause" : "Play"}
-      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-ink bg-pastel-pink text-ink transition-transform hover:scale-105"
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-pastel-pink text-ink transition-transform hover:scale-105"
     >
       {loading ? (
         <Loader2 className="h-4 w-4 animate-spin" />

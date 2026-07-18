@@ -61,9 +61,9 @@ function TabButton({
       role="tab"
       aria-selected={active}
       onClick={onClick}
-      className={`rounded-full border-2 px-3 py-1.5 text-sm font-bold transition-colors ${
+      className={`rounded-full px-3 py-1.5 text-sm font-bold transition-colors ${
         active
-          ? "border-ink bg-pastel-yellow text-ink"
+          ? "bg-pastel-yellow text-ink"
           : "border-transparent bg-surface-2 text-muted-foreground hover:text-foreground"
       }`}
     >

@@ -83,7 +83,7 @@ export default async function LibraryPage() {
       </header>
 
       {isEmpty ? (
-        <div className="rounded-2xl border-2 border-dashed border-ink bg-card p-8 text-center text-sm text-muted-foreground">
+        <div className="rounded-2xl border-2 border-dashed border-foreground/15 bg-card p-8 text-center text-sm text-muted-foreground">
           <Disc3 className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" />
           <p>Nothing in the library yet.</p>
           <p className="mt-1">

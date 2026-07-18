@@ -1,6 +1,5 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { AmbientArtworkBackground } from "@/components/AmbientArtworkBackground";
 import { BackLink } from "@/components/BackLink";
 import { DownloadWatcher } from "@/components/DownloadsProgressProvider";
 import { buildSevenDigitalUrl } from "@/lib/sevenDigital";
@@ -152,7 +151,6 @@ export default async function AlbumPage({
 
   return (
     <main className="relative isolate mx-auto w-full max-w-5xl flex-1 px-4 py-6 md:px-6">
-      <AmbientArtworkBackground imageUrl={coverUrl} />
       <DownloadWatcher enabled={hasActiveDownloads} />
 
       <BackLink fallbackHref="/home" />

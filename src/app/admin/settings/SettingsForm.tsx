@@ -31,6 +31,10 @@ import {
 } from "./actions";
 import { KEY_UNCHANGED_SENTINEL } from "./constants";
 import { IntegrationCard } from "./IntegrationCard";
+import {
+  type SpotifyIntegration,
+  SpotifyIntegrationCard,
+} from "./SpotifyIntegrationCard";
 
 type Initial = {
   slskdUrl: string;
@@ -53,11 +57,6 @@ export type StorageStats = {
   total: number;
   free: number;
   appBytes: number;
-};
-
-export type SpotifyStatus = {
-  connected: boolean;
-  clientIdSaved: boolean;
 };
 
 type TabId = "general" | "integrations" | "system";
@@ -133,18 +132,22 @@ export function SettingsForm({
   env,
   storage,
   spotify,
+  isAdmin,
+  initialTab = "general",
 }: {
   initial: Initial;
   env: EnvFlags;
   storage: StorageStats;
-  spotify: SpotifyStatus;
+  spotify: SpotifyIntegration;
+  isAdmin: boolean;
+  initialTab?: TabId;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  const [tab, setTab] = useState<TabId>("general");
+  const [tab, setTab] = useState<TabId>(initialTab);
   const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState<Partial<Record<SectionId, boolean>>>(
     {},
@@ -341,21 +344,7 @@ export function SettingsForm({
           </IntegrationCard>
         );
       case "spotify":
-        return (
-          <IntegrationCard
-            provider="spotify"
-            name="Spotify"
-            description="Import your Spotify playlists. Connected per user from the account page."
-            connected={spotify.connected}
-            action={{
-              href: spotify.connected
-                ? "/account"
-                : spotify.clientIdSaved
-                  ? "/api/spotify/connect"
-                  : "/account",
-            }}
-          />
-        );
+        return <SpotifyIntegrationCard {...spotify} />;
       case "playback":
         return (
           <Card>
@@ -439,6 +428,12 @@ export function SettingsForm({
     }
   }
 
+  // Non-admins only manage their own per-user integrations (Spotify); the
+  // server settings form and its actions are admin-only.
+  if (!isAdmin) {
+    return <SpotifyIntegrationCard {...spotify} />;
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {/* Search — outside the form so Enter never submits settings */}
@@ -467,7 +462,7 @@ export function SettingsForm({
         <div
           role="tablist"
           aria-label="Settings sections"
-          className="flex w-fit gap-1 rounded-full border-2 border-ink bg-surface-2 p-1"
+          className="flex w-fit gap-1 rounded-full bg-surface-2 p-1"
         >
           {TABS.map(({ id, label, icon: Icon }) => (
             <button
@@ -477,9 +472,9 @@ export function SettingsForm({
               aria-selected={tab === id}
               onClick={() => setTab(id)}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-full border-2 px-3 py-1.5 text-sm font-bold transition-colors",
+                "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-bold transition-colors",
                 tab === id
-                  ? "border-ink bg-pastel-yellow text-ink"
+                  ? "bg-pastel-yellow text-ink"
                   : "border-transparent text-muted-foreground hover:text-foreground",
               )}
             >
@@ -493,7 +488,7 @@ export function SettingsForm({
       <form className="flex flex-col gap-6" onSubmit={onSubmit}>
         {searching ? (
           visibleSections.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-ink py-12 text-center">
+            <div className="flex flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-foreground/15 py-12 text-center">
               <SearchX className="size-5 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
                 No settings match &ldquo;{query}&rdquo;.
@@ -524,12 +519,12 @@ export function SettingsForm({
         )}
 
         {error && (
-          <div className="rounded-xl border-2 border-ink bg-pastel-red px-3 py-2 text-sm text-ink">
+          <div className="rounded-xl bg-pastel-red px-3 py-2 text-sm text-ink">
             {error}
           </div>
         )}
 
-        <div className="sticky bottom-4 flex items-center justify-end gap-3 rounded-2xl border-2 border-ink bg-card p-3">
+        <div className="sticky bottom-4 flex items-center justify-end gap-3 rounded-2xl bg-card p-3">
           {saved && (
             <span className="inline-flex items-center gap-1.5 text-sm text-pastel-mint">
               <CheckCircle2 className="h-4 w-4" /> Saved
@@ -586,7 +581,7 @@ function StorageCard({ storage }: { storage: StorageStats }) {
           </p>
         ) : (
           <>
-            <div className="flex h-3 w-full overflow-hidden rounded-full border-2 border-ink bg-surface-2">
+            <div className="flex h-3 w-full overflow-hidden rounded-full bg-surface-2">
               <div
                 className="bg-pastel-pink"
                 style={{ width: `${pct(appOnDisk)}%` }}
@@ -631,7 +626,7 @@ function LegendItem({
   return (
     <div className="flex items-center gap-2">
       {dot ? (
-        <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full border border-ink", dot)} />
+        <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", dot)} />
       ) : null}
       <div className="min-w-0">
         <dt className="text-xs text-muted-foreground">{label}</dt>
@@ -643,7 +638,7 @@ function LegendItem({
 
 function EnvRow({ label, set }: { label: string; set: boolean }) {
   return (
-    <div className="flex items-center justify-between rounded-xl border-2 border-ink px-3 py-2">
+    <div className="flex items-center justify-between rounded-xl px-3 py-2">
       <code className="font-mono text-xs">{label}</code>
       <span
         className={

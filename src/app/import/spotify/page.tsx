@@ -22,7 +22,7 @@ export default async function SpotifyImportPage() {
   if (!session?.user?.id) redirect("/login");
 
   const conn = await getSpotifyConnection(session.user.id);
-  if (!conn) redirect("/account?reason=connect_spotify");
+  if (!conn) redirect("/admin/settings?section=integrations&reason=connect_spotify");
 
   let playlists: Awaited<ReturnType<typeof listMyPlaylists>> = [];
   let error: string | null = null;
@@ -52,7 +52,7 @@ export default async function SpotifyImportPage() {
           </p>
         </div>
         <Link
-          href="/account"
+          href="/admin/settings?section=integrations"
           className="text-xs text-muted-foreground hover:text-foreground"
         >
           Manage connection
@@ -69,7 +69,7 @@ export default async function SpotifyImportPage() {
           </CardHeader>
           <CardContent>
             <Link
-              href="/account"
+              href="/admin/settings?section=integrations"
               className={buttonVariants({ variant: "outline" })}
             >
               Reconnect Spotify

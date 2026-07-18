@@ -7,6 +7,7 @@ import {
   AddToPlaylistButton,
   type PlaylistOption,
 } from "@/components/AddToPlaylistButton";
+import { HeroCard } from "@/components/HeroCard";
 import { SevenDigitalButton } from "@/components/SevenDigitalButton";
 import { LikeButton } from "@/components/LikeButton";
 import { type QueueItem, usePreviewPlayer } from "@/components/PreviewPlayer";
@@ -126,8 +127,11 @@ export function AlbumDetail({
 
   return (
     <div className="mt-6 flex flex-col gap-8">
-      <header className="flex flex-col gap-6 md:flex-row md:items-end">
-        <div className="relative h-56 w-56 shrink-0 overflow-hidden rounded-xl border-2 border-ink bg-secondary md:h-64 md:w-64">
+      <HeroCard
+        seed={album.title}
+        innerClassName="flex flex-col gap-6 md:flex-row md:items-end"
+      >
+        <div className="relative h-56 w-56 shrink-0 overflow-hidden rounded-xl bg-ink/10 md:h-64 md:w-64">
           {coverOk ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -138,24 +142,24 @@ export function AlbumDetail({
               onError={() => setCoverOk(false)}
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-muted-foreground/40">
+            <div className="flex h-full w-full items-center justify-center text-ink/40">
               <Disc3 className="h-1/3 w-1/3" />
             </div>
           )}
         </div>
 
         <div className="flex flex-col gap-3">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground">
+          <p className="text-xs font-bold uppercase tracking-wider text-ink/70">
             {typeLabel}
           </p>
           <h1 className="text-3xl font-extrabold leading-tight tracking-tight md:text-5xl">
             {album.title}
           </h1>
-          <p className="text-lg text-muted-foreground">
+          <p className="text-lg text-ink/70">
             {album.artistMbid ? (
               <Link
                 href={`/artist/${album.artistMbid}`}
-                className="font-medium text-foreground hover:underline"
+                className="font-bold text-ink hover:underline"
               >
                 {album.artistName}
               </Link>
@@ -199,7 +203,7 @@ export function AlbumDetail({
             )}
           </div>
         </div>
-      </header>
+      </HeroCard>
 
       <section>
         <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-muted-foreground">
@@ -237,9 +241,9 @@ export function AlbumDetail({
                       recordingMbid: t.recordingMbid,
                     })
                   }
-                  className={`flex items-center gap-4 rounded-xl border-2 px-2 py-2.5 hover:bg-surface-2 ${
+                  className={`flex items-center gap-4 rounded-xl px-2 py-2.5 hover:bg-surface-2 ${
                     isActive
-                      ? "border-ink bg-surface-2"
+                      ? "bg-surface-2"
                       : "border-transparent"
                   }`}
                 >
@@ -247,9 +251,9 @@ export function AlbumDetail({
                     type="button"
                     onClick={() => togglePreview(t, idx)}
                     disabled={!playable}
-                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 ${
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
                       playable
-                        ? "border-ink bg-pastel-pink text-ink hover:bg-pastel-pink/80"
+                        ? "bg-pastel-pink text-ink hover:bg-pastel-pink/80"
                         : "border-transparent text-muted-foreground/40"
                     }`}
                     aria-label={

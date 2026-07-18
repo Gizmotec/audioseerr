@@ -146,7 +146,7 @@ export default async function SearchPage({
       <SearchBar initialQuery={query} />
 
       {error && (
-        <p className="rounded-xl border-2 border-ink bg-pastel-red px-3 py-2 text-sm font-bold text-ink">
+        <p className="rounded-xl bg-pastel-red px-3 py-2 text-sm font-bold text-ink">
           {error}
         </p>
       )}
@@ -155,9 +155,9 @@ export default async function SearchPage({
         <section className="flex flex-col gap-6">
           <Link
             href={`/artist/${landing.mbid}`}
-            className="flex items-center gap-4 rounded-2xl border-2 border-ink bg-card p-4 transition-colors hover:bg-surface-2"
+            className="flex items-center gap-4 rounded-2xl bg-card p-4 transition-colors hover:bg-surface-2"
           >
-            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border-2 border-ink bg-secondary">
+            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-secondary">
               {landing.imageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img

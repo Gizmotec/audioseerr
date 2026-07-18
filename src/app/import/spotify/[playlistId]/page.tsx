@@ -37,7 +37,7 @@ export default async function SpotifyPlaylistPreview({
   if (!session?.user?.id) redirect("/login");
 
   const conn = await getSpotifyConnection(session.user.id);
-  if (!conn) redirect("/account?reason=connect_spotify");
+  if (!conn) redirect("/admin/settings?section=integrations&reason=connect_spotify");
 
   const { playlistId } = await params;
 
@@ -218,7 +218,7 @@ export default async function SpotifyPlaylistPreview({
             return (
               <>
                 {uncertain.length > 0 && (
-                  <Card className="mt-6 border-pastel-yellow">
+                  <Card className="mt-6 border-2 border-pastel-yellow">
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2 text-base">
                         <AlertTriangle className="h-4 w-4 text-pastel-yellow" />

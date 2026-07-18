@@ -39,7 +39,7 @@ export function DiscoveryRowSkeleton({
 
 function ChartRowSkeleton() {
   return (
-    <li className="grid min-h-16 grid-cols-[2rem_2.75rem_1fr] items-center gap-3 rounded-xl border-2 border-ink bg-card px-3 py-2">
+    <li className="grid min-h-16 grid-cols-[2rem_2.75rem_1fr] items-center gap-3 rounded-xl bg-card px-3 py-2">
       <div className={`h-3 w-5 rounded-xl ${SHIMMER}`} />
       <div className={`h-11 w-11 rounded-xl ${SHIMMER}`} />
       <div className="min-w-0 space-y-1.5">

@@ -44,7 +44,7 @@ export function CreatePlaylistInline() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex h-9 items-center gap-1.5 rounded-full border-2 border-ink bg-primary px-3 text-sm font-bold text-primary-foreground transition-colors hover:bg-pastel-pink/80"
+        className="inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-3 text-sm font-bold text-primary-foreground transition-colors hover:bg-pastel-pink/80"
       >
         <Plus className="h-4 w-4" /> New playlist
       </button>
@@ -79,13 +79,13 @@ export function CreatePlaylistInline() {
           maxLength={100}
           disabled={pending}
           className={cn(
-            "h-9 w-52 rounded-xl border-2 border-ink bg-surface-2 px-2.5 text-sm outline-none focus:border-primary",
+            "h-9 w-52 rounded-xl bg-surface-2 px-2.5 text-sm outline-none focus:border-primary",
           )}
         />
         <button
           type="submit"
           disabled={pending || name.trim().length === 0}
-          className="inline-flex h-9 items-center rounded-full border-2 border-ink bg-primary px-3 text-sm font-bold text-primary-foreground transition-colors hover:bg-pastel-pink/80 disabled:opacity-40"
+          className="inline-flex h-9 items-center rounded-full bg-primary px-3 text-sm font-bold text-primary-foreground transition-colors hover:bg-pastel-pink/80 disabled:opacity-40"
         >
           {pending ? (
             <Loader2 className="h-4 w-4 animate-spin" />

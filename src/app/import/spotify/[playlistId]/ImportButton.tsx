@@ -44,7 +44,7 @@ export function ImportButton({
       parts.push(`${result.autoApproveFailures} failed during auto-approve`);
     }
     return (
-      <div className="rounded-xl border-2 border-ink bg-pastel-mint px-3 py-2.5 text-sm text-ink">
+      <div className="rounded-xl bg-pastel-mint px-3 py-2.5 text-sm text-ink">
         <span className="inline-flex items-center gap-1.5 font-bold">
           <CheckCircle2 className="h-4 w-4" /> Imported.
         </span>{" "}

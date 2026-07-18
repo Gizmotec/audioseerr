@@ -177,7 +177,7 @@ function DiscoveryTrackCard({ track }: { track: DiscoveryTrack }) {
               : "pointer-events-none opacity-0",
           )}
         >
-          <span className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-ink bg-pastel-pink text-ink">
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-pastel-pink text-ink">
             {isLoading ? (
               <Loader2 className="h-5 w-5 animate-spin" />
             ) : isPlaying ? (
@@ -195,7 +195,7 @@ function DiscoveryTrackCard({ track }: { track: DiscoveryTrack }) {
         {/* Added badge (bottom-left), mirrors InLibraryBadge. */}
         {state === "done" && (
           <span
-            className="absolute bottom-1.5 left-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full border-2 border-ink bg-pastel-mint text-ink"
+            className="absolute bottom-1.5 left-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-pastel-mint text-ink"
             title="Added to your library"
             aria-label="Added to your library"
           >
@@ -214,7 +214,7 @@ function DiscoveryTrackCard({ track }: { track: DiscoveryTrack }) {
               state === "error" ? (error ?? "Download failed, retry") : "Download track"
             }
             className={cn(
-              "absolute top-1.5 right-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-ink bg-pastel-yellow text-ink transition-colors hover:bg-pastel-yellow/80 disabled:opacity-70",
+              "absolute top-1.5 right-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-pastel-yellow text-ink transition-colors hover:bg-pastel-yellow/80 disabled:opacity-70",
               state === "error" && "bg-pastel-red hover:bg-pastel-red/80",
             )}
           >
@@ -280,7 +280,7 @@ function CardLikeButton({ track }: { track: DiscoveryTrack }) {
       aria-pressed={liked}
       aria-label={liked ? `Unlike ${track.title}` : `Like ${track.title}`}
       className={cn(
-        "absolute top-1.5 left-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-ink transition-colors disabled:opacity-70",
+        "absolute top-1.5 left-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors disabled:opacity-70",
         liked
           ? "bg-pastel-pink text-ink hover:bg-pastel-pink/80"
           : "bg-surface text-foreground hover:bg-surface-2",

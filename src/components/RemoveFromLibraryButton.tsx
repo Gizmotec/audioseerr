@@ -74,7 +74,7 @@ export function RemoveFromLibraryButton({ target }: { target: Target }) {
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="inline-flex h-10 items-center gap-1.5 rounded-full border-2 border-ink bg-surface-2 px-4 text-sm font-bold text-muted-foreground transition-colors hover:border-destructive hover:text-destructive"
+        className="inline-flex h-10 items-center gap-1.5 rounded-full bg-surface-2 px-4 text-sm font-bold text-muted-foreground transition-colors hover:text-destructive"
       >
         <Trash2 className="h-4 w-4" />
         {label}
@@ -82,7 +82,7 @@ export function RemoveFromLibraryButton({ target }: { target: Target }) {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full z-30 mt-1 w-72 rounded-xl border-2 border-ink bg-popover p-3 text-sm"
+          className="absolute right-0 top-full z-30 mt-1 w-72 rounded-xl border border-foreground/10 bg-popover p-3 text-sm"
         >
           <p className="mb-1 text-foreground">{label}?</p>
           <p className="mb-1 truncate text-xs text-muted-foreground" title={subjectName}>

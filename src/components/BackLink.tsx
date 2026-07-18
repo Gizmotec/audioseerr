@@ -26,7 +26,7 @@ export function BackLink({
           router.back();
         }
       }}
-      className="inline-flex items-center gap-1.5 rounded-full border-2 border-transparent px-3 py-1.5 text-sm font-semibold text-muted-foreground hover:border-ink hover:bg-surface-2 hover:text-foreground"
+      className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold text-muted-foreground hover:bg-surface-2 hover:text-foreground"
     >
       <ArrowLeft className="h-4 w-4" /> {label}
     </Link>

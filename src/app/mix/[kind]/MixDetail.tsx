@@ -102,7 +102,7 @@ export function MixDetail({
           type="button"
           onClick={() => player.playQueue(queue, 0)}
           disabled={playableCount === 0}
-          className="inline-flex h-10 items-center gap-2 rounded-full border-2 border-ink bg-pastel-pink px-5 text-sm font-bold text-ink transition-colors hover:bg-pastel-pink/80 disabled:opacity-40"
+          className="inline-flex h-10 items-center gap-2 rounded-full bg-pastel-pink px-5 text-sm font-bold text-ink transition-colors hover:bg-pastel-pink/80 disabled:opacity-40"
         >
           <Play className="h-4 w-4 fill-current" />
           Play all
@@ -170,8 +170,8 @@ function MixRow({
         })
       }
       className={cn(
-        "flex items-center gap-3 rounded-xl border-2 px-2 py-2.5 hover:bg-surface-2",
-        isActive ? "border-ink bg-surface-2" : "border-transparent",
+        "flex items-center gap-3 rounded-xl px-2 py-2.5 hover:bg-surface-2",
+        isActive ? "bg-surface-2" : "border-transparent",
       )}
     >
       <button
@@ -179,9 +179,9 @@ function MixRow({
         onClick={onPlay}
         disabled={!playable}
         className={cn(
-          "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2",
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
           playable
-            ? "border-ink bg-pastel-pink text-ink hover:bg-pastel-pink/80"
+            ? "bg-pastel-pink text-ink hover:bg-pastel-pink/80"
             : "border-transparent text-muted-foreground/40",
         )}
         aria-label={
@@ -201,7 +201,7 @@ function MixRow({
         )}
       </button>
 
-      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg border-2 border-ink bg-secondary">
+      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-secondary">
         {track.coverUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img

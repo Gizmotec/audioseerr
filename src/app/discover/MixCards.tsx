@@ -56,7 +56,7 @@ async function MixCard({
 
   if (mix.tracks.length === 0) {
     return (
-      <div className="flex items-center gap-4 rounded-2xl border-2 border-ink bg-card p-4 opacity-70">
+      <div className="flex items-center gap-4 rounded-2xl bg-card p-4 opacity-70">
         <MixCover coverUrls={[]} icon={<Icon className="h-1/3 w-1/3" />} />
         <div className="min-w-0">
           <p className="font-extrabold tracking-tight">{meta.title}</p>
@@ -71,7 +71,7 @@ async function MixCard({
   return (
     <Link
       href={`/mix/${kind}`}
-      className={`group flex items-center gap-4 rounded-2xl border-2 border-ink p-4 text-ink outline-none transition-[filter] hover:brightness-95 focus-visible:ring-2 focus-visible:ring-ring ${meta.fill}`}
+      className={`group flex items-center gap-4 rounded-2xl p-4 text-ink outline-none transition-[filter] hover:brightness-95 focus-visible:ring-2 focus-visible:ring-ring ${meta.fill}`}
     >
       <MixCover
         coverUrls={mix.coverUrls}
@@ -89,7 +89,7 @@ async function MixCard({
           {meta.tagline}
         </p>
       </div>
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-ink bg-card text-foreground opacity-0 transition-opacity group-hover:opacity-100">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-card text-foreground opacity-0 transition-opacity group-hover:opacity-100">
         <Play className="h-4 w-4 fill-current" />
       </span>
     </Link>

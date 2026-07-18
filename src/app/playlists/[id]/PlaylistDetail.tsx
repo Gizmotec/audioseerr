@@ -33,6 +33,7 @@ import {
   useTransition,
 } from "react";
 import { PlaylistRecommendations } from "@/components/PlaylistRecommendations";
+import { HeroCard } from "@/components/HeroCard";
 import { type QueueItem, usePreviewPlayer } from "@/components/PreviewPlayer";
 import { TrackLikeButton } from "@/components/TrackLikeButton";
 import { useTrackMenu } from "@/components/TrackMenu";
@@ -172,7 +173,10 @@ export function PlaylistDetail({
 
   return (
     <div className="mt-6 flex flex-col gap-6">
-      <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      <HeroCard
+        seed={initialName}
+        innerClassName="flex flex-col gap-4 md:flex-row md:items-end md:justify-between"
+      >
         <div className="flex items-end gap-5">
           <PlaylistCover
             playlistId={playlistId}
@@ -181,7 +185,7 @@ export function PlaylistDetail({
             readOnly={readOnly}
           />
           <div className="flex flex-col gap-2">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">
+            <p className="text-xs font-bold uppercase tracking-wider text-ink/70">
               Playlist
             </p>
             {readOnly ? (
@@ -195,10 +199,10 @@ export function PlaylistDetail({
                 initialName={initialName}
               />
             )}
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-ink/70">
               {ownerUsername && (
                 <>
-                  by <span className="font-mono">{ownerUsername}</span>
+                  by <span className="font-mono font-bold">{ownerUsername}</span>
                   {" · "}
                 </>
               )}
@@ -206,7 +210,7 @@ export function PlaylistDetail({
               {fetchingCount > 0 && (
                 <>
                   {" · "}
-                  <span className="text-pastel-sky">
+                  <span className="font-bold text-ink">
                     {fetchingCount} downloading
                   </span>
                 </>
@@ -214,14 +218,14 @@ export function PlaylistDetail({
               {unavailableCount > 0 && (
                 <>
                   {" · "}
-                  <span className="text-pastel-yellow">
+                  <span className="font-bold text-ink">
                     {unavailableCount} unavailable
                   </span>
                 </>
               )}
             </p>
             {description && (
-              <p className="max-w-md text-sm text-muted-foreground/80">
+              <p className="max-w-md text-sm text-ink/60">
                 {description}
               </p>
             )}
@@ -239,7 +243,7 @@ export function PlaylistDetail({
             type="button"
             onClick={playAll}
             disabled={playableCount === 0}
-            className="inline-flex h-10 items-center gap-2 rounded-full border-2 border-ink bg-primary px-4 text-sm font-bold text-primary-foreground transition-colors disabled:opacity-40 hover:bg-pastel-pink/80"
+            className="inline-flex h-10 items-center gap-2 rounded-full bg-primary px-4 text-sm font-bold text-primary-foreground transition-colors disabled:opacity-40 hover:bg-pastel-pink/80"
           >
             <Play className="h-4 w-4" fill="currentColor" />
             Play
@@ -248,7 +252,7 @@ export function PlaylistDetail({
             type="button"
             onClick={shuffleAll}
             disabled={playableCount === 0}
-            className="inline-flex h-10 items-center gap-2 rounded-full border-2 border-ink bg-card px-4 text-sm font-bold text-foreground transition-colors disabled:opacity-40 hover:bg-surface-2"
+            className="inline-flex h-10 items-center gap-2 rounded-full bg-card px-4 text-sm font-bold text-foreground transition-colors disabled:opacity-40 hover:bg-surface-2"
           >
             <Shuffle className="h-4 w-4" />
             Shuffle
@@ -263,10 +267,10 @@ export function PlaylistDetail({
             <DeletePlaylistButton playlistId={playlistId} name={initialName} />
           )}
         </div>
-      </header>
+      </HeroCard>
 
       {tracks.length === 0 && showEmptyState ? (
-        <div className="rounded-2xl border-2 border-dashed border-ink bg-card p-8 text-center text-sm text-muted-foreground">
+        <div className="rounded-2xl border-2 border-dashed border-foreground/15 bg-card p-8 text-center text-sm text-muted-foreground">
           <ListMusic className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" />
           <p>{readOnly ? "No liked songs yet." : "This playlist is empty."}</p>
           <p className="mt-1">
@@ -308,7 +312,7 @@ export function PlaylistDetail({
                 }
                 className={cn(
                   "group flex items-center gap-3 rounded-xl border-2 border-transparent px-2 py-2.5 hover:bg-surface-2",
-                  isActive && "border-ink bg-surface-2",
+                  isActive && "bg-surface-2",
                   !playable && "opacity-50",
                 )}
               >
@@ -317,10 +321,10 @@ export function PlaylistDetail({
                   onClick={() => playFromIndex(idx)}
                   disabled={!playable}
                   className={cn(
-                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2",
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
                     playable
-                      ? "border-ink hover:bg-pastel-pink hover:text-ink"
-                      : "cursor-not-allowed border-ink/20 text-muted-foreground/40",
+                      ? "hover:bg-pastel-pink hover:text-ink"
+                      : "cursor-not-allowed text-muted-foreground/40",
                   )}
                   aria-label={
                     playable
@@ -341,7 +345,7 @@ export function PlaylistDetail({
                   )}
                 </button>
 
-                <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-xl border-2 border-ink bg-surface-2">
+                <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-surface-2">
                   {t.coverUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -384,7 +388,7 @@ export function PlaylistDetail({
 
                 {fetching && (
                   <span
-                    className="hidden shrink-0 items-center gap-1 rounded-full border-2 border-ink bg-pastel-sky px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-ink sm:inline-flex"
+                    className="hidden shrink-0 items-center gap-1 rounded-full bg-pastel-sky px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-ink sm:inline-flex"
                     title="Downloading from Soulseek…"
                   >
                     <Loader2 className="h-3 w-3 animate-spin" />
@@ -395,7 +399,7 @@ export function PlaylistDetail({
                 {unavailableReason && (
                   <span
                     className={cn(
-                      "hidden shrink-0 rounded-full border-2 border-ink px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-ink sm:inline",
+                      "hidden shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-ink sm:inline",
                       unavailableReason === "errored"
                         ? "bg-pastel-red"
                         : "bg-pastel-yellow",
@@ -639,7 +643,7 @@ function AddSongsButton({
       <button
         type="button"
         onClick={openPicker}
-        className="inline-flex h-10 items-center gap-2 rounded-full border-2 border-ink bg-card px-3 text-sm font-bold text-foreground transition-colors hover:bg-surface-2"
+        className="inline-flex h-10 items-center gap-2 rounded-full bg-card px-3 text-sm font-bold text-foreground transition-colors hover:bg-surface-2"
       >
         <Plus className="h-4 w-4" />
         Add songs
@@ -647,7 +651,7 @@ function AddSongsButton({
 
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-end bg-background/80 p-0 backdrop-blur-sm sm:items-center sm:justify-center sm:p-6"
+          className="fixed inset-0 z-50 flex items-end bg-background/80 p-0 sm:items-center sm:justify-center sm:p-6"
           role="dialog"
           aria-modal="true"
           aria-label="Add songs"
@@ -659,7 +663,7 @@ function AddSongsButton({
         >
           <div
             ref={panelRef}
-            className="flex max-h-[88vh] w-full flex-col overflow-hidden rounded-t-2xl border-2 border-ink bg-popover sm:max-w-3xl sm:rounded-2xl"
+            className="flex max-h-[88vh] w-full flex-col overflow-hidden rounded-t-2xl border border-foreground/10 bg-popover sm:max-w-3xl sm:rounded-2xl"
           >
             <div className="flex items-start justify-between gap-4 border-b border-border p-4">
               <div>
@@ -691,7 +695,7 @@ function AddSongsButton({
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search songs, artists, or albums"
-                  className="h-10 w-full rounded-xl border-2 border-ink bg-surface-2 pl-9 pr-3 text-sm outline-none transition-colors focus:border-primary"
+                  className="h-10 w-full rounded-xl bg-surface-2 pl-9 pr-3 text-sm outline-none transition-colors focus:border-primary"
                 />
               </label>
 
@@ -746,7 +750,7 @@ function AddSongsButton({
                           onClick={() => toggle(track.key)}
                           className={cn(
                             "flex w-full items-center gap-3 rounded-xl border-2 border-transparent px-4 py-3 text-left transition-colors hover:bg-surface-2",
-                            selected && "border-ink bg-surface-2",
+                            selected && "bg-surface-2",
                           )}
                         >
                           {selected ? (
@@ -754,7 +758,7 @@ function AddSongsButton({
                           ) : (
                             <Square className="h-5 w-5 shrink-0 text-muted-foreground" />
                           )}
-                          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-ink bg-surface-2 text-muted-foreground/40">
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-surface-2 text-muted-foreground/40">
                             {track.coverUrl ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img
@@ -778,7 +782,7 @@ function AddSongsButton({
                             </p>
                           </div>
                           {alreadyInPlaylist && (
-                            <span className="hidden shrink-0 rounded-full border-2 border-ink bg-pastel-mint px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-ink sm:inline">
+                            <span className="hidden shrink-0 rounded-full bg-pastel-mint px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-ink sm:inline">
                               In playlist
                             </span>
                           )}
@@ -800,7 +804,7 @@ function AddSongsButton({
                   type="button"
                   onClick={close}
                   disabled={pending}
-                  className="inline-flex h-9 items-center rounded-full border-2 border-ink bg-card px-3 text-sm font-bold text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-40"
+                  className="inline-flex h-9 items-center rounded-full bg-card px-3 text-sm font-bold text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-40"
                 >
                   Cancel
                 </button>
@@ -808,7 +812,7 @@ function AddSongsButton({
                   type="button"
                   onClick={addSelected}
                   disabled={pending || selectedKeys.size === 0}
-                  className="inline-flex h-9 items-center gap-2 rounded-full border-2 border-ink bg-primary px-3 text-sm font-bold text-primary-foreground transition-colors hover:bg-pastel-pink/80 disabled:opacity-40"
+                  className="inline-flex h-9 items-center gap-2 rounded-full bg-primary px-3 text-sm font-bold text-primary-foreground transition-colors hover:bg-pastel-pink/80 disabled:opacity-40"
                 >
                   {pending ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -888,7 +892,7 @@ function PlaylistCover({
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={pending}
-        className="absolute inset-x-3 bottom-3 inline-flex h-9 items-center justify-center gap-2 rounded-full border-2 border-ink bg-pastel-pink px-3 text-sm font-bold text-ink opacity-0 transition-opacity hover:bg-pastel-pink/80 group-hover/cover:opacity-100 group-focus-within/cover:opacity-100 disabled:opacity-70"
+        className="absolute inset-x-3 bottom-3 inline-flex h-9 items-center justify-center gap-2 rounded-full bg-pastel-pink px-3 text-sm font-bold text-ink opacity-0 transition-opacity hover:bg-pastel-pink/80 group-hover/cover:opacity-100 group-focus-within/cover:opacity-100 disabled:opacity-70"
       >
         {pending ? (
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -898,7 +902,7 @@ function PlaylistCover({
         {coverUrl ? "Change cover" : "Upload cover"}
       </button>
       {error && (
-        <p className="absolute inset-x-3 top-3 rounded-lg border-2 border-ink bg-pastel-red px-2 py-1 text-xs font-bold text-ink">
+        <p className="absolute inset-x-3 top-3 rounded-lg bg-pastel-red px-2 py-1 text-xs font-bold text-ink">
           {error}
         </p>
       )}
@@ -907,7 +911,7 @@ function PlaylistCover({
 
   if (covers.length === 0) {
     return (
-      <div className="group/cover relative flex h-40 w-40 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-ink bg-secondary text-muted-foreground/40 md:h-48 md:w-48">
+      <div className="group/cover relative flex h-40 w-40 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-secondary text-muted-foreground/40 md:h-48 md:w-48">
         <ListMusic className="h-1/3 w-1/3" />
         {!readOnly && uploadControl}
       </div>
@@ -916,7 +920,7 @@ function PlaylistCover({
 
   if (covers.length === 1) {
     return (
-      <div className="group/cover relative h-40 w-40 shrink-0 overflow-hidden rounded-xl border-2 border-ink bg-secondary md:h-48 md:w-48">
+      <div className="group/cover relative h-40 w-40 shrink-0 overflow-hidden rounded-xl bg-secondary md:h-48 md:w-48">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={covers[0]}
@@ -935,7 +939,7 @@ function PlaylistCover({
   }
 
   return (
-    <div className="group/cover relative grid h-40 w-40 shrink-0 grid-cols-2 grid-rows-2 overflow-hidden rounded-xl border-2 border-ink bg-secondary md:h-48 md:w-48">
+    <div className="group/cover relative grid h-40 w-40 shrink-0 grid-cols-2 grid-rows-2 overflow-hidden rounded-xl bg-secondary md:h-48 md:w-48">
       {covers.slice(0, 4).map((url, i) => (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -1018,9 +1022,9 @@ function PlaylistTitle({
           }}
           maxLength={100}
           disabled={pending}
-          className="rounded-md border border-border bg-background px-2 py-1 text-3xl font-semibold leading-tight md:text-5xl"
+          className="rounded-xl bg-background px-3 py-1.5 text-3xl font-extrabold leading-tight text-foreground md:text-5xl"
         />
-        {pending && <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}
+        {pending && <Loader2 className="h-5 w-5 animate-spin text-ink/60" />}
         {error && <span className="text-xs text-destructive">{error}</span>}
       </form>
     );
@@ -1030,10 +1034,10 @@ function PlaylistTitle({
     <button
       type="button"
       onClick={() => setEditing(true)}
-      className="group inline-flex items-center gap-2 text-left text-3xl font-semibold leading-tight md:text-5xl"
+      className="group inline-flex items-center gap-2 text-left text-3xl font-extrabold tracking-tight leading-tight md:text-5xl"
     >
       {initialName}
-      <Pencil className="h-4 w-4 text-muted-foreground/0 transition-colors group-hover:text-muted-foreground" />
+      <Pencil className="h-4 w-4 text-ink/0 transition-colors group-hover:text-ink/60" />
     </button>
   );
 }
@@ -1134,7 +1138,7 @@ function DeletePlaylistButton({
         onClick={() => setConfirming((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={confirming}
-        className="inline-flex h-10 items-center gap-1.5 rounded-full border-2 border-ink bg-surface-2 px-4 text-sm font-bold text-muted-foreground transition-colors hover:border-destructive hover:text-destructive"
+        className="inline-flex h-10 items-center gap-1.5 rounded-full bg-surface-2 px-4 text-sm font-bold text-muted-foreground transition-colors hover:border-destructive hover:text-destructive"
       >
         <Trash2 className="h-4 w-4" />
         <ChevronDown className="h-3 w-3" />
@@ -1142,7 +1146,7 @@ function DeletePlaylistButton({
       {confirming && (
         <div
           role="menu"
-          className="absolute right-0 top-full z-30 mt-1 w-64 rounded-xl border-2 border-ink bg-popover p-3 text-sm"
+          className="absolute right-0 top-full z-30 mt-1 w-64 rounded-xl border border-foreground/10 bg-popover p-3 text-sm"
         >
           <p className="mb-2 text-foreground">
             Delete <span className="font-medium">{name}</span>?

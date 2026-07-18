@@ -32,9 +32,15 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${outfit.variable} ${geistMono.variable} dark h-full antialiased`}
     >
       <body className="min-h-full flex font-sans">
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(localStorage.getItem("audioseerr.sidebar.collapsed")==="true")document.documentElement.classList.add("sidebar-collapsed")}catch(e){}`,
+          }}
+        />
         <PreviewPlayerProvider>
           <TrackMenuProvider>
             <Sidebar />

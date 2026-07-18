@@ -2,6 +2,7 @@
 
 import { User } from "lucide-react";
 import { useState } from "react";
+import { HeroCard } from "@/components/HeroCard";
 import { SevenDigitalButton } from "@/components/SevenDigitalButton";
 import { LikeButton } from "@/components/LikeButton";
 import { RemoveFromLibraryButton } from "@/components/RemoveFromLibraryButton";
@@ -54,8 +55,11 @@ export function ArtistDetail({
 
   return (
     <div className="flex flex-col gap-8">
-      <header className="flex flex-col gap-6 md:flex-row md:items-end">
-        <div className="relative h-56 w-56 shrink-0 overflow-hidden rounded-full border-2 border-ink bg-secondary md:h-64 md:w-64">
+      <HeroCard
+        seed={artist.name}
+        innerClassName="flex flex-col gap-6 md:flex-row md:items-end"
+      >
+        <div className="relative h-56 w-56 shrink-0 overflow-hidden rounded-full bg-ink/10 md:h-64 md:w-64">
           {imgOk && artist.imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -66,23 +70,23 @@ export function ArtistDetail({
               onError={() => setImgOk(false)}
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-muted-foreground/40">
+            <div className="flex h-full w-full items-center justify-center text-ink/40">
               <User className="h-1/3 w-1/3" />
             </div>
           )}
         </div>
 
         <div className="flex min-w-0 flex-col gap-3">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground">
+          <p className="text-xs font-bold uppercase tracking-wider text-ink/70">
             {artist.type ?? "Artist"}
           </p>
           <h1 className="text-3xl font-extrabold leading-tight tracking-tight md:text-5xl">
             {artist.name}
           </h1>
-          <p className="text-sm text-muted-foreground">{artist.meta}</p>
+          <p className="text-sm text-ink/70">{artist.meta}</p>
 
           {bioText && (
-            <p className="max-w-prose text-sm leading-relaxed text-muted-foreground">
+            <p className="max-w-prose text-sm leading-relaxed text-ink/70">
               {bioText}
               {showBioToggle && (
                 <>
@@ -90,7 +94,7 @@ export function ArtistDetail({
                   <button
                     type="button"
                     onClick={() => setBioExpanded((v) => !v)}
-                    className="text-foreground hover:underline"
+                    className="font-bold text-ink hover:underline"
                   >
                     {bioExpanded ? "Show less" : "Read more"}
                   </button>
@@ -99,7 +103,7 @@ export function ArtistDetail({
             </p>
           )}
           {!bioText && hasLastFmKey && (
-            <p className="text-sm text-muted-foreground/70">No bio available.</p>
+            <p className="text-sm text-ink/60">No bio available.</p>
           )}
 
           <div className="mt-2 flex flex-wrap items-center gap-3">
@@ -128,7 +132,7 @@ export function ArtistDetail({
             )}
           </div>
         </div>
-      </header>
+      </HeroCard>
 
       <TopTracksList
         artistName={artist.name}

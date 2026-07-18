@@ -121,7 +121,7 @@ function YouTubeModal({
       role="dialog"
       aria-modal="true"
       aria-label={`YouTube player: ${trackTitle} by ${artistName}`}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4"
       onClick={onClose}
     >
       <div
@@ -149,7 +149,7 @@ function YouTubeModal({
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="relative w-full overflow-hidden rounded-xl border-2 border-ink bg-black">
+        <div className="relative w-full overflow-hidden rounded-xl bg-black">
           <div className="relative pb-[56.25%]">
             <iframe
               src={src}

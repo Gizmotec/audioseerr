@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import type { PlaylistOption } from "@/components/AddToPlaylistButton";
-import { AmbientArtworkBackground } from "@/components/AmbientArtworkBackground";
 import { BackLink } from "@/components/BackLink";
 import { prisma } from "@/lib/db";
 import { buildPlaylistStreamLookup } from "@/lib/downloadedTracks";
@@ -62,9 +61,6 @@ export default async function LikedPage() {
 
   return (
     <main className="relative isolate mx-auto w-full max-w-5xl flex-1 px-4 py-8 md:px-6">
-      <AmbientArtworkBackground
-        imageUrl={rows.find((t) => t.coverUrl)?.coverUrl ?? null}
-      />
       <BackLink fallbackHref="/home" />
       <LikedInbox
         tracks={rows}

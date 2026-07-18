@@ -3,7 +3,6 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AlbumCard } from "@/app/search/AlbumCard";
-import { AmbientArtworkBackground } from "@/components/AmbientArtworkBackground";
 import { BackLink } from "@/components/BackLink";
 import { buildSevenDigitalUrl } from "@/lib/sevenDigital";
 import { getDeezerArtistBundle } from "@/lib/deezer";
@@ -152,8 +151,6 @@ export default async function ArtistPage({ params }: { params: RouteParams }) {
 
   return (
     <main className="relative isolate mx-auto w-full max-w-5xl flex-1 px-4 py-6 md:px-6">
-      <AmbientArtworkBackground imageUrl={bundle?.imageUrl} />
-
       <BackLink fallbackHref="/home" />
 
       <div className="mt-6">
@@ -225,7 +222,7 @@ export default async function ArtistPage({ params }: { params: RouteParams }) {
                   href={`/search?q=${encodeURIComponent(s.name)}`}
                   className="group flex flex-col items-center gap-2 outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <div className="relative aspect-square w-full overflow-hidden rounded-full border-2 border-ink bg-secondary">
+                  <div className="relative aspect-square w-full overflow-hidden rounded-full bg-secondary">
                     {s.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img

@@ -41,7 +41,7 @@ export function RecentSearches({ items }: { items: RecentSearch[] }) {
           Clear all
         </button>
       </div>
-      <ul className="flex flex-col divide-y divide-border rounded-2xl border-2 border-ink bg-card">
+      <ul className="flex flex-col divide-y divide-border rounded-2xl bg-card">
         {items.map((item) => (
           <li
             key={item.query}

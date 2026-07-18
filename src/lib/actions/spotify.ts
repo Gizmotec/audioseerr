@@ -36,7 +36,7 @@ export async function saveSpotifyClientIdAction(
           }),
     },
   });
-  revalidatePath("/account");
+  revalidatePath("/admin/settings");
   return { ok: true };
 }
 
@@ -44,6 +44,6 @@ export async function disconnectSpotifyAction(): Promise<SaveResult> {
   const session = await auth();
   if (!session?.user?.id) return { ok: false, error: "Not signed in." };
   await clearSpotifyTokens(session.user.id);
-  revalidatePath("/account");
+  revalidatePath("/admin/settings");
   return { ok: true };
 }

@@ -27,7 +27,7 @@ export async function GET(req: Request) {
   });
   if (!user?.spotifyClientId) {
     return NextResponse.redirect(
-      new URL("/account?error=missing_client_id", req.url),
+      new URL("/admin/settings?section=integrations&error=missing_client_id", req.url),
     );
   }
 

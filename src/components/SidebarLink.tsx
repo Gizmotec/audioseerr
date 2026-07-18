@@ -41,22 +41,23 @@ export function SidebarLink({
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
+      title={typeof children === "string" ? children : undefined}
       className={cn(
-        "inline-flex items-center gap-2.5 rounded-full border-2 px-3 py-2 text-sm font-semibold transition-colors",
+        "sidebar-link inline-flex items-center gap-2.5 rounded-full border-2 px-3 py-2 text-sm font-semibold transition-colors",
         active
-          ? cn("border-ink", accents[accent])
+          ? cn("border-transparent", accents[accent])
           : "border-transparent text-muted-foreground hover:bg-surface-2 hover:text-foreground",
       )}
     >
       <span
         className={cn(
-          "inline-flex size-6 items-center justify-center rounded-full border-2",
-          active ? "border-ink/20 bg-ink/10" : cn("border-ink", accents[accent]),
+          "inline-flex size-6 shrink-0 items-center justify-center rounded-full",
+          active ? "bg-ink/10" : accents[accent],
         )}
       >
         {icon}
       </span>
-      {children}
+      <span className="sidebar-label">{children}</span>
     </Link>
   );
 }

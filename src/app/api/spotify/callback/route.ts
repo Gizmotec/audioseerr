@@ -30,7 +30,8 @@ export async function GET(req: Request) {
   cookieStore.delete(STATE_COOKIE);
 
   const accountUrl = (params: Record<string, string>) => {
-    const u = new URL("/account", req.url);
+    const u = new URL("/admin/settings", req.url);
+    u.searchParams.set("section", "integrations");
     for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);
     return u;
   };

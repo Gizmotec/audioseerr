@@ -91,7 +91,7 @@ export default async function HomePage() {
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-4 py-8 md:px-6">
-      <header className="flex flex-col gap-5 border-b-2 border-ink pb-8 lg:flex-row lg:items-end lg:justify-between">
+      <header className="flex flex-col gap-5 border-b border-foreground/10 pb-8 lg:flex-row lg:items-end lg:justify-between">
         <div className="max-w-2xl space-y-2">
           <p className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">
             <Library className="h-3.5 w-3.5" />
@@ -109,14 +109,14 @@ export default async function HomePage() {
           <ShuffleLibraryButton variant="secondary" />
           <Link
             href="/discover"
-            className="inline-flex h-9 items-center gap-2 rounded-full border-2 border-ink bg-card px-4 text-sm font-bold text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
+            className="inline-flex h-9 items-center gap-2 rounded-full bg-card px-4 text-sm font-bold text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
           >
             <Compass className="h-4 w-4" />
             Discover
           </Link>
           <Link
             href="/library"
-            className="inline-flex h-9 items-center gap-2 rounded-full border-2 border-ink bg-primary px-4 text-sm font-bold text-primary-foreground transition-colors hover:bg-pastel-pink/80"
+            className="inline-flex h-9 items-center gap-2 rounded-full bg-primary px-4 text-sm font-bold text-primary-foreground transition-colors hover:bg-pastel-pink/80"
           >
             <Disc3 className="h-4 w-4" />
             Library
@@ -173,7 +173,7 @@ export default async function HomePage() {
             </div>
             <div className="space-y-3">
               <SectionHeader title="Quick search" href="/discover" action="Full discover" />
-              <div className="rounded-2xl border-2 border-ink bg-card p-4">
+              <div className="rounded-2xl bg-card p-4">
                 <SearchBar initialQuery="" />
               </div>
               <EmptyPanel
@@ -193,7 +193,7 @@ export default async function HomePage() {
                 {topArtists.map((artist, index) => (
                   <li
                     key={artist.name}
-                    className="grid min-h-16 grid-cols-[2rem_1fr_auto] items-center gap-3 rounded-xl border-2 border-ink bg-card px-3 py-3"
+                    className="grid min-h-16 grid-cols-[2rem_1fr_auto] items-center gap-3 rounded-xl bg-card px-3 py-3"
                   >
                     <span className="font-mono text-xs font-bold text-muted-foreground">
                       {String(index + 1).padStart(2, "0")}
@@ -201,7 +201,7 @@ export default async function HomePage() {
                     <span className="block truncate text-sm font-bold">
                       {artist.name}
                     </span>
-                    <span className="rounded-full border-2 border-ink bg-surface-2 px-2 py-0.5 text-xs font-bold">
+                    <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs font-bold">
                       {artist.trackCount}{" "}
                       {artist.trackCount === 1 ? "track" : "tracks"}
                     </span>
@@ -273,7 +273,7 @@ function EmptyPanel({
   action: string;
 }) {
   return (
-    <div className="rounded-2xl border-2 border-dashed border-ink bg-card p-6 text-sm text-muted-foreground">
+    <div className="rounded-2xl border-2 border-dashed border-foreground/15 bg-card p-6 text-sm text-muted-foreground">
       <Icon className="mb-3 h-6 w-6 text-muted-foreground/60" />
       <p className="font-extrabold tracking-tight text-foreground">{title}</p>
       <p className="mt-1">{body}</p>
@@ -290,7 +290,7 @@ function EmptyPanel({
 
 function EmptyLibrary() {
   return (
-    <section className="rounded-2xl border-2 border-dashed border-ink bg-card p-10 text-center">
+    <section className="rounded-2xl border-2 border-dashed border-foreground/15 bg-card p-10 text-center">
       <Disc3 className="mx-auto mb-4 h-8 w-8 text-muted-foreground/60" />
       <h2 className="text-lg font-extrabold tracking-tight">No downloaded music yet</h2>
       <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">
@@ -300,14 +300,14 @@ function EmptyLibrary() {
       <div className="mt-5 flex flex-wrap justify-center gap-2">
         <Link
           href="/discover"
-          className="inline-flex h-9 items-center gap-2 rounded-full border-2 border-ink bg-primary px-4 text-sm font-bold text-primary-foreground transition-colors hover:bg-pastel-pink/80"
+          className="inline-flex h-9 items-center gap-2 rounded-full bg-primary px-4 text-sm font-bold text-primary-foreground transition-colors hover:bg-pastel-pink/80"
         >
           <Compass className="h-4 w-4" />
           Discover music
         </Link>
         <Link
           href="/library"
-          className="inline-flex h-9 items-center gap-2 rounded-full border-2 border-ink bg-card px-4 text-sm font-bold text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
+          className="inline-flex h-9 items-center gap-2 rounded-full bg-card px-4 text-sm font-bold text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
         >
           <Library className="h-4 w-4" />
           Open library

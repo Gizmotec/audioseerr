@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils"
 export function ConnectionBadge({ connected }: { connected: boolean }) {
   return connected ? (
     <Badge variant="success">
-      <span className="size-1.5 rounded-full border border-ink bg-pastel-mint" />
+      <span className="size-1.5 rounded-full bg-pastel-mint" />
       Connected
     </Badge>
   ) : (

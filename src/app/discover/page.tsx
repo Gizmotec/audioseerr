@@ -109,7 +109,7 @@ export default async function DiscoverPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-10 px-4 py-10 md:px-6">
-      <header className="flex flex-col gap-5 border-b-2 border-ink pb-8 md:flex-row md:items-end md:justify-between">
+      <header className="flex flex-col gap-5 border-b border-foreground/10 pb-8 md:flex-row md:items-end md:justify-between">
         <div className="max-w-2xl space-y-2">
           <p className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">
             <Search className="h-3.5 w-3.5" />
@@ -125,7 +125,7 @@ export default async function DiscoverPage() {
         </div>
         <Link
           href="/home"
-          className="inline-flex h-9 items-center gap-2 rounded-full border-2 border-ink bg-card px-4 text-sm font-bold text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
+          className="inline-flex h-9 items-center gap-2 rounded-full bg-card px-4 text-sm font-bold text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
         >
           <Library className="h-4 w-4" />
           Your music
@@ -186,7 +186,7 @@ export default async function DiscoverPage() {
             <li key={slug}>
               <Link
                 href={`/genre/${encodeURIComponent(slug)}`}
-                className={`group flex aspect-square flex-col gap-2 rounded-2xl border-2 border-ink p-3 text-ink transition-[filter] hover:brightness-95 ${GENRE_TILE_FILLS[index % GENRE_TILE_FILLS.length]}`}
+                className={`group flex aspect-square flex-col gap-2 rounded-2xl p-3 text-ink transition-[filter] hover:brightness-95 ${GENRE_TILE_FILLS[index % GENRE_TILE_FILLS.length]}`}
               >
                 {coverUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -195,10 +195,10 @@ export default async function DiscoverPage() {
                     alt=""
                     loading="lazy"
                     referrerPolicy="no-referrer"
-                    className="min-h-0 w-full flex-1 rounded-xl border-2 border-ink object-cover"
+                    className="min-h-0 w-full flex-1 rounded-xl object-cover"
                   />
                 ) : (
-                  <div className="flex min-h-0 flex-1 items-center justify-center rounded-xl border-2 border-ink">
+                  <div className="flex min-h-0 flex-1 items-center justify-center rounded-xl">
                     <Disc3 className="h-1/3 w-1/3 text-ink/40" />
                   </div>
                 )}

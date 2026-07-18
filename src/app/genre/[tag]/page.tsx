@@ -57,7 +57,7 @@ export default async function GenrePage({ params }: { params: RouteParams }) {
           <img
             src={genreCoverUrl(tag)!}
             alt=""
-            className="h-24 w-24 flex-none rounded-xl border-2 border-ink object-cover sm:h-32 sm:w-32"
+            className="h-24 w-24 flex-none rounded-xl object-cover sm:h-32 sm:w-32"
           />
         )}
         <div>
@@ -74,7 +74,7 @@ export default async function GenrePage({ params }: { params: RouteParams }) {
       </header>
 
       {tracks.length === 0 ? (
-        <div className="rounded-2xl border-2 border-dashed border-ink/40 bg-card p-8 text-center text-sm text-muted-foreground">
+        <div className="rounded-2xl border-2 border-dashed border-foreground/15 bg-card p-8 text-center text-sm text-muted-foreground">
           <Music2 className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" />
           <p>No trending tracks for &ldquo;{genreLabel(tag)}&rdquo; right now.</p>
           {!hasDeezerChartGenre(tag) && !lastFmKey && (

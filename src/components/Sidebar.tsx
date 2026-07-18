@@ -5,11 +5,14 @@ import {
   Inbox,
   Library,
   ListMusic,
+  LogOut,
   Settings as SettingsIcon,
+  User,
 } from "lucide-react";
 import Link from "next/link";
 import { auth, signOut } from "@/auth";
 import { SidebarLink } from "@/components/SidebarLink";
+import { SidebarToggle } from "@/components/SidebarToggle";
 import { Button } from "@/components/ui/button";
 
 export async function Sidebar() {
@@ -18,17 +21,18 @@ export async function Sidebar() {
   const role = (session.user as { role?: string }).role;
 
   return (
-    <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r-2 border-ink bg-sidebar md:flex">
-      <div className="px-5 py-6">
+    <aside className="sidebar sticky top-0 hidden h-screen shrink-0 flex-col border-r border-foreground/10 bg-sidebar md:flex">
+      <div className="sidebar-header flex items-center justify-between px-5 py-6">
         <Link
           href="/home"
           className="flex items-center gap-2.5 text-xl font-extrabold tracking-tight"
         >
-          <span className="flex size-8 items-center justify-center rounded-xl border-2 border-ink bg-pastel-pink text-ink">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-pastel-pink text-ink">
             ♪
           </span>
-          Audioseerr
+          <span className="sidebar-wordmark">Audioseerr</span>
         </Link>
+        <SidebarToggle />
       </div>
 
       <nav className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-3 py-2">
@@ -85,8 +89,8 @@ export async function Sidebar() {
         )}
       </nav>
 
-      <div className="border-t-2 border-ink px-5 py-4">
-        <p className="truncate text-xs text-muted-foreground">
+      <div className="border-t border-foreground/10 px-5 py-4">
+        <p className="sidebar-footer-note truncate text-xs text-muted-foreground">
           Signed in as{" "}
           <span className="font-mono font-bold text-foreground">
             {session.user.name}
@@ -94,10 +98,11 @@ export async function Sidebar() {
           {role === "ADMIN" ? " · admin" : ""}
         </p>
         <Link
-          href="/account"
-          className="mt-2 block rounded-full px-3 py-1.5 text-sm font-semibold text-muted-foreground hover:bg-surface-2 hover:text-foreground"
+          href="/admin/settings?section=integrations"
+          className="sidebar-footer-link mt-2 flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-semibold text-muted-foreground hover:bg-surface-2 hover:text-foreground"
         >
-          Account
+          <User className="h-4 w-4 shrink-0" />
+          <span className="sidebar-label">Integrations</span>
         </Link>
         <form
           action={async () => {
@@ -110,9 +115,10 @@ export async function Sidebar() {
             variant="ghost"
             size="sm"
             type="submit"
-            className="w-full justify-start px-3"
+            className="sidebar-footer-link w-full justify-start px-3"
           >
-            Sign out
+            <LogOut className="h-4 w-4 shrink-0" />
+            <span className="sidebar-label">Sign out</span>
           </Button>
         </form>
       </div>

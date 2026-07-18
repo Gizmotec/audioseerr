@@ -18,6 +18,7 @@ import {
   getDeezerChartTracks,
   getDeezerNewReleaseTracks,
   normalizeTrackTitle,
+  trackMatchKey,
   type DiscoveryTrack,
 } from "@/lib/deezer";
 import { getAllLikes } from "@/lib/likes";
@@ -366,7 +367,7 @@ function discoveryToMixTrack(d: DiscoveryTrack): MixTrack {
 }
 
 function trackExclusionKey(artist: string, title: string): string {
-  return `${normalizeTrackTitle(artist)}|${normalizeTrackTitle(title)}`;
+  return trackMatchKey(artist, title);
 }
 
 /** Pull an artist's Deezer top tracks as DiscoveryTracks (artist name attached). */

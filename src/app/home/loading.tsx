@@ -3,7 +3,7 @@ const SHIMMER = "animate-pulse bg-surface-2";
 export default function HomeLoading() {
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-4 py-8 md:px-6">
-      <header className="flex flex-col gap-5 border-b-2 border-ink pb-8 lg:flex-row lg:items-end lg:justify-between">
+      <header className="flex flex-col gap-5 border-b border-foreground/10 pb-8 lg:flex-row lg:items-end lg:justify-between">
         <div className="max-w-2xl space-y-3">
           <div className={`h-4 w-24 rounded-xl ${SHIMMER}`} />
           <div className={`h-10 w-full max-w-lg rounded-xl ${SHIMMER}`} />
@@ -19,7 +19,7 @@ export default function HomeLoading() {
         {Array.from({ length: 4 }).map((_, index) => (
           <div
             key={index}
-            className="rounded-2xl border-2 border-ink bg-card p-4"
+            className="rounded-2xl bg-card p-4"
           >
             <div className="flex items-center justify-between gap-3">
               <div className={`h-4 w-20 rounded-xl ${SHIMMER}`} />
@@ -32,7 +32,7 @@ export default function HomeLoading() {
       </section>
 
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.65fr)]">
-        <div className="rounded-2xl border-2 border-ink bg-card p-5">
+        <div className="rounded-2xl bg-card p-5">
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-2">
               <div className={`h-5 w-36 rounded-xl ${SHIMMER}`} />
@@ -53,7 +53,7 @@ export default function HomeLoading() {
             ))}
           </div>
         </div>
-        <div className="grid grid-cols-[6rem_1fr] gap-4 rounded-2xl border-2 border-ink bg-card p-4">
+        <div className="grid grid-cols-[6rem_1fr] gap-4 rounded-2xl bg-card p-4">
           <div className={`aspect-square rounded-xl ${SHIMMER}`} />
           <div className="self-center space-y-2">
             <div className={`h-3 w-28 rounded-xl ${SHIMMER}`} />

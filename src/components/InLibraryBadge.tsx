@@ -11,7 +11,7 @@ export function InLibraryBadge({ status }: { status: LibraryStatus | null }) {
   if (status === "downloaded") {
     return (
       <span
-        className="absolute bottom-1.5 left-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full border-2 border-ink bg-pastel-mint text-ink"
+        className="absolute bottom-1.5 left-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-pastel-mint text-ink"
         title="In your library"
         aria-label="In your library"
       >
@@ -21,7 +21,7 @@ export function InLibraryBadge({ status }: { status: LibraryStatus | null }) {
   }
   return (
     <span
-      className="absolute bottom-1.5 left-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full border-2 border-ink bg-pastel-sky text-ink"
+      className="absolute bottom-1.5 left-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-pastel-sky text-ink"
       title={status === "downloading" ? "Downloading" : "Monitored, not downloaded"}
       aria-label={status === "downloading" ? "Downloading" : "Monitored, not downloaded"}
     >

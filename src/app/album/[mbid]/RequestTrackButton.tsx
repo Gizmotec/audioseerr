@@ -89,7 +89,7 @@ export function RequestTrackButton({
         {error && (
           <span
             role="alert"
-            className="absolute right-0 top-full z-10 mt-1 w-48 rounded-xl border-2 border-ink bg-popover p-2 text-xs text-destructive"
+            className="absolute right-0 top-full z-10 mt-1 w-48 rounded-xl border border-foreground/10 bg-popover p-2 text-xs text-destructive"
           >
             {error}
           </span>

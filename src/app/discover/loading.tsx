@@ -20,18 +20,18 @@ const GENRE_CHIPS = [
 export default function DiscoverLoading() {
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-10 px-4 py-10 md:px-6">
-      <header className="flex flex-col gap-5 border-b-2 border-ink pb-8 md:flex-row md:items-end md:justify-between">
+      <header className="flex flex-col gap-5 border-b border-foreground/10 pb-8 md:flex-row md:items-end md:justify-between">
         <div className="max-w-2xl space-y-3">
           <div className={`h-4 w-28 rounded ${SHIMMER}`} />
           <div className={`h-10 w-full max-w-xl rounded ${SHIMMER}`} />
           <div className={`h-4 w-full max-w-lg rounded ${SHIMMER}`} />
         </div>
-        <div className={`h-9 w-28 rounded-full border-2 border-ink ${SHIMMER}`} />
+        <div className={`h-9 w-28 rounded-full ${SHIMMER}`} />
       </header>
 
       <section className="space-y-3">
         <div className={`h-5 w-28 rounded ${SHIMMER}`} />
-        <div className={`h-11 w-full rounded-full border-2 border-ink ${SHIMMER}`} />
+        <div className={`h-11 w-full rounded-full ${SHIMMER}`} />
       </section>
 
       <DiscoveryRowSkeleton titleWidth="w-44" count={6} />

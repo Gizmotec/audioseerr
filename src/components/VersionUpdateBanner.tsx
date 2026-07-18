@@ -53,7 +53,7 @@ export function VersionUpdateBanner() {
   return (
     <div
       role="status"
-      className="border-b-2 border-ink bg-pastel-yellow px-4 py-2 text-sm text-ink"
+      className="bg-pastel-yellow px-4 py-2 text-sm text-ink"
     >
       <div className="mx-auto flex max-w-6xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-2">
@@ -70,7 +70,7 @@ export function VersionUpdateBanner() {
               href={version.releaseUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex h-7 items-center gap-1 rounded-full border-2 border-ink bg-ink px-2.5 text-xs font-bold text-pastel-yellow hover:bg-ink/80"
+              className="inline-flex h-7 items-center gap-1 rounded-full bg-ink px-2.5 text-xs font-bold text-pastel-yellow hover:bg-ink/80"
             >
               <ExternalLink className="h-3.5 w-3.5" />
               View release

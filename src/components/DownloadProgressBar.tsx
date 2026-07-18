@@ -22,7 +22,7 @@ export function DownloadProgressBar({ requestId }: { requestId: string }) {
     <div className="flex w-32 flex-col items-end gap-1">
       <span className="text-[11px] font-bold tabular-nums text-pastel-sky">{label}</span>
       <div
-        className="h-2 w-full overflow-hidden rounded-full border border-ink bg-surface-2"
+        className="h-2 w-full overflow-hidden rounded-full bg-surface-2"
         role="progressbar"
         aria-label="Download progress"
         aria-valuemin={0}

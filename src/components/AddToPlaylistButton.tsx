@@ -141,7 +141,7 @@ export function AddToPlaylistButton({ payload, initialPlaylists, onAdded }: Prop
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full z-30 mt-1 w-64 overflow-hidden rounded-xl border-2 border-ink bg-popover"
+          className="absolute right-0 top-full z-30 mt-1 w-64 overflow-hidden rounded-xl border border-foreground/10 bg-popover"
         >
           <div className="max-h-72 overflow-y-auto py-1">
             {playlists.length === 0 && !creating && (

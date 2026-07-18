@@ -75,7 +75,7 @@ export default async function MixPage({
       </Link>
 
       <header className="mt-6 flex flex-col gap-5 border-b border-border pb-8 sm:flex-row sm:items-end">
-        <div className="relative h-36 w-36 shrink-0 overflow-hidden rounded-xl border-2 border-ink bg-secondary">
+        <div className="relative h-36 w-36 shrink-0 overflow-hidden rounded-xl bg-secondary">
           {gridCovers.length >= 4 ? (
             <div className="grid h-full w-full grid-cols-2 grid-rows-2">
               {gridCovers.map((url, i) => (
@@ -118,7 +118,7 @@ export default async function MixPage({
 
       <section className="mt-8">
         {mix.tracks.length === 0 ? (
-          <div className="rounded-2xl border-2 border-dashed border-ink/40 bg-card p-8 text-center text-sm text-muted-foreground">
+          <div className="rounded-2xl border-2 border-dashed border-foreground/15 bg-card p-8 text-center text-sm text-muted-foreground">
             <Icon className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" />
             <p>This mix is empty for now.</p>
             <p className="mt-1">

@@ -1,8 +1,8 @@
 import { ListMusic } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { AmbientArtworkBackground } from "@/components/AmbientArtworkBackground";
 import { BackLink } from "@/components/BackLink";
+import { HeroCard } from "@/components/HeroCard";
 import { trackMatchKey } from "@/lib/deezer";
 import {
   buildOwnedTrackLookup,
@@ -100,13 +100,8 @@ export default async function PlaylistPage({ params }: { params: RouteParams }) 
     ...(await getLikedSet(userId, "TRACK", likeTargetIds)),
   ];
 
-  const ambientCoverUrl =
-    playlist.coverUrl ?? playlist.tracks.find((t) => t.coverUrl)?.coverUrl;
-
   return (
     <main className="relative isolate mx-auto w-full max-w-5xl flex-1 px-4 py-8 md:px-6">
-      <AmbientArtworkBackground imageUrl={ambientCoverUrl} />
-
       <BackLink fallbackHref="/playlists" />
 
       <PlaylistDetail
@@ -177,16 +172,18 @@ async function SystemPlaylistPage({
     .map((t) => t.coverUrl)
     .filter((x): x is string => !!x)
     .slice(0, 4);
-  const ambientCover = playlist.coverUrl ?? gridCovers[0];
 
   return (
     <main className="relative isolate mx-auto w-full max-w-3xl flex-1 px-4 py-8 md:px-6">
-      <AmbientArtworkBackground imageUrl={ambientCover} />
       <BackLink fallbackHref="/playlists" />
 
-      <header className="mt-6 flex flex-col gap-5 border-b border-border pb-8 sm:flex-row sm:items-end sm:justify-between">
+      <HeroCard
+        seed={playlist.name}
+        className="mt-6"
+        innerClassName="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"
+      >
         <div className="flex items-end gap-5">
-          <div className="relative h-36 w-36 shrink-0 overflow-hidden rounded-xl border-2 border-ink bg-surface-2">
+          <div className="relative h-36 w-36 shrink-0 overflow-hidden rounded-xl bg-surface-2">
             {playlist.coverUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -217,34 +214,34 @@ async function SystemPlaylistPage({
                 className="h-full w-full object-cover"
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-muted-foreground/40">
+              <div className="flex h-full w-full items-center justify-center text-ink/40">
                 <ListMusic className="h-1/3 w-1/3" />
               </div>
             )}
           </div>
           <div className="min-w-0 space-y-1.5">
-            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink/70">
               Featured playlist
             </p>
             <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">
               {playlist.name}
             </h1>
             {playlist.description && (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-ink/70">
                 {playlist.description}
               </p>
             )}
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-ink/60">
               {playlist.tracks.length} tracks · Refreshes weekly
             </p>
           </div>
         </div>
         <SubscribeButton playlistId={playlist.id} initialSubscribed={subscribed} />
-      </header>
+      </HeroCard>
 
       <section className="mt-8">
         {tracks.length === 0 ? (
-          <div className="rounded-2xl border-2 border-dashed border-ink bg-card p-8 text-center text-sm text-muted-foreground">
+          <div className="rounded-2xl border-2 border-dashed border-foreground/15 bg-card p-8 text-center text-sm text-muted-foreground">
             <ListMusic className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" />
             <p>This playlist is filling up — check back shortly.</p>
           </div>
