@@ -62,7 +62,7 @@ export async function preloadMixes(
             trackTitle: resolved.title,
             albumPosition: resolved.albumPosition,
           },
-          { ephemeral: true, expiresAt },
+          { ephemeral: true, expiresAt, forceApproval: true },
         );
         requested++;
       }
