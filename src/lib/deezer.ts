@@ -88,6 +88,39 @@ async function deezerFetch<T>(path: string, params: Record<string, string> = {})
   return (await res.json()) as T;
 }
 
+/**
+ * Stable, never-expiring preview URL for a Deezer track: a local endpoint that
+ * 307s to a freshly-signed CDN URL per play. Deezer's `preview` URLs are
+ * Akamai-signed and expire ~15 minutes after issue, so caching the URL itself
+ * (charts 1h, artist/track/album lookups 7d) means dead audio for most of the
+ * cache lifetime. Store this instead and re-resolve on demand.
+ */
+export function previewProxyUrl(deezerTrackId: number): string {
+  return `/api/stream/preview/${deezerTrackId}`;
+}
+
+type DeezerTrackResponse = {
+  preview?: string;
+};
+
+/**
+ * Freshly-signed CDN URL for a track's 30s preview. Cached briefly — the TTL
+ * must stay under the ~15-minute signature lifetime.
+ */
+export async function getDeezerTrackPreviewUrl(
+  trackId: string,
+): Promise<string | null> {
+  const cacheKey = `deezer:track:preview-url:${trackId}`;
+  return withCache<string | null>(cacheKey, 5 * 60, async () => {
+    try {
+      const data = await deezerFetch<DeezerTrackResponse>(`/track/${trackId}`);
+      return data.preview ? data.preview : null;
+    } catch {
+      return null;
+    }
+  });
+}
+
 type DeezerSearchArtistResponse = {
   data?: Array<{
     id: number;
@@ -201,7 +234,7 @@ export async function getDeezerArtistBundle(
   topTrackLimit = 10,
   similarLimit = 8,
 ): Promise<DeezerArtistBundle | null> {
-  const cacheKey = `deezer:artist:bundle:${normalizeTrackTitle(artistName)}:${topTrackLimit}:${similarLimit}`;
+  const cacheKey = `deezer:artist:bundle:v2:${normalizeTrackTitle(artistName)}:${topTrackLimit}:${similarLimit}`;
   return withCache<DeezerArtistBundle | null>(
     cacheKey,
     7 * 24 * 60 * 60,
@@ -239,7 +272,7 @@ export async function getDeezerArtistBundle(
         topRes.status === "fulfilled"
           ? (topRes.value.data ?? []).map((t) => ({
               title: t.title,
-              previewUrl: t.preview ? t.preview : null,
+              previewUrl: t.preview ? previewProxyUrl(t.id) : null,
               durationMs: typeof t.duration === "number" ? t.duration * 1000 : null,
               albumTitle: t.album?.title ?? null,
               albumCover: t.album?.cover_big ?? t.album?.cover_medium ?? null,
@@ -384,7 +417,7 @@ export async function findDeezerTrack({
   artistName: string;
   trackName: string;
 }): Promise<DeezerTrackMatch | null> {
-  const cacheKey = `deezer:track:match:v1:${normalizeTrackTitle(artistName)}:${normalizeTrackTitle(trackName)}`;
+  const cacheKey = `deezer:track:match:v2:${normalizeTrackTitle(artistName)}:${normalizeTrackTitle(trackName)}`;
   return withCache<DeezerTrackMatch | null>(cacheKey, 7 * 24 * 60 * 60, async () => {
     let search: DeezerSearchTracksFullResponse;
     try {
@@ -410,7 +443,7 @@ export async function findDeezerTrack({
       artistName: hit.artist?.name ?? artistName,
       albumTitle: hit.album?.title ?? null,
       coverUrl: pickTrackCover(hit),
-      previewUrl: hit.preview ? hit.preview : null,
+      previewUrl: hit.preview ? previewProxyUrl(hit.id) : null,
       durationMs: typeof hit.duration === "number" ? hit.duration * 1000 : null,
     };
   });
@@ -591,7 +624,7 @@ export async function getDeezerChartTracks(
   const id =
     genreSlug === null ? 0 : DEEZER_GENRE_IDS[genreSlug.toLowerCase()];
   if (id === undefined) return [];
-  const cacheKey = `deezer:chart:tracks:${id}:${limit}`;
+  const cacheKey = `deezer:chart:tracks:v2:${id}:${limit}`;
   return withCache<DiscoveryTrack[]>(cacheKey, 60 * 60, async () => {
     let data: DeezerChartTracksResponse;
     try {
@@ -608,7 +641,7 @@ export async function getDeezerChartTracks(
         artistName: t.artist?.name ?? "Unknown artist",
         albumTitle: t.album?.title ?? null,
         coverUrl: pickTrackCover(t),
-        previewUrl: t.preview ? t.preview : null,
+        previewUrl: t.preview ? previewProxyUrl(t.id) : null,
         durationMs: typeof t.duration === "number" ? t.duration * 1000 : null,
       }))
       .filter((t) => t.title.length > 0);
@@ -623,7 +656,7 @@ export async function getDeezerChartTracks(
 export async function getDeezerNewReleaseTracks(
   limit = 12,
 ): Promise<DiscoveryTrack[]> {
-  const cacheKey = `deezer:editorial:release-tracks:${limit}`;
+  const cacheKey = `deezer:editorial:release-tracks:v2:${limit}`;
   return withCache<DiscoveryTrack[]>(cacheKey, 60 * 60, async () => {
     let data: DeezerEditorialReleasesResponse;
     try {
@@ -652,7 +685,7 @@ export async function getDeezerNewReleaseTracks(
           artistName: a.artist?.name ?? "Unknown artist",
           albumTitle: a.title,
           coverUrl: a.cover_xl ?? a.cover_big ?? a.cover_medium ?? null,
-          previewUrl: first.preview ? first.preview : null,
+          previewUrl: first.preview ? previewProxyUrl(first.id) : null,
           durationMs:
             typeof first.duration === "number" ? first.duration * 1000 : null,
         };
@@ -666,7 +699,7 @@ export async function findAlbumPreviews(
   artistName: string,
   albumTitle: string,
 ): Promise<DeezerAlbumMatch | null> {
-  const cacheKey = `deezer:album:${normalizeTrackTitle(artistName)}:${normalizeTrackTitle(albumTitle)}`;
+  const cacheKey = `deezer:album:v2:${normalizeTrackTitle(artistName)}:${normalizeTrackTitle(albumTitle)}`;
   return withCache<DeezerAlbumMatch | null>(cacheKey, 7 * 24 * 60 * 60, async () => {
     // Plain-text query — Deezer's fielded `artist:"X" album:"Y"` syntax
     // returns 0 results for many real titles, so we filter on our side.
@@ -697,7 +730,7 @@ export async function findAlbumPreviews(
     const trackByTitle: Record<string, DeezerTrackInfo> = {};
     for (const t of album.tracks?.data ?? []) {
       trackByTitle[normalizeTrackTitle(t.title)] = {
-        previewUrl: t.preview ? t.preview : null,
+        previewUrl: t.preview ? previewProxyUrl(t.id) : null,
         durationMs: typeof t.duration === "number" ? t.duration * 1000 : null,
       };
     }

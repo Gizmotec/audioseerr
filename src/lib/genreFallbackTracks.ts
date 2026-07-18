@@ -124,7 +124,7 @@ export async function getGenrePreviewTracks(
   if (!slug) return [];
 
   return withCache<DiscoveryTrack[]>(
-    `genre:preview:tracks:${slug}:${limit}`,
+    `genre:preview:tracks:v2:${slug}:${limit}`,
     60 * 60,
     async () => {
       let data: LastFmTagTracksResponse;
