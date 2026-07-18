@@ -1,12 +1,14 @@
+import { statfs } from "node:fs/promises";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { UsersAdminClient } from "@/app/admin/users/UsersAdminClient";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { getSettings, isSetupComplete } from "@/lib/settings";
+import { getSettings, isSetupComplete, type SettingsView } from "@/lib/settings";
+import { applyPathMap, parsePathMap } from "@/lib/streaming";
 import { cn } from "@/lib/utils";
-import { SettingsForm } from "./SettingsForm";
+import { SettingsForm, type StorageStats } from "./SettingsForm";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +45,7 @@ export default async function AdminSettingsPage({
         <p className="text-sm text-muted-foreground">
           {tab === "users"
             ? "Invite people to your server and decide whose requests skip approval."
-            : "Soulseek connection, library paths, and discovery API keys. Changes apply immediately."}
+            : "Integrations, library playback, and system preferences. Changes apply immediately."}
         </p>
       </header>
 
@@ -55,7 +57,7 @@ export default async function AdminSettingsPage({
       {tab === "users" ? (
         <UsersTab currentUserId={(session.user as { id?: string }).id ?? ""} />
       ) : (
-        <SettingsTab />
+        <SettingsTab currentUserId={(session.user as { id?: string }).id ?? ""} />
       )}
     </main>
   );
@@ -85,8 +87,14 @@ function TabLink({
   );
 }
 
-async function SettingsTab() {
-  const settings = await getSettings();
+async function SettingsTab({ currentUserId }: { currentUserId: string }) {
+  const [settings, user] = await Promise.all([
+    getSettings(),
+    prisma.user.findUnique({
+      where: { id: currentUserId },
+      select: { spotifyAccessToken: true, spotifyClientId: true },
+    }),
+  ]);
   const env = {
     youtube: !!process.env.YOUTUBE_API_KEY,
     authSecret: !!process.env.AUTH_SECRET,
@@ -104,8 +112,42 @@ async function SettingsTab() {
         preDownloadMixes: settings.preDownloadMixes,
       }}
       env={env}
+      storage={await getStorageStats(settings)}
+      spotify={{
+        connected: !!user?.spotifyAccessToken,
+        clientIdSaved: !!user?.spotifyClientId,
+      }}
     />
   );
+}
+
+// Disk + library usage for the Storage card. App usage is the sum of tracked
+// file sizes; total/free come from statfs on the resolved download root (the
+// same path-map bridge streaming uses). Returns reachable:false when no path is
+// set or the directory isn't mounted (e.g. dev), so the card can say so.
+async function getStorageStats(settings: SettingsView): Promise<StorageStats> {
+  const agg = await prisma.downloadedTrack.aggregate({
+    _sum: { sizeBytes: true },
+  });
+  const appBytes = agg._sum.sizeBytes ?? 0;
+
+  const root = settings.slskdDownloadPath
+    ? applyPathMap(settings.slskdDownloadPath, parsePathMap(settings.mediaPathMap))
+    : null;
+  if (!root) return { reachable: false, root: null, total: 0, free: 0, appBytes };
+
+  try {
+    const fs = await statfs(root);
+    return {
+      reachable: true,
+      root,
+      total: fs.blocks * fs.bsize,
+      free: fs.bavail * fs.bsize,
+      appBytes,
+    };
+  } catch {
+    return { reachable: false, root, total: 0, free: 0, appBytes };
+  }
 }
 
 async function UsersTab({ currentUserId }: { currentUserId: string }) {
