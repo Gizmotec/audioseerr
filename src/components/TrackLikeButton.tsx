@@ -10,6 +10,8 @@ type Props = {
   initialLiked: boolean;
   variant?: "icon" | "full";
   className?: string;
+  /** Fired after the server confirms the new like state. */
+  onToggled?: (liked: boolean) => void;
 };
 
 /**
@@ -24,6 +26,7 @@ export function TrackLikeButton({
   initialLiked,
   variant = "icon",
   className,
+  onToggled,
 }: Props) {
   const [liked, setLiked] = useState(initialLiked);
   const [pending, startTransition] = useTransition();
@@ -46,6 +49,7 @@ export function TrackLikeButton({
         return;
       }
       setLiked(result.liked);
+      onToggled?.(result.liked);
     });
   };
 

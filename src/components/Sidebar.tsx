@@ -1,5 +1,6 @@
 import {
   Compass,
+  Heart,
   Home,
   Inbox,
   Library,
@@ -30,6 +31,9 @@ export async function Sidebar() {
         </SidebarLink>
         <SidebarLink href="/home" icon={<Home className="h-4 w-4" />}>
           Home
+        </SidebarLink>
+        <SidebarLink href="/liked" icon={<Heart className="h-4 w-4" />}>
+          Liked
         </SidebarLink>
         <SidebarLink href="/playlists" icon={<ListMusic className="h-4 w-4" />}>
           Playlists

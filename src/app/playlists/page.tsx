@@ -2,7 +2,6 @@ import { ArrowLeft, Download, ListMusic } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { getLikedSongsPlaylistSummary } from "@/lib/likes";
 import {
   listPlaylists,
   listSharedPlaylists,
@@ -24,14 +23,11 @@ export default async function PlaylistsPage() {
     redirect("/login");
   }
 
-  const [likedSongs, playlists, sharedPlaylists, systemPlaylists] =
-    await Promise.all([
-      getLikedSongsPlaylistSummary(userId),
-      listPlaylists(userId),
-      listSharedPlaylists(userId),
-      listSystemPlaylists(),
-    ]);
-  const ownPlaylists = [likedSongs, ...playlists];
+  const [playlists, sharedPlaylists, systemPlaylists] = await Promise.all([
+    listPlaylists(userId),
+    listSharedPlaylists(userId),
+    listSystemPlaylists(),
+  ]);
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 md:px-6">
@@ -81,7 +77,7 @@ export default async function PlaylistsPage() {
         </section>
       )}
 
-      {ownPlaylists.length === 0 ? (
+      {playlists.length === 0 ? (
         <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
           <ListMusic className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" />
           <p>No playlists yet.</p>
@@ -91,7 +87,7 @@ export default async function PlaylistsPage() {
         </div>
       ) : (
         <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-          {ownPlaylists.map((p) => (
+          {playlists.map((p) => (
             <li key={p.id}>
               <PlaylistTile playlist={p} />
             </li>

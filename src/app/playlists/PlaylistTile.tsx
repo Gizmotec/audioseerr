@@ -16,7 +16,11 @@ export function PlaylistTile({ playlist }: { playlist: PlaylistSummary }) {
 
   return (
     <Link
-      href={`/playlists/${playlist.id}`}
+      href={
+        playlist.system === "liked-songs"
+          ? "/liked"
+          : `/playlists/${playlist.id}`
+      }
       className="group flex flex-col gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <div className="relative aspect-square overflow-hidden rounded-md bg-secondary">

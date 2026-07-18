@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
+import { trackLikeTargetId } from "@/lib/likeKeys";
 import { getAlbum } from "@/lib/musicbrainz";
-import type { PlaylistDetail, PlaylistSummary, PlaylistTrackRow } from "@/lib/playlists";
+import type { PlaylistSummary } from "@/lib/playlists";
 
 // Re-exported so existing server-side callers can keep importing it from here.
 // The definition lives in the client-safe likeKeys module (no Prisma import) so
@@ -104,38 +105,20 @@ function likedSongsCoverUrls(rows: LikedRow[]): string[] {
   return coverUrls;
 }
 
-export async function getLikedSongsPlaylistSummary(
+export async function getLikedInboxSummary(
   userId: string,
 ): Promise<PlaylistSummary> {
-  const rows = await prisma.like.findMany({
-    where: { userId, targetType: "TRACK" },
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      targetType: true,
-      targetId: true,
-      title: true,
-      artistName: true,
-      albumMbid: true,
-      albumTitle: true,
-      coverUrl: true,
-      createdAt: true,
-    },
-    take: 24,
-  });
-  const coverUrls = likedSongsCoverUrls(rows);
-  const trackCount = await prisma.like.count({
-    where: { userId, targetType: "TRACK" },
-  });
+  const unsorted = await getUnsortedTrackLikes(userId);
+  const coverUrls = likedSongsCoverUrls(unsorted.slice(0, 24));
 
   return {
     id: LIKED_SONGS_PLAYLIST_ID,
     name: "Liked Songs",
-    description: "Tracks you've hearted across Audioseerr.",
-    trackCount,
+    description: "Hearted tracks waiting to be sorted into a playlist.",
+    trackCount: unsorted.length,
     coverUrls,
     coverUrl: coverUrls[0] ?? null,
-    updatedAt: rows[0]?.createdAt ?? new Date(0),
+    updatedAt: unsorted[0]?.createdAt ?? new Date(0),
     isShared: false,
     isOwner: true,
     ownerUsername: null,
@@ -143,9 +126,32 @@ export async function getLikedSongsPlaylistSummary(
   };
 }
 
-export async function getLikedSongsPlaylist(
-  userId: string,
-): Promise<PlaylistDetail> {
+/**
+ * Like-keys (see trackLikeTargetId) of every track in the user's own
+ * playlists. A liked track matching this set is "sorted" and leaves the
+ * liked-songs inbox. System playlists have no owner, so the `userId` match
+ * already restricts this to the user's curated playlists.
+ */
+async function getSortedLikedTargetIds(userId: string): Promise<Set<string>> {
+  const rows = await prisma.playlistTrack.findMany({
+    where: { playlist: { userId } },
+    select: { recordingMbid: true, albumMbid: true, albumPosition: true },
+  });
+  const out = new Set<string>();
+  for (const row of rows) {
+    const key = trackLikeTargetId(row.recordingMbid, row.albumMbid, row.albumPosition);
+    if (key) out.add(key);
+  }
+  return out;
+}
+
+/**
+ * The user's TRACK likes that aren't in any of their playlists yet — the
+ * inbox contents, newest first. Likes without an albumMbid can't be
+ * positioned or streamed, so they're dropped here (same as the old
+ * liked-songs view did at render time).
+ */
+async function getUnsortedTrackLikes(userId: string): Promise<LikedRow[]> {
   const rows = await prisma.like.findMany({
     where: { userId, targetType: "TRACK" },
     orderBy: { createdAt: "desc" },
@@ -161,19 +167,45 @@ export async function getLikedSongsPlaylist(
       createdAt: true,
     },
   });
-  const coverUrls = likedSongsCoverUrls(rows);
+  if (rows.length === 0) return rows;
+  const sorted = await getSortedLikedTargetIds(userId);
+  return rows.filter((row) => row.albumMbid && !sorted.has(row.targetId));
+}
+
+export type UnsortedLikedTrack = {
+  /** Like row id — stable React key and removal handle. */
+  id: string;
+  /** The like key (recording MBID or `albumMbid:position` synthetic id). */
+  targetId: string;
+  albumMbid: string;
+  albumPosition: number;
+  title: string;
+  artistName: string;
+  albumTitle: string | null;
+  coverUrl: string | null;
+  durationMs: number | null;
+};
+
+/**
+ * Inbox tracks resolved against MusicBrainz for album position and duration
+ * (needed for stream lookup and display). Album metadata is fetched once per
+ * distinct album and served from the ApiCache on repeat renders.
+ */
+export async function getUnsortedLikedTracks(
+  userId: string,
+): Promise<UnsortedLikedTrack[]> {
+  const rows = await getUnsortedTrackLikes(userId);
   const albums = new Map<string, Awaited<ReturnType<typeof getAlbum>>>();
   await Promise.all(
-    Array.from(new Set(rows.map((row) => row.albumMbid).filter(Boolean))).map(
+    Array.from(new Set(rows.map((row) => row.albumMbid!))).map(
       async (albumMbid) => {
-        albums.set(albumMbid!, await getAlbum(albumMbid!));
+        albums.set(albumMbid, await getAlbum(albumMbid));
       },
     ),
   );
 
-  const tracks = rows.flatMap<PlaylistTrackRow>((row, index) => {
-    if (!row.albumMbid) return [];
-    const album = albums.get(row.albumMbid);
+  return rows.flatMap<UnsortedLikedTrack>((row) => {
+    const album = albums.get(row.albumMbid!);
     const mbTrack =
       album?.tracks.find((track) => track.recordingMbid === row.targetId) ??
       album?.tracks.find(
@@ -184,33 +216,17 @@ export async function getLikedSongsPlaylist(
     return [
       {
         id: row.id,
-        position: index + 1,
-        recordingMbid: row.targetId,
-        trackFileId: 0,
-        albumMbid: row.albumMbid,
+        targetId: row.targetId,
+        albumMbid: row.albumMbid!,
         albumPosition: mbTrack.absolutePosition,
         title: row.title,
         artistName: row.artistName ?? album?.artistName ?? "Unknown artist",
         albumTitle: row.albumTitle ?? album?.title ?? null,
-        coverUrl: row.coverUrl ?? coverUrlForReleaseGroup(row.albumMbid),
+        coverUrl: row.coverUrl ?? coverUrlForReleaseGroup(row.albumMbid!),
         durationMs: mbTrack.lengthMs,
       },
     ];
   });
-
-  return {
-    id: LIKED_SONGS_PLAYLIST_ID,
-    name: "Liked Songs",
-    description: "Tracks you've hearted across Audioseerr.",
-    coverUrl: coverUrls[0] ?? null,
-    createdAt: rows.at(-1)?.createdAt ?? new Date(0),
-    updatedAt: rows[0]?.createdAt ?? new Date(0),
-    tracks,
-    isShared: false,
-    isOwner: true,
-    ownerUsername: null,
-    system: "liked-songs",
-  };
 }
 
 /**

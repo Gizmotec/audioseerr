@@ -42,7 +42,6 @@ export type PlaylistDetail = {
   isShared: boolean;
   ownerUsername: string | null;
   isOwner: boolean;
-  system?: "liked-songs";
   isSystem?: boolean;
 };
 

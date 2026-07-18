@@ -270,6 +270,8 @@ export async function addTrackToPlaylistAction(
     await autoFetchMissing(auth.userId, [payload]);
     revalidatePath("/playlists");
     revalidatePath(`/playlists/${playlistId}`);
+    // Adding to a playlist sorts the track out of the liked-songs inbox.
+    revalidatePath("/liked");
     return { ok: true, id: row.id, position: row.position };
   } catch (err) {
     return { ok: false, error: errorMessage(err) };
@@ -287,6 +289,7 @@ export async function addTracksToPlaylistAction(
     await autoFetchMissing(auth.userId, payloads);
     revalidatePath("/playlists");
     revalidatePath(`/playlists/${playlistId}`);
+    revalidatePath("/liked");
     return { ok: true, count: result.count };
   } catch (err) {
     return { ok: false, error: errorMessage(err) };
@@ -303,6 +306,8 @@ export async function removeTrackAction(
     await removeTrackFromPlaylist(auth.userId, playlistId, trackRowId);
     revalidatePath("/playlists");
     revalidatePath(`/playlists/${playlistId}`);
+    // A liked track removed from its last playlist returns to the inbox.
+    revalidatePath("/liked");
     return { ok: true };
   } catch (err) {
     return { ok: false, error: errorMessage(err) };

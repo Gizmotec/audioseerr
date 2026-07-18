@@ -18,6 +18,8 @@ export type PlaylistOption = {
 type Props = {
   payload: AddTrackPayload;
   initialPlaylists: PlaylistOption[];
+  /** Fired after the track lands in a playlist (existing or newly created). */
+  onAdded?: () => void;
 };
 
 /**
@@ -25,7 +27,7 @@ type Props = {
  * Clicking a playlist appends the track; "New playlist…" reveals an inline
  * input that creates the playlist and adds the track in two server calls.
  */
-export function AddToPlaylistButton({ payload, initialPlaylists }: Props) {
+export function AddToPlaylistButton({ payload, initialPlaylists, onAdded }: Props) {
   const [open, setOpen] = useState(false);
   const [playlists, setPlaylists] = useState(initialPlaylists);
   const [creating, setCreating] = useState(false);
@@ -90,6 +92,7 @@ export function AddToPlaylistButton({ payload, initialPlaylists }: Props) {
         ),
       );
       flashAdded(playlistId);
+      onAdded?.();
     });
   };
 
@@ -118,6 +121,7 @@ export function AddToPlaylistButton({ payload, initialPlaylists }: Props) {
       setNewName("");
       setCreating(false);
       flashAdded(created.id);
+      onAdded?.();
     });
   };
 

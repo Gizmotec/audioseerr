@@ -15,7 +15,7 @@ import { SearchBar } from "@/app/search/SearchBar";
 import { OwnedTrackList, type OwnedTrack } from "@/components/OwnedTrackList";
 import { ShuffleLibraryButton } from "@/components/ShuffleLibraryButton";
 import { prisma } from "@/lib/db";
-import { getLikedSongsPlaylistSummary } from "@/lib/likes";
+import { getLikedInboxSummary } from "@/lib/likes";
 import {
   getMostPlayedTracks,
   getRecentlyPlayedTracks,
@@ -65,7 +65,7 @@ export default async function HomePage() {
         orderBy: { createdAt: "desc" },
         take: 8,
       }),
-      getLikedSongsPlaylistSummary(userId),
+      getLikedInboxSummary(userId),
       listPlaylists(userId),
       getRecentlyPlayedTracks(userId, 8, viewer),
       getMostPlayedTracks(userId, 8, viewer),
