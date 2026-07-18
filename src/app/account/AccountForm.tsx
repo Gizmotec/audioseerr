@@ -147,7 +147,7 @@ export function AccountForm({
   return (
     <div className="flex flex-col gap-6">
       {reason === "connect_spotify" && !connected && (
-        <div className="rounded-md border border-border bg-secondary/15 px-3 py-2 text-sm text-muted-foreground">
+        <div className="rounded-xl border-2 border-ink bg-surface-2 px-3 py-2 text-sm text-muted-foreground">
           Connect Spotify below to import your playlists.
         </div>
       )}
@@ -162,11 +162,11 @@ export function AccountForm({
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
           {redirectInsecure && (
-            <div className="flex gap-2.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-600 dark:text-amber-400">
+            <div className="flex gap-2.5 rounded-xl border-2 border-ink bg-pastel-yellow px-3 py-2.5 text-sm text-ink">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               <div className="space-y-1">
-                <p className="font-medium">Spotify needs a secure (HTTPS) address</p>
-                <p className="text-amber-700/90 dark:text-amber-300/90">
+                <p className="font-bold">Spotify needs a secure (HTTPS) address</p>
+                <p className="text-ink/80">
                   You're reaching Audioseerr over an insecure{" "}
                   <code className="font-mono">http://</code> address, so Spotify
                   will reject the redirect URI below with{" "}
@@ -215,7 +215,7 @@ export function AccountForm({
 
             {connected ? (
               <>
-                <span className="inline-flex items-center gap-1.5 text-sm text-green-500">
+                <span className="inline-flex items-center gap-1.5 text-sm font-bold text-pastel-mint">
                   <CheckCircle2 className="h-4 w-4" /> Connected
                   {tokenExpiresAt && (
                     <span className="text-xs text-muted-foreground">
@@ -254,22 +254,22 @@ export function AccountForm({
           )}
 
           {oauthConnected && (
-            <div className="rounded-md border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm text-green-500">
+            <div className="rounded-xl border-2 border-ink bg-pastel-mint px-3 py-2 text-sm font-semibold text-ink">
               Spotify connected. You can now import your playlists.
             </div>
           )}
           {oauthError && (
-            <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-xl border-2 border-ink bg-pastel-red px-3 py-2 text-sm font-semibold text-ink">
               {ERROR_MESSAGES[oauthError] ?? `Spotify error: ${oauthError}`}
             </div>
           )}
           {error && (
-            <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-xl border-2 border-ink bg-pastel-red px-3 py-2 text-sm font-semibold text-ink">
               {error}
             </div>
           )}
           {saved && !error && (
-            <span className="inline-flex items-center gap-1.5 text-sm text-green-500">
+            <span className="inline-flex items-center gap-1.5 text-sm font-bold text-pastel-mint">
               <CheckCircle2 className="h-4 w-4" /> Saved
             </span>
           )}
@@ -311,7 +311,7 @@ function SetupSteps({
         <span className="flex flex-1 flex-col gap-1.5">
           <span>Add this redirect URI to the app:</span>
           <span className="flex items-center gap-2">
-            <code className="flex-1 truncate rounded border bg-background px-2 py-1 font-mono text-xs text-foreground">
+            <code className="flex-1 truncate rounded-lg border-2 border-ink bg-surface-2 px-2 py-1 font-mono text-xs text-foreground">
               {redirectUri}
             </code>
             <Button
@@ -321,7 +321,7 @@ function SetupSteps({
               onClick={onCopy}
               aria-live="polite"
               className={`shrink-0 transition-colors duration-150 ${
-                copied ? "border-green-500/40 text-green-500" : ""
+                copied ? "border-ink bg-pastel-mint text-ink" : ""
               }`}
             >
               {copied ? (

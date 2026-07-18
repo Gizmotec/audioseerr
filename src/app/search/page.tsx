@@ -137,7 +137,7 @@ export default async function SearchPage({
       </Link>
 
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Search</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight">Search</h1>
         <p className="text-sm text-muted-foreground">
           Artists, albums &amp; songs — powered by MusicBrainz.
         </p>
@@ -146,7 +146,7 @@ export default async function SearchPage({
       <SearchBar initialQuery={query} />
 
       {error && (
-        <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <p className="rounded-xl border-2 border-ink bg-pastel-red px-3 py-2 text-sm font-bold text-ink">
           {error}
         </p>
       )}
@@ -155,9 +155,9 @@ export default async function SearchPage({
         <section className="flex flex-col gap-6">
           <Link
             href={`/artist/${landing.mbid}`}
-            className="flex items-center gap-4 rounded-lg border border-border bg-secondary/20 p-4 transition-colors hover:bg-secondary/40"
+            className="flex items-center gap-4 rounded-2xl border-2 border-ink bg-card p-4 transition-colors hover:bg-surface-2"
           >
-            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-secondary">
+            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border-2 border-ink bg-secondary">
               {landing.imageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -176,7 +176,7 @@ export default async function SearchPage({
               <p className="text-xs uppercase tracking-wider text-muted-foreground">
                 Artist
               </p>
-              <p className="truncate text-2xl font-semibold leading-tight">
+              <p className="truncate text-2xl font-extrabold leading-tight tracking-tight">
                 {landing.name}
               </p>
               <p className="truncate text-sm text-muted-foreground">

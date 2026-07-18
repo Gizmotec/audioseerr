@@ -1,12 +1,12 @@
 import type { RequestStatus } from "@prisma/client";
 
 const STYLES: Record<RequestStatus, string> = {
-  PENDING: "bg-amber-500/15 text-amber-300 border-amber-500/30",
-  APPROVED: "bg-sky-500/15 text-sky-300 border-sky-500/30",
-  DOWNLOADING: "bg-sky-500/15 text-sky-300 border-sky-500/30",
-  AVAILABLE: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
-  DECLINED: "bg-zinc-500/15 text-zinc-300 border-zinc-500/30",
-  FAILED: "bg-destructive/15 text-destructive border-destructive/30",
+  PENDING: "bg-pastel-yellow text-ink",
+  APPROVED: "bg-pastel-sky text-ink",
+  DOWNLOADING: "bg-pastel-sky text-ink",
+  AVAILABLE: "bg-pastel-mint text-ink",
+  DECLINED: "bg-surface-2 text-muted-foreground",
+  FAILED: "bg-pastel-red text-ink",
 };
 
 const LABELS: Record<RequestStatus, string> = {
@@ -21,7 +21,7 @@ const LABELS: Record<RequestStatus, string> = {
 export function StatusBadge({ status }: { status: RequestStatus }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${STYLES[status]}`}
+      className={`inline-flex items-center rounded-full border-2 border-ink px-2.5 py-0.5 text-[11px] font-bold ${STYLES[status]}`}
     >
       {LABELS[status]}
     </span>

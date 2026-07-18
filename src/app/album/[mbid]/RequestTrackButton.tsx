@@ -48,7 +48,7 @@ export function RequestTrackButton({
   if (inLibrary) {
     return (
       <span
-        className="inline-flex h-8 w-8 items-center justify-center text-muted-foreground"
+        className="inline-flex h-8 w-8 items-center justify-center text-pastel-mint"
         title="Track in your library"
         aria-label="Track in your library"
       >
@@ -89,7 +89,7 @@ export function RequestTrackButton({
         {error && (
           <span
             role="alert"
-            className="absolute right-0 top-full z-10 mt-1 w-48 rounded-md border bg-background p-2 text-xs text-destructive shadow"
+            className="absolute right-0 top-full z-10 mt-1 w-48 rounded-xl border-2 border-ink bg-popover p-2 text-xs text-destructive"
           >
             {error}
           </span>

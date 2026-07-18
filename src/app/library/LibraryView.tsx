@@ -155,10 +155,10 @@ export function LibraryView({
                 type="button"
                 onClick={() => setSort(tab.id)}
                 className={cn(
-                  "inline-flex h-7 items-center rounded-full border px-2.5 text-xs transition-colors",
+                  "inline-flex items-center rounded-full border-2 px-3 py-1.5 text-sm font-bold transition-colors",
                   sort === tab.id
-                    ? "border-foreground bg-foreground text-background"
-                    : "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground",
+                    ? "border-ink bg-pastel-yellow text-ink"
+                    : "border-transparent bg-surface-2 text-muted-foreground hover:text-foreground",
                 )}
               >
                 {tab.label}
@@ -170,7 +170,7 @@ export function LibraryView({
               type="button"
               onClick={playAll}
               disabled={queueItems.length === 0}
-              className="inline-flex h-8 items-center gap-1.5 rounded-full bg-foreground px-3 text-xs font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-40"
+              className="inline-flex h-8 items-center gap-1.5 rounded-full border-2 border-ink bg-primary px-3 text-xs font-bold text-primary-foreground transition-colors hover:bg-pastel-pink/80 disabled:opacity-40"
             >
               <Play className="h-3.5 w-3.5" fill="currentColor" />
               Play all
@@ -179,7 +179,7 @@ export function LibraryView({
               type="button"
               onClick={shuffleAll}
               disabled={queueItems.length === 0}
-              className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-semibold text-foreground transition-colors hover:border-foreground/40 hover:bg-secondary disabled:opacity-40"
+              className="inline-flex h-8 items-center gap-1.5 rounded-full border-2 border-ink bg-card px-3 text-xs font-bold text-foreground transition-colors hover:bg-surface-2 disabled:opacity-40"
             >
               <Shuffle className="h-3.5 w-3.5" />
               Shuffle
@@ -189,7 +189,7 @@ export function LibraryView({
       </div>
 
       {visible.length === 0 ? (
-        <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+        <div className="rounded-2xl border-2 border-dashed border-ink bg-card p-8 text-center text-sm text-muted-foreground">
           <Disc3 className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" />
           <p>No matches.</p>
           {query && (
@@ -203,7 +203,7 @@ export function LibraryView({
           )}
         </div>
       ) : (
-        <ol className="divide-y divide-border/50">
+        <ol className="flex flex-col gap-1">
           {visible.map((t, idx) => {
             const failed = player.failedIds.has(t.id);
             const isActive = !failed && player.isCurrent(t.id);
@@ -218,8 +218,8 @@ export function LibraryView({
                   })
                 }
                 className={cn(
-                  "group flex items-center gap-3 py-2.5",
-                  isActive && "bg-secondary/40",
+                  "group flex items-center gap-3 rounded-xl border-2 border-transparent px-2 py-2.5 hover:bg-surface-2",
+                  isActive && "border-ink bg-surface-2",
                   failed && "opacity-50",
                 )}
               >
@@ -228,10 +228,10 @@ export function LibraryView({
                   onClick={() => playFromIndex(idx)}
                   disabled={failed}
                   className={cn(
-                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border",
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2",
                     failed
-                      ? "cursor-not-allowed border-border/50 text-muted-foreground/40"
-                      : "border-border hover:border-foreground hover:text-foreground",
+                      ? "cursor-not-allowed border-ink/20 text-muted-foreground/40"
+                      : "border-ink hover:bg-pastel-pink hover:text-ink",
                   )}
                   aria-label={
                     failed
@@ -250,7 +250,7 @@ export function LibraryView({
                   )}
                 </button>
 
-                <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-secondary">
+                <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-xl border-2 border-ink bg-surface-2">
                   {t.coverUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -290,7 +290,7 @@ export function LibraryView({
 
                 {failed && (
                   <span
-                    className="hidden shrink-0 rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-rose-400 sm:inline"
+                    className="hidden shrink-0 rounded-full border-2 border-ink bg-pastel-red px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-ink sm:inline"
                     title="Audioseerr couldn't load this file — it may have been moved or deleted."
                   >
                     Failed to load
@@ -406,7 +406,7 @@ function TrackActionsMenu({
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full z-30 mt-1 w-64 rounded-md border border-border bg-popover p-3 text-sm shadow-lg"
+          className="absolute right-0 top-full z-30 mt-1 w-64 rounded-xl border-2 border-ink bg-popover p-3 text-sm"
         >
           <p className="mb-0.5 truncate text-foreground" title={title}>
             {title}
@@ -428,7 +428,7 @@ function TrackActionsMenu({
               type="button"
               onClick={() => run(() => deleteLibraryTrackAction(trackId))}
               disabled={pending}
-              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-destructive px-3 text-xs font-medium text-destructive-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
+              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border-2 border-ink bg-destructive px-3 text-xs font-bold text-ink transition-colors hover:bg-destructive/80 disabled:opacity-40"
             >
               {pending ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -441,7 +441,7 @@ function TrackActionsMenu({
               type="button"
               onClick={() => run(() => deleteLibraryAlbumAction(albumMbid))}
               disabled={pending}
-              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-border px-3 text-xs font-medium text-muted-foreground transition-colors hover:border-destructive hover:text-destructive disabled:opacity-40"
+              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border-2 border-ink bg-card px-3 text-xs font-bold text-foreground transition-colors hover:bg-pastel-red hover:text-ink disabled:opacity-40"
             >
               Remove whole album
             </button>

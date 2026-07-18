@@ -39,9 +39,9 @@ export function LibraryAlbumTile({
     <div className="group relative">
       <Link
         href={`/album/${item.mbid}`}
-        className="flex flex-col gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex flex-col gap-2 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <div className="relative aspect-square overflow-hidden rounded-md bg-secondary">
+        <div className="relative aspect-square overflow-hidden rounded-xl border-2 border-ink bg-surface-2">
           {imgOk ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -142,7 +142,7 @@ function DeleteAlbumMenu({
         aria-label="Album actions"
         aria-haspopup="menu"
         aria-expanded={open}
-        className={`flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white opacity-0 backdrop-blur transition-opacity hover:bg-black/80 focus-visible:opacity-100 group-hover:opacity-100 ${
+        className={`flex h-7 w-7 items-center justify-center rounded-full border-2 border-ink bg-card text-foreground opacity-0 transition-opacity hover:bg-pastel-yellow hover:text-ink focus-visible:opacity-100 group-hover:opacity-100 ${
           open ? "opacity-100" : ""
         }`}
       >
@@ -151,7 +151,7 @@ function DeleteAlbumMenu({
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full z-30 mt-1 w-64 rounded-md border border-border bg-popover p-3 text-sm shadow-lg"
+          className="absolute right-0 top-full z-30 mt-1 w-64 rounded-xl border-2 border-ink bg-popover p-3 text-sm"
         >
           <p className="mb-1 text-foreground">Remove this album?</p>
           <p className="mb-1 text-xs text-muted-foreground">
@@ -172,7 +172,7 @@ function DeleteAlbumMenu({
               type="button"
               onClick={() => setOpen(false)}
               disabled={pending}
-              className="inline-flex h-8 items-center gap-1 rounded-md border border-border px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              className="inline-flex h-8 items-center gap-1 rounded-full border-2 border-ink bg-card px-3 text-xs font-bold text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
             >
               <X className="h-3 w-3" />
               Cancel
@@ -181,7 +181,7 @@ function DeleteAlbumMenu({
               type="button"
               onClick={confirm}
               disabled={pending}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md bg-destructive px-3 text-xs font-medium text-destructive-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
+              className="inline-flex h-8 items-center gap-1.5 rounded-full border-2 border-ink bg-destructive px-3 text-xs font-bold text-ink transition-colors hover:bg-destructive/80 disabled:opacity-40"
             >
               {pending ? (
                 <Loader2 className="h-3 w-3 animate-spin" />

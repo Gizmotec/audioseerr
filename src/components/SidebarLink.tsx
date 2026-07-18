@@ -4,6 +4,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
+const accents = {
+  pink: "bg-pastel-pink text-ink",
+  yellow: "bg-pastel-yellow text-ink",
+  mint: "bg-pastel-mint text-ink",
+  sky: "bg-pastel-sky text-ink",
+  lavender: "bg-pastel-lavender text-ink",
+  red: "bg-pastel-red text-ink",
+} as const;
+
+export type SidebarAccent = keyof typeof accents;
+
 /**
  * Navigation item in the sidebar. Highlights when the current route matches
  * the link's href — either exactly, or as a prefix (so `/playlists/abc` keeps
@@ -16,10 +27,12 @@ import { cn } from "@/lib/utils";
 export function SidebarLink({
   href,
   icon,
+  accent = "pink",
   children,
 }: {
   href: string;
   icon: React.ReactNode;
+  accent?: SidebarAccent;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -29,13 +42,21 @@ export function SidebarLink({
       href={href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors",
+        "inline-flex items-center gap-2.5 rounded-full border-2 px-3 py-2 text-sm font-semibold transition-colors",
         active
-          ? "bg-secondary text-foreground"
-          : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
+          ? cn("border-ink", accents[accent])
+          : "border-transparent text-muted-foreground hover:bg-surface-2 hover:text-foreground",
       )}
     >
-      {icon} {children}
+      <span
+        className={cn(
+          "inline-flex size-6 items-center justify-center rounded-full border-2",
+          active ? "border-ink/20 bg-ink/10" : cn("border-ink", accents[accent]),
+        )}
+      >
+        {icon}
+      </span>
+      {children}
     </Link>
   );
 }

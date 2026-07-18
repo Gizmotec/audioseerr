@@ -2,7 +2,7 @@ import { ArrowLeft, Compass, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { normalizeTrackTitle } from "@/lib/deezer";
+import { trackMatchKey } from "@/lib/deezer";
 import { buildEphemeralTrackLookup } from "@/lib/downloadedTracks";
 import { getLikedSet, trackLikeTargetId } from "@/lib/likes";
 import { getOrGenerateMix, type MixKind } from "@/lib/mixes";
@@ -43,9 +43,7 @@ export default async function MixPage({
   if (ephemeral.size > 0) {
     mix.tracks.forEach((t, i) => {
       if (t.kind !== "new") return;
-      const match = ephemeral.get(
-        `${normalizeTrackTitle(t.artistName)}|${normalizeTrackTitle(t.title)}`,
-      );
+      const match = ephemeral.get(trackMatchKey(t.artistName, t.title));
       if (match) {
         preloaded[i] = {
           downloadedTrackId: match.downloadedTrackId,
@@ -77,7 +75,7 @@ export default async function MixPage({
       </Link>
 
       <header className="mt-6 flex flex-col gap-5 border-b border-border pb-8 sm:flex-row sm:items-end">
-        <div className="relative h-36 w-36 shrink-0 overflow-hidden rounded-lg bg-secondary shadow-sm">
+        <div className="relative h-36 w-36 shrink-0 overflow-hidden rounded-xl border-2 border-ink bg-secondary">
           {gridCovers.length >= 4 ? (
             <div className="grid h-full w-full grid-cols-2 grid-rows-2">
               {gridCovers.map((url, i) => (
@@ -111,7 +109,7 @@ export default async function MixPage({
             <Icon className="h-3.5 w-3.5" />
             {kind === "daily" ? "Daily Mix" : "Discover Weekly"}
           </p>
-          <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
+          <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">
             {mix.title}
           </h1>
           <p className="text-sm text-muted-foreground">{mix.subtitle}</p>
@@ -120,7 +118,7 @@ export default async function MixPage({
 
       <section className="mt-8">
         {mix.tracks.length === 0 ? (
-          <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+          <div className="rounded-2xl border-2 border-dashed border-ink/40 bg-card p-8 text-center text-sm text-muted-foreground">
             <Icon className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" />
             <p>This mix is empty for now.</p>
             <p className="mt-1">

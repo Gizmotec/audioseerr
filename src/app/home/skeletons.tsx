@@ -2,12 +2,12 @@
 // shape of its corresponding live component so layout doesn't shift when
 // data resolves.
 
-const SHIMMER = "animate-pulse bg-secondary/60";
+const SHIMMER = "animate-pulse bg-surface-2";
 
 function SectionHeader({ width = "w-32" }: { width?: string }) {
   return (
     <header className="flex items-baseline justify-between">
-      <div className={`h-5 rounded ${width} ${SHIMMER}`} />
+      <div className={`h-5 rounded-xl ${width} ${SHIMMER}`} />
     </header>
   );
 }
@@ -26,9 +26,9 @@ export function DiscoveryRowSkeleton({
         <ul className="flex gap-4 pb-2">
           {Array.from({ length: count }).map((_, i) => (
             <li key={i} className="w-36 shrink-0 sm:w-40">
-              <div className={`aspect-square rounded-md ${SHIMMER}`} />
-              <div className={`mt-2 h-3.5 w-3/4 rounded ${SHIMMER}`} />
-              <div className={`mt-1.5 h-3 w-1/2 rounded ${SHIMMER}`} />
+              <div className={`aspect-square rounded-xl ${SHIMMER}`} />
+              <div className={`mt-2 h-3.5 w-3/4 rounded-xl ${SHIMMER}`} />
+              <div className={`mt-1.5 h-3 w-1/2 rounded-xl ${SHIMMER}`} />
             </li>
           ))}
         </ul>
@@ -39,12 +39,12 @@ export function DiscoveryRowSkeleton({
 
 function ChartRowSkeleton() {
   return (
-    <li className="grid min-h-16 grid-cols-[2rem_2.75rem_1fr] items-center gap-3 rounded-md border border-border bg-secondary/20 px-3 py-2">
-      <div className={`h-3 w-5 rounded ${SHIMMER}`} />
-      <div className={`h-11 w-11 rounded-md ${SHIMMER}`} />
+    <li className="grid min-h-16 grid-cols-[2rem_2.75rem_1fr] items-center gap-3 rounded-xl border-2 border-ink bg-card px-3 py-2">
+      <div className={`h-3 w-5 rounded-xl ${SHIMMER}`} />
+      <div className={`h-11 w-11 rounded-xl ${SHIMMER}`} />
       <div className="min-w-0 space-y-1.5">
-        <div className={`h-3.5 w-3/4 rounded ${SHIMMER}`} />
-        <div className={`h-3 w-1/2 rounded ${SHIMMER}`} />
+        <div className={`h-3.5 w-3/4 rounded-xl ${SHIMMER}`} />
+        <div className={`h-3 w-1/2 rounded-xl ${SHIMMER}`} />
       </div>
     </li>
   );
@@ -62,8 +62,8 @@ export function ChartListSkeleton({
   return (
     <section className="space-y-3" aria-busy="true">
       <header className="flex items-baseline justify-between gap-3">
-        <div className={`h-5 rounded ${titleWidth ?? "w-28"} ${SHIMMER}`} />
-        <div className={`h-3 w-14 rounded ${SHIMMER}`} />
+        <div className={`h-5 rounded-xl ${titleWidth ?? "w-28"} ${SHIMMER}`} />
+        <div className={`h-3 w-14 rounded-xl ${SHIMMER}`} />
       </header>
       <ol
         className={`grid gap-2 ${

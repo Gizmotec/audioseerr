@@ -134,7 +134,7 @@ async function AdminRequestsView() {
 
       <header className="mt-4 mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Requests</h1>
+          <h1 className="text-2xl font-extrabold tracking-tight">Requests</h1>
           <p className="text-sm text-muted-foreground">
             Approve or decline incoming requests. Approving fetches it from
             Soulseek.
@@ -194,7 +194,7 @@ async function MyRequestsView({ userId }: { userId: string }) {
       <HomeLink />
 
       <header className="mt-4 mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">My requests</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight">My requests</h1>
         <p className="text-sm text-muted-foreground">
           Artists, albums, and tracks you&apos;ve asked the admin to add.
         </p>
@@ -224,7 +224,7 @@ function userRow(r: Request) {
     <li key={r.id} className="flex items-center gap-4 py-3">
       <Link
         href={href}
-        className="flex h-12 w-12 shrink-0 overflow-hidden rounded bg-secondary"
+        className="flex h-12 w-12 shrink-0 overflow-hidden rounded-lg border-2 border-ink bg-secondary"
       >
         {r.coverUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -259,7 +259,7 @@ function userRow(r: Request) {
           · {kind} requested {formatRelative(r.requestedAt)}
         </p>
         {searching && (
-          <p className="flex items-center gap-1.5 truncate text-xs text-sky-300">
+          <p className="flex items-center gap-1.5 truncate text-xs text-pastel-sky">
             <Search className="h-3 w-3 shrink-0 animate-pulse" />
             {r.declineReason ?? "Searching Soulseek for a match…"}
           </p>
@@ -305,7 +305,7 @@ function HomeLink() {
 
 function EmptyHint({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-md border border-dashed p-10 text-center text-sm text-muted-foreground">
+    <div className="rounded-2xl border-2 border-dashed border-ink/40 bg-card p-10 text-center text-sm text-muted-foreground">
       {children}
     </div>
   );

@@ -141,7 +141,7 @@ export function AddToPlaylistButton({ payload, initialPlaylists, onAdded }: Prop
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full z-30 mt-1 w-64 overflow-hidden rounded-md border border-border bg-popover shadow-lg"
+          className="absolute right-0 top-full z-30 mt-1 w-64 overflow-hidden rounded-xl border-2 border-ink bg-popover"
         >
           <div className="max-h-72 overflow-y-auto py-1">
             {playlists.length === 0 && !creating && (
@@ -172,7 +172,7 @@ export function AddToPlaylistButton({ payload, initialPlaylists, onAdded }: Prop
                   {busy ? (
                     <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
                   ) : added ? (
-                    <Check className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                    <Check className="h-3.5 w-3.5 shrink-0 text-pastel-mint" />
                   ) : (
                     <span className="shrink-0 text-xs text-muted-foreground/70 tabular-nums">
                       {p.trackCount}

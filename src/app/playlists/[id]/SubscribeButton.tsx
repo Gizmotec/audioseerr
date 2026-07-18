@@ -45,10 +45,10 @@ export function SubscribeButton({
           : "Subscribe to download this whole playlist, and auto-download new picks every week."
       }
       className={cn(
-        "inline-flex h-10 items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition-colors",
+        "inline-flex h-10 items-center gap-1.5 rounded-full border-2 px-4 text-sm font-bold transition-colors",
         subscribed
-          ? "border-primary/40 bg-primary/10 text-foreground hover:bg-primary/15"
-          : "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground",
+          ? "border-ink bg-pastel-pink text-ink hover:bg-pastel-pink/80"
+          : "border-transparent bg-surface-2 text-muted-foreground hover:text-foreground",
       )}
     >
       {pending ? (

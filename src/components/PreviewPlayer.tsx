@@ -643,10 +643,10 @@ function PreviewPlayerBar({
   const pct = safeDuration > 0 ? (currentTime / safeDuration) * 100 : 0;
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:left-56">
+    <div className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-ink bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:left-60">
       <div className="mx-auto flex w-full max-w-5xl items-center gap-3 px-4 py-3 md:gap-4 md:px-6">
         <div className="flex min-w-0 flex-1 items-center gap-3 md:flex-none md:w-64">
-          <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded bg-secondary">
+          <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border-2 border-ink bg-secondary">
             {coverOk && current.coverUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -815,7 +815,7 @@ function BarLikeButton({ current }: { current: PreviewTrack }) {
       className={cn(
         "flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors",
         liked
-          ? "text-rose-500 hover:text-rose-400"
+          ? "text-pastel-pink hover:text-pastel-pink/80"
           : "text-muted-foreground hover:bg-secondary hover:text-foreground",
       )}
     >
@@ -846,7 +846,7 @@ function PlayPauseButton({
       type="button"
       onClick={onClick}
       aria-label={playing ? "Pause" : "Play"}
-      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-transform hover:scale-105"
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-ink bg-pastel-pink text-ink transition-transform hover:scale-105"
     >
       {loading ? (
         <Loader2 className="h-4 w-4 animate-spin" />
@@ -930,7 +930,7 @@ function Scrubber({
         )}
       >
         <div
-          className="h-full bg-foreground transition-[width] duration-100 ease-linear"
+          className="h-full bg-pastel-pink transition-[width] duration-100 ease-linear"
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -949,12 +949,12 @@ function Scrubber({
           // WebKit thumb
           "[&::-webkit-slider-thumb]:appearance-none",
           "[&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3",
-          "[&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-foreground",
+            "[&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-pastel-pink",
           "[&::-webkit-slider-thumb]:opacity-0 group-hover:[&::-webkit-slider-thumb]:opacity-100",
           "[&::-webkit-slider-thumb]:transition-opacity",
           // Firefox thumb
           "[&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:w-3",
-          "[&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-foreground",
+            "[&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-pastel-pink",
           "[&::-moz-range-thumb]:opacity-0 group-hover:[&::-moz-range-thumb]:opacity-100",
           "[&::-moz-range-thumb]:transition-opacity",
           disabled && "cursor-not-allowed",
@@ -991,7 +991,7 @@ function VolumeControl({
       <div className="group relative flex h-4 w-20 items-center">
         <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 overflow-hidden rounded-full bg-secondary">
           <div
-            className="h-full bg-foreground transition-[width] duration-100 ease-linear"
+            className="h-full bg-pastel-pink transition-[width] duration-100 ease-linear"
             style={{ width: `${effective * 100}%` }}
           />
         </div>
@@ -1007,11 +1007,11 @@ function VolumeControl({
             "relative h-4 w-full cursor-pointer appearance-none bg-transparent",
             "[&::-webkit-slider-thumb]:appearance-none",
             "[&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3",
-            "[&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-foreground",
+          "[&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-pastel-pink",
             "[&::-webkit-slider-thumb]:opacity-0 group-hover:[&::-webkit-slider-thumb]:opacity-100",
             "[&::-webkit-slider-thumb]:transition-opacity",
             "[&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:w-3",
-            "[&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-foreground",
+          "[&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-pastel-pink",
             "[&::-moz-range-thumb]:opacity-0 group-hover:[&::-moz-range-thumb]:opacity-100",
             "[&::-moz-range-thumb]:transition-opacity",
           )}

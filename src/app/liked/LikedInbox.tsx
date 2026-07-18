@@ -110,14 +110,14 @@ export function LikedInbox({ tracks, totalLiked, playlists }: Props) {
     <div className="mt-6 flex flex-col gap-6">
       <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div className="flex items-end gap-5">
-          <div className="flex h-36 w-36 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-rose-400 via-rose-500 to-rose-700 text-white shadow-sm">
+          <div className="flex h-36 w-36 shrink-0 items-center justify-center rounded-xl border-2 border-ink bg-pastel-pink text-ink">
             <Heart className="h-14 w-14" fill="currentColor" strokeWidth={0} />
           </div>
           <div className="flex flex-col gap-2">
             <p className="text-xs uppercase tracking-wider text-muted-foreground">
               Inbox
             </p>
-            <h1 className="text-3xl font-semibold leading-tight md:text-5xl">
+            <h1 className="text-3xl font-extrabold tracking-tight leading-tight md:text-5xl">
               Liked Songs
             </h1>
             <p className="text-sm text-muted-foreground">
@@ -125,7 +125,7 @@ export function LikedInbox({ tracks, totalLiked, playlists }: Props) {
               {fetchingCount > 0 && (
                 <>
                   {" · "}
-                  <span className="text-sky-400/80">
+                  <span className="text-pastel-sky">
                     {fetchingCount} downloading
                   </span>
                 </>
@@ -142,7 +142,7 @@ export function LikedInbox({ tracks, totalLiked, playlists }: Props) {
             type="button"
             onClick={playAll}
             disabled={playableCount === 0}
-            className="inline-flex h-10 items-center gap-2 rounded-full bg-foreground px-4 text-sm font-semibold text-background transition-opacity disabled:opacity-40 hover:opacity-90"
+            className="inline-flex h-10 items-center gap-2 rounded-full border-2 border-ink bg-primary px-4 text-sm font-bold text-primary-foreground transition-colors disabled:opacity-40 hover:bg-pastel-pink/80"
           >
             <Play className="h-4 w-4" fill="currentColor" />
             Play
@@ -151,7 +151,7 @@ export function LikedInbox({ tracks, totalLiked, playlists }: Props) {
             type="button"
             onClick={shuffleAll}
             disabled={playableCount === 0}
-            className="inline-flex h-10 items-center gap-2 rounded-full border border-border px-4 text-sm font-semibold text-foreground transition-colors disabled:opacity-40 hover:border-foreground/40 hover:bg-secondary"
+            className="inline-flex h-10 items-center gap-2 rounded-full border-2 border-ink bg-card px-4 text-sm font-bold text-foreground transition-colors disabled:opacity-40 hover:bg-surface-2"
           >
             <Shuffle className="h-4 w-4" />
             Shuffle
@@ -160,7 +160,7 @@ export function LikedInbox({ tracks, totalLiked, playlists }: Props) {
       </header>
 
       {visible.length === 0 ? (
-        <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+        <div className="rounded-2xl border-2 border-dashed border-ink bg-card p-8 text-center text-sm text-muted-foreground">
           <ListMusic className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" />
           {totalLiked === 0 ? (
             <>
@@ -181,7 +181,7 @@ export function LikedInbox({ tracks, totalLiked, playlists }: Props) {
           )}
         </div>
       ) : (
-        <ol className="divide-y divide-border/50">
+        <ol className="flex flex-col gap-1">
           {visible.map((t, idx) => {
             const failedAtPlay = player.failedIds.has(t.id);
             const isActive =
@@ -206,8 +206,8 @@ export function LikedInbox({ tracks, totalLiked, playlists }: Props) {
                   })
                 }
                 className={cn(
-                  "group flex items-center gap-3 py-2.5",
-                  isActive && "bg-secondary/40",
+                  "group flex items-center gap-3 rounded-xl border-2 border-transparent px-2 py-2.5 hover:bg-surface-2",
+                  isActive && "border-ink bg-surface-2",
                 )}
               >
                 <button
@@ -215,10 +215,10 @@ export function LikedInbox({ tracks, totalLiked, playlists }: Props) {
                   onClick={() => player.playQueue(queueItems, idx)}
                   disabled={!playable}
                   className={cn(
-                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border",
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2",
                     playable
-                      ? "border-border hover:border-foreground hover:text-foreground"
-                      : "cursor-not-allowed border-border/50 text-muted-foreground/40",
+                      ? "border-ink hover:bg-pastel-pink hover:text-ink"
+                      : "cursor-not-allowed border-ink/20 text-muted-foreground/40",
                   )}
                   aria-label={
                     playable
@@ -241,7 +241,7 @@ export function LikedInbox({ tracks, totalLiked, playlists }: Props) {
 
                 <div
                   className={cn(
-                    "relative h-10 w-10 shrink-0 overflow-hidden rounded bg-secondary",
+                    "relative h-10 w-10 shrink-0 overflow-hidden rounded-xl border-2 border-ink bg-surface-2",
                     !playable && "opacity-50",
                   )}
                 >
@@ -287,7 +287,7 @@ export function LikedInbox({ tracks, totalLiked, playlists }: Props) {
 
                 {fetching && (
                   <span
-                    className="hidden shrink-0 items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-sky-400 sm:inline-flex"
+                    className="hidden shrink-0 items-center gap-1 rounded-full border-2 border-ink bg-pastel-sky px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-ink sm:inline-flex"
                     title="Downloading from Soulseek…"
                   >
                     <Loader2 className="h-3 w-3 animate-spin" />
@@ -298,10 +298,10 @@ export function LikedInbox({ tracks, totalLiked, playlists }: Props) {
                 {unavailableReason && (
                   <span
                     className={cn(
-                      "hidden shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider sm:inline",
+                      "hidden shrink-0 rounded-full border-2 border-ink px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-ink sm:inline",
                       unavailableReason === "errored"
-                        ? "bg-rose-500/10 text-rose-400"
-                        : "bg-amber-500/10 text-amber-400",
+                        ? "bg-pastel-red"
+                        : "bg-pastel-yellow",
                     )}
                     title={
                       unavailableReason === "errored"

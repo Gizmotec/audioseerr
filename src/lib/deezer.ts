@@ -548,6 +548,18 @@ export function genreLabel(slug: string): string {
   return GENRE_LABELS[slug.toLowerCase()] ?? slug;
 }
 
+// Slugs with a static cover thumbnail in public/genre-covers/<slug>.png.
+const GENRE_COVER_SLUGS = new Set([
+  "pop", "rock", "hip-hop", "electronic", "dance", "rnb", "indie",
+  "jazz", "metal", "soul", "reggae", "country", "blues", "punk",
+]);
+
+/** Path to a genre's static cover thumbnail, or null if it has none. */
+export function genreCoverUrl(slug: string): string | null {
+  const s = slug.toLowerCase();
+  return GENRE_COVER_SLUGS.has(s) ? `/genre-covers/${s}.png` : null;
+}
+
 /**
  * Top albums chart for a Deezer genre. Unlike Last.fm's tag.gettopalbums
  * (all-time scrobbles), Deezer's chart reflects current play activity, so

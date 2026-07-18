@@ -12,7 +12,7 @@ import type { LibraryViewer } from "@/lib/userLibrary";
 export function MixCards({ viewer }: { viewer: LibraryViewer }) {
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-medium">Made for you</h2>
+      <h2 className="text-lg font-extrabold tracking-tight">Made for you</h2>
       <div className="grid gap-3 sm:grid-cols-2">
         <Suspense fallback={<MixCardSkeleton kind="daily" />}>
           <MixCard viewer={viewer} kind="daily" />
@@ -27,17 +27,19 @@ export function MixCards({ viewer }: { viewer: LibraryViewer }) {
 
 const META: Record<
   MixKind,
-  { title: string; tagline: string; icon: typeof Sparkles }
+  { title: string; tagline: string; icon: typeof Sparkles; fill: string }
 > = {
   daily: {
     title: "Daily Mix",
     tagline: "Your favorites with a few fresh picks",
     icon: Sparkles,
+    fill: "bg-pastel-pink",
   },
   weekly: {
     title: "Discover Weekly",
     tagline: "30 new tracks, refreshed every Monday",
     icon: Compass,
+    fill: "bg-pastel-yellow",
   },
 };
 
@@ -54,10 +56,10 @@ async function MixCard({
 
   if (mix.tracks.length === 0) {
     return (
-      <div className="flex items-center gap-4 rounded-lg border border-border bg-secondary/30 p-4 opacity-70">
+      <div className="flex items-center gap-4 rounded-2xl border-2 border-ink bg-card p-4 opacity-70">
         <MixCover coverUrls={[]} icon={<Icon className="h-1/3 w-1/3" />} />
         <div className="min-w-0">
-          <p className="font-medium">{meta.title}</p>
+          <p className="font-extrabold tracking-tight">{meta.title}</p>
           <p className="mt-0.5 text-xs text-muted-foreground">
             Play and like some music to build this mix.
           </p>
@@ -69,25 +71,25 @@ async function MixCard({
   return (
     <Link
       href={`/mix/${kind}`}
-      className="group flex items-center gap-4 rounded-lg border border-border bg-secondary/30 p-4 outline-none transition-colors hover:border-foreground/40 hover:bg-secondary/60 focus-visible:ring-2 focus-visible:ring-ring"
+      className={`group flex items-center gap-4 rounded-2xl border-2 border-ink p-4 text-ink outline-none transition-[filter] hover:brightness-95 focus-visible:ring-2 focus-visible:ring-ring ${meta.fill}`}
     >
       <MixCover
         coverUrls={mix.coverUrls}
         icon={<Icon className="h-1/3 w-1/3" />}
       />
       <div className="min-w-0 flex-1">
-        <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+        <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.14em] text-ink/70">
           <Icon className="h-3.5 w-3.5" />
           {kind === "daily" ? "Daily" : "Weekly"}
         </p>
-        <p className="mt-1 truncate font-semibold" title={meta.title}>
+        <p className="mt-1 truncate font-extrabold tracking-tight" title={meta.title}>
           {meta.title}
         </p>
-        <p className="mt-0.5 truncate text-xs text-muted-foreground">
+        <p className="mt-0.5 truncate text-xs text-ink/70">
           {meta.tagline}
         </p>
       </div>
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-foreground text-background opacity-0 transition-opacity group-hover:opacity-100">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-ink bg-card text-foreground opacity-0 transition-opacity group-hover:opacity-100">
         <Play className="h-4 w-4 fill-current" />
       </span>
     </Link>

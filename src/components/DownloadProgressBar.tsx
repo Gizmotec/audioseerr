@@ -20,9 +20,9 @@ export function DownloadProgressBar({ requestId }: { requestId: string }) {
 
   return (
     <div className="flex w-32 flex-col items-end gap-1">
-      <span className="text-[11px] tabular-nums text-sky-300/90">{label}</span>
+      <span className="text-[11px] font-bold tabular-nums text-pastel-sky">{label}</span>
       <div
-        className="h-1.5 w-full overflow-hidden rounded-full bg-sky-500/15"
+        className="h-2 w-full overflow-hidden rounded-full border border-ink bg-surface-2"
         role="progressbar"
         aria-label="Download progress"
         aria-valuemin={0}
@@ -30,10 +30,10 @@ export function DownloadProgressBar({ requestId }: { requestId: string }) {
         aria-valuenow={indeterminate ? undefined : value}
       >
         {indeterminate ? (
-          <div className="h-full w-2/5 animate-pulse rounded-full bg-sky-400/80" />
+          <div className="h-full w-2/5 animate-pulse rounded-full bg-pastel-sky" />
         ) : (
           <div
-            className="h-full rounded-full bg-sky-400 transition-all duration-500 ease-out"
+            className="h-full rounded-full bg-pastel-sky transition-all duration-500 ease-out"
             style={{ width: `${value}%` }}
           />
         )}

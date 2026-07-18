@@ -225,7 +225,7 @@ export default async function ArtistPage({ params }: { params: RouteParams }) {
                   href={`/search?q=${encodeURIComponent(s.name)}`}
                   className="group flex flex-col items-center gap-2 outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <div className="relative aspect-square w-full overflow-hidden rounded-full bg-secondary">
+                  <div className="relative aspect-square w-full overflow-hidden rounded-full border-2 border-ink bg-secondary">
                     {s.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img

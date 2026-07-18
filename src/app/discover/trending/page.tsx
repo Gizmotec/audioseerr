@@ -25,23 +25,23 @@ export default async function TrendingPage() {
     <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 md:px-6">
       <Link
         href="/discover"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        className="inline-flex items-center gap-1.5 rounded-full border-2 border-transparent px-3 py-1.5 text-sm font-semibold text-muted-foreground hover:border-ink hover:bg-surface-2 hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" /> Discover
       </Link>
 
       <header className="mt-4 mb-6">
-        <p className="text-xs uppercase tracking-wider text-muted-foreground">
+        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
           Charts
         </p>
-        <h1 className="text-3xl font-semibold tracking-tight">Trending now</h1>
+        <h1 className="text-3xl font-extrabold tracking-tight">Trending now</h1>
         <p className="text-sm text-muted-foreground">
           The most-played songs right now — preview and add any to your library.
         </p>
       </header>
 
       {tracks.length === 0 ? (
-        <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+        <div className="rounded-2xl border-2 border-dashed border-ink bg-surface p-8 text-center text-sm text-muted-foreground">
           <Music2 className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" />
           <p>No trending tracks right now.</p>
         </div>

@@ -40,7 +40,7 @@ export default async function PlaylistsPage() {
 
       <header className="mt-4 mb-8 flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Playlists</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight">Playlists</h1>
           <p className="text-sm text-muted-foreground">
             Hand-picked tracks from albums in your Lidarr library.
           </p>
@@ -48,7 +48,7 @@ export default async function PlaylistsPage() {
         <div className="flex items-center gap-2">
           <Link
             href="/import/spotify"
-            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-3 text-sm text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
+            className="inline-flex h-9 items-center gap-1.5 rounded-full border-2 border-ink bg-card px-3 text-sm font-bold text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
           >
             <Download className="h-4 w-4" /> Import from Spotify
           </Link>
@@ -78,7 +78,7 @@ export default async function PlaylistsPage() {
       )}
 
       {playlists.length === 0 ? (
-        <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+        <div className="rounded-2xl border-2 border-dashed border-ink bg-card p-8 text-center text-sm text-muted-foreground">
           <ListMusic className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" />
           <p>No playlists yet.</p>
           <p className="mt-1">

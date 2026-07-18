@@ -76,14 +76,14 @@ export default async function LibraryPage() {
       </Link>
 
       <header className="mt-4 mb-8">
-        <h1 className="text-3xl font-semibold tracking-tight">Library</h1>
+        <h1 className="text-3xl font-extrabold tracking-tight">Library</h1>
         <p className="text-sm text-muted-foreground">
           Every track you&rsquo;ve downloaded.
         </p>
       </header>
 
       {isEmpty ? (
-        <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+        <div className="rounded-2xl border-2 border-dashed border-ink bg-card p-8 text-center text-sm text-muted-foreground">
           <Disc3 className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" />
           <p>Nothing in the library yet.</p>
           <p className="mt-1">

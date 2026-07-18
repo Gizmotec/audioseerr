@@ -76,7 +76,7 @@ export function ShuffleLibraryButton({
       {error && (
         <span
           role="alert"
-          className="absolute right-0 top-full z-20 mt-2 w-56 rounded-md border border-destructive/40 bg-background px-3 py-2 text-xs text-destructive shadow-lg"
+          className="absolute right-0 top-full z-20 mt-2 w-56 rounded-xl border-2 border-ink bg-pastel-red px-3 py-2 text-xs font-bold text-ink"
         >
           {error}
         </span>

@@ -53,13 +53,13 @@ export function VersionUpdateBanner() {
   return (
     <div
       role="status"
-      className="border-b border-border bg-secondary/80 px-4 py-2 text-sm shadow-sm backdrop-blur supports-[backdrop-filter]:bg-secondary/65"
+      className="border-b-2 border-ink bg-pastel-yellow px-4 py-2 text-sm text-ink"
     >
       <div className="mx-auto flex max-w-6xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-center gap-2 text-secondary-foreground">
+        <div className="flex min-w-0 items-center gap-2">
           <RefreshCw className="h-4 w-4 shrink-0" />
           <p className="min-w-0">
-            <span className="font-medium">Audioseerr {version.latestVersion}</span>{" "}
+            <span className="font-bold">Audioseerr {version.latestVersion}</span>{" "}
             is available. You&apos;re running {version.currentVersion}.
           </p>
         </div>
@@ -70,7 +70,7 @@ export function VersionUpdateBanner() {
               href={version.releaseUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium text-secondary-foreground hover:bg-background/70"
+              className="inline-flex h-7 items-center gap-1 rounded-full border-2 border-ink bg-ink px-2.5 text-xs font-bold text-pastel-yellow hover:bg-ink/80"
             >
               <ExternalLink className="h-3.5 w-3.5" />
               View release
@@ -80,7 +80,7 @@ export function VersionUpdateBanner() {
             type="button"
             onClick={dismiss}
             aria-label="Dismiss update notice"
-            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-background/70 hover:text-foreground"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-transparent hover:border-ink"
           >
             <X className="h-3.5 w-3.5" />
           </button>

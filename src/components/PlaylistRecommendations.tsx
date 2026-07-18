@@ -316,7 +316,7 @@ function AddControl({
   if (state === "done") {
     return (
       <span
-        className="inline-flex h-8 w-8 shrink-0 items-center justify-center text-emerald-500"
+        className="inline-flex h-8 w-8 shrink-0 items-center justify-center text-pastel-mint"
         title="Added to playlist"
         aria-label="Added to playlist"
       >

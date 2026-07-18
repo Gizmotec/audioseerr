@@ -186,7 +186,7 @@ async function SystemPlaylistPage({
 
       <header className="mt-6 flex flex-col gap-5 border-b border-border pb-8 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex items-end gap-5">
-          <div className="relative h-36 w-36 shrink-0 overflow-hidden rounded-lg bg-secondary shadow-sm">
+          <div className="relative h-36 w-36 shrink-0 overflow-hidden rounded-xl border-2 border-ink bg-surface-2">
             {playlist.coverUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -226,7 +226,7 @@ async function SystemPlaylistPage({
             <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
               Featured playlist
             </p>
-            <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
+            <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">
               {playlist.name}
             </h1>
             {playlist.description && (
@@ -244,7 +244,7 @@ async function SystemPlaylistPage({
 
       <section className="mt-8">
         {tracks.length === 0 ? (
-          <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+          <div className="rounded-2xl border-2 border-dashed border-ink bg-card p-8 text-center text-sm text-muted-foreground">
             <ListMusic className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" />
             <p>This playlist is filling up — check back shortly.</p>
           </div>

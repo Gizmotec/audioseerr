@@ -65,11 +65,11 @@ export function TrackLikeButton({
         aria-label={`${labelBase} ${track.title}`}
         title={title}
         className={cn(
-          "inline-flex h-8 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors",
+          "inline-flex h-9 items-center gap-2 rounded-full border-2 px-4 text-sm font-bold transition-colors",
           liked
-            ? "border-rose-500/40 bg-rose-500/10 text-rose-400 hover:bg-rose-500/15"
-            : "border-border bg-background text-foreground hover:bg-muted",
-          error && "border-destructive/50 text-destructive",
+            ? "border-ink bg-pastel-pink text-ink hover:bg-pastel-pink/80"
+            : "border-ink bg-surface-2 text-foreground hover:bg-accent",
+          error && "border-destructive text-destructive",
           className,
         )}
       >
@@ -97,7 +97,7 @@ export function TrackLikeButton({
       className={cn(
         "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors",
         liked
-          ? "text-rose-500 hover:text-rose-400"
+          ? "text-pastel-pink hover:text-pastel-pink/80"
           : "text-muted-foreground/60 hover:text-foreground",
         error && "text-destructive hover:text-destructive",
         className,

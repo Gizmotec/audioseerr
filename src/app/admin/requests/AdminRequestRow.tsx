@@ -115,7 +115,7 @@ export function AdminRequestRow({
           </p>
         )}
         {!isPending && status === "APPROVED" && (
-          <p className="flex items-center gap-1.5 truncate text-xs text-sky-300">
+          <p className="flex items-center gap-1.5 truncate text-xs text-pastel-sky">
             <Search className="h-3 w-3 shrink-0 animate-pulse" />
             {request.declineReason ?? "Searching Soulseek for a match…"}
           </p>

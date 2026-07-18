@@ -102,7 +102,7 @@ export function MixDetail({
           type="button"
           onClick={() => player.playQueue(queue, 0)}
           disabled={playableCount === 0}
-          className="inline-flex h-10 items-center gap-2 rounded-full bg-foreground px-5 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-40"
+          className="inline-flex h-10 items-center gap-2 rounded-full border-2 border-ink bg-pastel-pink px-5 text-sm font-bold text-ink transition-colors hover:bg-pastel-pink/80 disabled:opacity-40"
         >
           <Play className="h-4 w-4 fill-current" />
           Play all
@@ -112,7 +112,7 @@ export function MixDetail({
         </span>
       </div>
 
-      <ol className="divide-y divide-border/50">
+      <ol className="flex flex-col gap-1">
         {tracks.map((track, i) => (
           <MixRow
             key={`mix-${i}`}
@@ -170,8 +170,8 @@ function MixRow({
         })
       }
       className={cn(
-        "flex items-center gap-3 py-2.5",
-        isActive && "bg-secondary/40",
+        "flex items-center gap-3 rounded-xl border-2 px-2 py-2.5 hover:bg-surface-2",
+        isActive ? "border-ink bg-surface-2" : "border-transparent",
       )}
     >
       <button
@@ -179,10 +179,10 @@ function MixRow({
         onClick={onPlay}
         disabled={!playable}
         className={cn(
-          "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border",
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2",
           playable
-            ? "border-border hover:border-foreground hover:text-foreground"
-            : "border-border/50 text-muted-foreground/40",
+            ? "border-ink bg-pastel-pink text-ink hover:bg-pastel-pink/80"
+            : "border-transparent text-muted-foreground/40",
         )}
         aria-label={
           playable
@@ -201,7 +201,7 @@ function MixRow({
         )}
       </button>
 
-      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-secondary">
+      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg border-2 border-ink bg-secondary">
         {track.coverUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -259,7 +259,7 @@ function MixRow({
 
       {track.kind === "library" ? (
         <span
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center text-muted-foreground/70"
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center text-pastel-mint"
           title="In your library"
           aria-label="In your library"
         >
@@ -267,7 +267,7 @@ function MixRow({
         </span>
       ) : isPreloaded ? (
         <span
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center text-amber-500/80"
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center text-pastel-yellow"
           title="Temporary — kept in your library if you like it or add it to a playlist, otherwise auto-deleted"
           aria-label="Temporary download"
         >
@@ -312,7 +312,7 @@ function NewTrackDownload({
   if (state === "done") {
     return (
       <span
-        className="inline-flex h-8 w-8 shrink-0 items-center justify-center text-emerald-500"
+        className="inline-flex h-8 w-8 shrink-0 items-center justify-center text-pastel-mint"
         title="Added to your library"
         aria-label="Added to your library"
       >
@@ -332,8 +332,8 @@ function NewTrackDownload({
           state === "error" ? (error ?? "Download failed, retry") : "Download track"
         }
         className={cn(
-          "flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-60",
-          state === "error" && "text-destructive hover:text-destructive",
+          "flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-60",
+          state === "error" && "text-pastel-red hover:text-pastel-red",
         )}
       >
         {state === "resolving" ? (

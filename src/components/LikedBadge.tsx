@@ -9,7 +9,7 @@ export function LikedBadge({ liked }: { liked: boolean }) {
   if (!liked) return null;
   return (
     <span
-      className="absolute top-1.5 right-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-rose-500/90 text-white shadow-sm"
+      className="absolute top-1.5 right-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full border-2 border-ink bg-pastel-pink text-ink"
       title="Liked"
       aria-label="Liked"
     >

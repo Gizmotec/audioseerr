@@ -149,7 +149,7 @@ function YouTubeModal({
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="relative w-full overflow-hidden rounded-lg bg-black shadow-2xl ring-1 ring-border/50">
+        <div className="relative w-full overflow-hidden rounded-xl border-2 border-ink bg-black">
           <div className="relative pb-[56.25%]">
             <iframe
               src={src}

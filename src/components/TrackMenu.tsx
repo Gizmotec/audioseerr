@@ -227,7 +227,7 @@ export function TrackMenuProvider({ children }: { children: React.ReactNode }) {
         <div
           role="menu"
           style={{ left: menu.x, top: menu.y, width: MENU_WIDTH }}
-          className="fixed z-50 overflow-hidden rounded-md border border-border bg-popover py-1 shadow-lg"
+          className="fixed z-50 overflow-hidden rounded-xl border-2 border-ink bg-popover py-1"
           // Stop the window `click` closer from firing before the item's onClick.
           onClick={(e) => e.stopPropagation()}
         >
@@ -272,7 +272,7 @@ function StationSnackbar({
   if (status.kind === "idle") return null;
 
   return (
-    <div className="fixed right-4 top-4 z-50 w-80 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-popover p-3 text-sm shadow-xl">
+    <div className="fixed right-4 top-4 z-50 w-80 max-w-[calc(100vw-2rem)] rounded-xl border-2 border-ink bg-popover p-3 text-sm">
       {status.kind === "finding" && (
         <div className="flex items-center gap-2.5 text-muted-foreground">
           <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
@@ -309,7 +309,7 @@ function StationSnackbar({
                 <Link
                   href={`/playlists/${status.savedId}`}
                   onClick={onDismiss}
-                  className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-400 hover:underline"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-pastel-mint hover:underline"
                 >
                   Saved — open playlist
                 </Link>
@@ -318,7 +318,7 @@ function StationSnackbar({
                   type="button"
                   onClick={onSave}
                   disabled={status.saveState === "saving"}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-secondary disabled:opacity-60"
+                  className="inline-flex items-center gap-1.5 rounded-full border-2 border-ink bg-surface-2 px-2.5 py-1 text-xs font-bold text-foreground transition-colors hover:bg-accent disabled:opacity-60"
                 >
                   {status.saveState === "saving" ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />

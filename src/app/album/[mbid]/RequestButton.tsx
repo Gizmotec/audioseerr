@@ -52,7 +52,7 @@ export function RequestButton({ album, existingStatus, libraryStatus }: Props) {
     return (
       <div className="flex flex-col gap-1.5">
         <div className="flex flex-wrap items-center gap-2 text-sm">
-          <CheckCircle2 className="h-4 w-4 text-primary" />
+          <CheckCircle2 className="h-4 w-4 text-pastel-mint" />
           <span className="text-muted-foreground">
             {ACTIVE_LABEL[optimisticStatus!]}
           </span>
@@ -96,7 +96,7 @@ export function RequestButton({ album, existingStatus, libraryStatus }: Props) {
   if (libraryStatus === "downloaded") {
     return (
       <div className="flex items-center gap-2 text-sm">
-        <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+        <CheckCircle2 className="h-4 w-4 text-pastel-mint" />
         <span className="text-muted-foreground">In your library</span>
       </div>
     );
@@ -104,7 +104,7 @@ export function RequestButton({ album, existingStatus, libraryStatus }: Props) {
   if (libraryStatus === "downloading") {
     return (
       <div className="flex items-center gap-2 text-sm">
-        <Disc3 className="h-4 w-4 animate-pulse text-muted-foreground" />
+        <Disc3 className="h-4 w-4 animate-pulse text-pastel-sky" />
         <span className="text-muted-foreground">Lidarr is downloading this</span>
       </div>
     );

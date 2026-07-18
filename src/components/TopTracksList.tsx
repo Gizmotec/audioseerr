@@ -190,7 +190,7 @@ function DownloadTrackButton({
       }
       className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground disabled:cursor-default ${
         state === "done"
-          ? "text-emerald-400"
+          ? "text-pastel-mint"
           : state === "error"
             ? "text-destructive"
             : ""

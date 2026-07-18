@@ -20,9 +20,9 @@ export function AlbumCard({
   return (
     <Link
       href={`/album/${album.mbid}`}
-      className="group flex flex-col gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="group flex flex-col gap-2 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <div className="relative aspect-square overflow-hidden rounded-md bg-secondary">
+      <div className="relative aspect-square overflow-hidden rounded-xl border-2 border-ink bg-secondary">
         {imgOk ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -42,7 +42,7 @@ export function AlbumCard({
       </div>
       <div className="space-y-0.5">
         <h3
-          className="truncate text-sm font-medium leading-snug"
+          className="truncate text-sm font-bold leading-snug"
           title={album.title}
         >
           {album.title}

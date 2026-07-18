@@ -21,9 +21,9 @@ export function PlaylistTile({ playlist }: { playlist: PlaylistSummary }) {
           ? "/liked"
           : `/playlists/${playlist.id}`
       }
-      className="group flex flex-col gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="group flex flex-col gap-2 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <div className="relative aspect-square overflow-hidden rounded-md bg-secondary">
+      <div className="relative aspect-square overflow-hidden rounded-xl border-2 border-ink bg-surface-2">
         {showSingleCover ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img

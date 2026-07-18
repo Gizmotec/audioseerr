@@ -26,7 +26,7 @@ export function SearchBar({ initialQuery }: { initialQuery: string }) {
         placeholder="Search artists, songs, or albums…"
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        className="h-11 text-base"
+        className="h-11 rounded-full text-base"
       />
       <Button type="submit" size="lg" className="h-11 px-5 text-base">
         Search

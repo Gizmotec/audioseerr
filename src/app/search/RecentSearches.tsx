@@ -41,7 +41,7 @@ export function RecentSearches({ items }: { items: RecentSearch[] }) {
           Clear all
         </button>
       </div>
-      <ul className="flex flex-col divide-y divide-border rounded-md border border-border">
+      <ul className="flex flex-col divide-y divide-border rounded-2xl border-2 border-ink bg-card">
         {items.map((item) => (
           <li
             key={item.query}
@@ -59,7 +59,7 @@ export function RecentSearches({ items }: { items: RecentSearch[] }) {
               onClick={() => remove(item.query)}
               disabled={pending}
               aria-label={`Remove ${item.query} from recent searches`}
-              className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground/60 hover:bg-muted hover:text-foreground disabled:opacity-50"
+              className="inline-flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground/60 hover:bg-surface-2 hover:text-foreground disabled:opacity-50"
             >
               <X className="h-3.5 w-3.5" />
             </button>

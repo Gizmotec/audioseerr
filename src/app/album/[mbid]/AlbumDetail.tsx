@@ -127,7 +127,7 @@ export function AlbumDetail({
   return (
     <div className="mt-6 flex flex-col gap-8">
       <header className="flex flex-col gap-6 md:flex-row md:items-end">
-        <div className="relative h-56 w-56 shrink-0 overflow-hidden rounded-lg bg-secondary shadow-lg md:h-64 md:w-64">
+        <div className="relative h-56 w-56 shrink-0 overflow-hidden rounded-xl border-2 border-ink bg-secondary md:h-64 md:w-64">
           {coverOk ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -148,7 +148,7 @@ export function AlbumDetail({
           <p className="text-xs uppercase tracking-wider text-muted-foreground">
             {typeLabel}
           </p>
-          <h1 className="text-3xl font-semibold leading-tight md:text-5xl">
+          <h1 className="text-3xl font-extrabold leading-tight tracking-tight md:text-5xl">
             {album.title}
           </h1>
           <p className="text-lg text-muted-foreground">
@@ -210,7 +210,7 @@ export function AlbumDetail({
             MusicBrainz didn&apos;t return a tracklist for this release group yet.
           </p>
         ) : (
-          <ol className="divide-y divide-border/50">
+          <ol className="flex flex-col gap-1">
             {discs.flatMap((group) => {
               const header = showDiscHeaders ? (
                 <li
@@ -237,18 +237,20 @@ export function AlbumDetail({
                       recordingMbid: t.recordingMbid,
                     })
                   }
-                  className={`flex items-center gap-4 py-2.5 ${
-                    isActive ? "bg-secondary/40" : ""
+                  className={`flex items-center gap-4 rounded-xl border-2 px-2 py-2.5 hover:bg-surface-2 ${
+                    isActive
+                      ? "border-ink bg-surface-2"
+                      : "border-transparent"
                   }`}
                 >
                   <button
                     type="button"
                     onClick={() => togglePreview(t, idx)}
                     disabled={!playable}
-                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border ${
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 ${
                       playable
-                        ? "border-border hover:border-foreground hover:text-foreground"
-                        : "border-border/50 text-muted-foreground/40"
+                        ? "border-ink bg-pastel-pink text-ink hover:bg-pastel-pink/80"
+                        : "border-transparent text-muted-foreground/40"
                     }`}
                     aria-label={
                       playable

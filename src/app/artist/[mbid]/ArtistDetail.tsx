@@ -55,7 +55,7 @@ export function ArtistDetail({
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-6 md:flex-row md:items-end">
-        <div className="relative h-56 w-56 shrink-0 overflow-hidden rounded-full bg-secondary shadow-lg md:h-64 md:w-64">
+        <div className="relative h-56 w-56 shrink-0 overflow-hidden rounded-full border-2 border-ink bg-secondary md:h-64 md:w-64">
           {imgOk && artist.imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -76,7 +76,7 @@ export function ArtistDetail({
           <p className="text-xs uppercase tracking-wider text-muted-foreground">
             {artist.type ?? "Artist"}
           </p>
-          <h1 className="text-3xl font-semibold leading-tight md:text-5xl">
+          <h1 className="text-3xl font-extrabold leading-tight tracking-tight md:text-5xl">
             {artist.name}
           </h1>
           <p className="text-sm text-muted-foreground">{artist.meta}</p>

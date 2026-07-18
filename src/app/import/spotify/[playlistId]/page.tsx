@@ -135,7 +135,7 @@ export default async function SpotifyPlaylistPreview({
             <SummaryStat
               label="Will request"
               value={matchResult.matched.length}
-              icon={<CheckCircle2 className="h-4 w-4 text-green-500" />}
+              icon={<CheckCircle2 className="h-4 w-4 text-pastel-mint" />}
             />
             <SummaryStat
               label="No match"
@@ -218,10 +218,10 @@ export default async function SpotifyPlaylistPreview({
             return (
               <>
                 {uncertain.length > 0 && (
-                  <Card className="mt-6 border-amber-500/40">
+                  <Card className="mt-6 border-pastel-yellow">
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2 text-base">
-                        <AlertTriangle className="h-4 w-4 text-amber-500" />
+                        <AlertTriangle className="h-4 w-4 text-pastel-yellow" />
                         Uncertain matches
                       </CardTitle>
                       <CardDescription>

@@ -22,7 +22,7 @@ export function RequestTabs({
 
   return (
     <div>
-      <div role="tablist" className="mb-6 flex gap-6 border-b border-border/60">
+      <div role="tablist" className="mb-6 flex gap-2">
         <TabButton
           active={tab === "requests"}
           onClick={() => setTab("requests")}
@@ -61,15 +61,15 @@ function TabButton({
       role="tab"
       aria-selected={active}
       onClick={onClick}
-      className={`-mb-px border-b-2 px-1 pb-3 text-sm font-medium transition-colors ${
+      className={`rounded-full border-2 px-3 py-1.5 text-sm font-bold transition-colors ${
         active
-          ? "border-foreground text-foreground"
-          : "border-transparent text-muted-foreground hover:text-foreground"
+          ? "border-ink bg-pastel-yellow text-ink"
+          : "border-transparent bg-surface-2 text-muted-foreground hover:text-foreground"
       }`}
     >
       {label}
       {count > 0 && (
-        <span className="ml-1.5 text-xs text-muted-foreground">{count}</span>
+        <span className="ml-1.5 text-xs opacity-70">{count}</span>
       )}
     </button>
   );

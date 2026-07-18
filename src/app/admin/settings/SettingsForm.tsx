@@ -305,7 +305,7 @@ export function SettingsForm({
                   <span
                     className={
                       slskdProbeMsg.startsWith("Connected")
-                        ? "text-sm text-green-500"
+                        ? "text-sm text-pastel-mint"
                         : "text-sm text-destructive"
                     }
                     role="status"
@@ -467,7 +467,7 @@ export function SettingsForm({
         <div
           role="tablist"
           aria-label="Settings sections"
-          className="flex w-fit gap-1 rounded-lg border bg-muted/40 p-1"
+          className="flex w-fit gap-1 rounded-full border-2 border-ink bg-surface-2 p-1"
         >
           {TABS.map(({ id, label, icon: Icon }) => (
             <button
@@ -477,10 +477,10 @@ export function SettingsForm({
               aria-selected={tab === id}
               onClick={() => setTab(id)}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                "inline-flex items-center gap-1.5 rounded-full border-2 px-3 py-1.5 text-sm font-bold transition-colors",
                 tab === id
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
+                  ? "border-ink bg-pastel-yellow text-ink"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
               )}
             >
               <Icon className="size-3.5" />
@@ -493,7 +493,7 @@ export function SettingsForm({
       <form className="flex flex-col gap-6" onSubmit={onSubmit}>
         {searching ? (
           visibleSections.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed py-12 text-center">
+            <div className="flex flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-ink py-12 text-center">
               <SearchX className="size-5 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
                 No settings match &ldquo;{query}&rdquo;.
@@ -505,7 +505,7 @@ export function SettingsForm({
               if (inTab.length === 0) return null;
               return (
                 <section key={id} className="flex flex-col gap-3">
-                  <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                  <h2 className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
                     {label}
                   </h2>
                   {inTab.map((s) => (
@@ -524,14 +524,14 @@ export function SettingsForm({
         )}
 
         {error && (
-          <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <div className="rounded-xl border-2 border-ink bg-pastel-red px-3 py-2 text-sm text-ink">
             {error}
           </div>
         )}
 
-        <div className="sticky bottom-4 flex items-center justify-end gap-3 rounded-lg border bg-background/95 p-3 backdrop-blur">
+        <div className="sticky bottom-4 flex items-center justify-end gap-3 rounded-2xl border-2 border-ink bg-card p-3">
           {saved && (
-            <span className="inline-flex items-center gap-1.5 text-sm text-green-500">
+            <span className="inline-flex items-center gap-1.5 text-sm text-pastel-mint">
               <CheckCircle2 className="h-4 w-4" /> Saved
             </span>
           )}
@@ -586,30 +586,30 @@ function StorageCard({ storage }: { storage: StorageStats }) {
           </p>
         ) : (
           <>
-            <div className="flex h-3 w-full overflow-hidden rounded-full bg-muted">
+            <div className="flex h-3 w-full overflow-hidden rounded-full border-2 border-ink bg-surface-2">
               <div
-                className="bg-foreground"
+                className="bg-pastel-pink"
                 style={{ width: `${pct(appOnDisk)}%` }}
                 title={`Audioseerr — ${formatBytes(appOnDisk)}`}
               />
               <div
-                className="bg-muted-foreground/40"
+                className="bg-pastel-lavender"
                 style={{ width: `${pct(other)}%` }}
                 title={`Other — ${formatBytes(other)}`}
               />
             </div>
             <dl className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
               <LegendItem
-                dot="bg-foreground"
+                dot="bg-pastel-pink"
                 label="Audioseerr"
                 value={formatBytes(appOnDisk)}
               />
               <LegendItem
-                dot="bg-muted-foreground/40"
+                dot="bg-pastel-lavender"
                 label="Other"
                 value={formatBytes(other)}
               />
-              <LegendItem dot="bg-muted" label="Free" value={formatBytes(free)} />
+              <LegendItem dot="bg-surface-2" label="Free" value={formatBytes(free)} />
               <LegendItem label="Total" value={formatBytes(total)} />
             </dl>
           </>
@@ -631,7 +631,7 @@ function LegendItem({
   return (
     <div className="flex items-center gap-2">
       {dot ? (
-        <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", dot)} />
+        <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full border border-ink", dot)} />
       ) : null}
       <div className="min-w-0">
         <dt className="text-xs text-muted-foreground">{label}</dt>
@@ -643,11 +643,11 @@ function LegendItem({
 
 function EnvRow({ label, set }: { label: string; set: boolean }) {
   return (
-    <div className="flex items-center justify-between rounded-md border px-3 py-2">
+    <div className="flex items-center justify-between rounded-xl border-2 border-ink px-3 py-2">
       <code className="font-mono text-xs">{label}</code>
       <span
         className={
-          set ? "text-xs text-green-500" : "text-xs text-muted-foreground"
+          set ? "text-xs text-pastel-mint" : "text-xs text-muted-foreground"
         }
       >
         {set ? "set" : "not set"}
