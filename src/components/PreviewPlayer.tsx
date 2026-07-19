@@ -646,7 +646,7 @@ function PreviewPlayerBar({
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-foreground/10 bg-surface transition-[left] duration-200 md:left-[var(--sidebar-width)]">
       <div className="mx-auto flex w-full max-w-5xl items-center gap-3 px-4 py-3 md:gap-4 md:px-6">
         <div className="flex min-w-0 flex-1 items-center gap-3 md:flex-none md:w-64">
-          <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-secondary">
+          <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-secondary">
             {coverOk && current.coverUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img

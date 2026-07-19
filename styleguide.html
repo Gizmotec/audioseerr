@@ -236,7 +236,7 @@
       <tr><th>Class</th><th>Value</th><th>Use for</th></tr>
       <tr><td><code>rounded-full</code></td><td>∞</td><td>Anything pill-shaped: buttons, badges, status pills, tabs, icon buttons, switches, dots, scrubbers, artist images</td></tr>
       <tr><td><code>rounded-2xl</code></td><td>1.8rem</td><td>Page-level containers: modals, large cards, empty states</td></tr>
-      <tr><td><code>rounded-xl</code></td><td>1.4rem</td><td>Medium components: tiles &amp; grid covers, hero covers, inputs, callouts, menus/popovers, track rows, player bar thumb</td></tr>
+      <tr><td><code>rounded-xl</code></td><td>1.4rem</td><td>Medium components: tiles &amp; grid covers, hero covers, inputs, callouts, menus/popovers, track rows</td></tr>
       <tr><td><code>rounded-lg</code></td><td>1rem</td><td>Small media: row thumbnails (40–56px), chart thumbs, mix card covers</td></tr>
       <tr><td><code>rounded-md</code></td><td>0.8rem</td><td>Tiny thumbnails (&lt;40px) only</td></tr>
     </table>
@@ -549,7 +549,7 @@ failed:      AlertTriangle text-pastel-red · click = retry</pre>
       <tr><td>Artist hero</td><td><code>h-56 w-56 md:h-64 md:w-64</code></td><td><code>rounded-full</code></td></tr>
       <tr><td>Liked/system hero tile</td><td><code>h-36 w-36</code> (pastel fill + icon)</td><td><code>rounded-xl</code></td></tr>
       <tr><td>Grid tile (search/library/discover)</td><td><code>relative aspect-square w-full</code></td><td><code>rounded-xl</code></td></tr>
-      <tr><td>Player bar thumb</td><td><code>h-12 w-12</code></td><td><code>rounded-xl</code></td></tr>
+      <tr><td>Player bar thumb</td><td><code>h-12 w-12</code></td><td><code>rounded-lg</code></td></tr>
       <tr><td>Chart / modal / mix / import thumbs</td><td><code>h-11 w-11 – h-16 w-16</code></td><td><code>rounded-lg</code></td></tr>
       <tr><td>Track row thumb</td><td><code>h-10 w-10</code></td><td><code>rounded-lg</code></td></tr>
       <tr><td>Tiny thumb (&lt;40px)</td><td>—</td><td><code>rounded-md</code></td></tr>
@@ -697,7 +697,7 @@ failed:      AlertTriangle text-pastel-red · click = retry</pre>
 
   <div class="panel" style="padding:0;overflow:hidden">
     <div style="border-top:1px solid color-mix(in srgb, var(--foreground) 10%, transparent);background:var(--surface);padding:0.75rem 1rem;display:flex;align-items:center;gap:0.75rem">
-      <div class="cover" style="width:3rem;height:3rem;border-radius:var(--r-xl)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="2"/></svg></div>
+      <div class="cover" style="width:3rem;height:3rem;border-radius:var(--r-lg)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="2"/></svg></div>
       <div style="min-width:0">
         <div style="font-size:0.875rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:10rem">Midnight in a Perfect World</div>
         <div style="font-size:0.75rem;color:var(--muted-foreground)">DJ Shadow</div>
@@ -715,7 +715,7 @@ failed:      AlertTriangle text-pastel-red · click = retry</pre>
   </div>
 <pre>bar:       fixed inset-x-0 bottom-0 z-40 border-t border-foreground/10 bg-surface md:left-[var(--sidebar-width)]
 inner:     mx-auto flex w-full max-w-5xl items-center gap-3 px-4 py-3 md:gap-4 md:px-6
-left:      cover h-12 w-12 rounded-xl · title text-sm font-medium · artist text-xs text-muted-foreground · like
+left:      cover h-12 w-12 rounded-lg · title text-sm font-medium · artist text-xs text-muted-foreground · like
 center:    skip (icon-btn lg) · play/pause (filled disc h-10, hover:scale-105) · skip · time text-xs tabular-nums
 scrubber:  track h-1 rounded-full bg-secondary · fill bg-pastel-pink · thumb h-3 w-3 opacity-0 group-hover:opacity-100
 right:     volume (w-20, same scrubber pattern) · close (icon-btn lg)
