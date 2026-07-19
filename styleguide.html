@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Audioseerr — Design System</title>
+<style>
+  :root {
+    --background: #131316;
+    --foreground: #f2f1ee;
+    --surface: #1c1c21;
+    --surface-2: #26262c;
+    --ink: #0a0a0c;
+    --pastel-pink: #f5a8d8;
+    --pastel-yellow: #f8e47a;
+    --pastel-mint: #a8e6b0;
+    --pastel-sky: #a8d8f0;
+    --pastel-lavender: #c9b8f0;
+    --pastel-red: #f0978b;
+    --muted-foreground: #9b9aa3;
+    --accent: #2e2e35;
+    /* computed from --radius: 1rem in globals.css @theme */
+    --r-sm: 0.6rem;
+    --r-md: 0.8rem;
+    --r-lg: 1rem;
+    --r-xl: 1.4rem;
+    --r-2xl: 1.8rem;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; scroll-behavior: smooth; }
+  body { background: var(--background); color: var(--foreground); line-height: 1.5; padding-bottom: 6rem; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+  /* ---------- guide chrome ---------- */
+  .topbar { position: sticky; top: 0; z-index: 20; background: var(--background); border-bottom: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent); padding: 1rem 2rem; display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap; }
+  .topbar h1 { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.025em; }
+  .topbar span { color: var(--muted-foreground); font-size: 0.8rem; }
+  nav { display: flex; gap: 0.5rem; flex-wrap: wrap; padding: 1rem 2rem 0; }
+  nav a { font-size: 0.75rem; font-weight: 700; color: var(--muted-foreground); text-decoration: none; border: 2px solid color-mix(in srgb, var(--foreground) 15%, transparent); border-radius: 9999px; padding: 0.2rem 0.75rem; }
+  nav a:hover { color: var(--foreground); border-color: var(--foreground); }
+  main { max-width: 64rem; margin: 0 auto; padding: 0 2rem; }
+  section { margin-top: 3.5rem; scroll-margin-top: 5rem; }
+  section > h2 { font-size: 1.875rem; font-weight: 800; letter-spacing: -0.025em; margin-bottom: 0.25rem; }
+  section > .lede { color: var(--muted-foreground); font-size: 0.875rem; margin-bottom: 1.5rem; max-width: 46rem; }
+  h3 { font-size: 1.125rem; font-weight: 800; letter-spacing: -0.025em; margin: 2rem 0 0.75rem; }
+  .panel { background: var(--surface); border-radius: var(--r-xl); padding: 1.25rem; margin-bottom: 1rem; }
+  .panel-dark { background: var(--background); border: 1px solid color-mix(in srgb, var(--foreground) 8%, transparent); border-radius: var(--r-lg); padding: 1rem; }
+  pre { background: var(--ink); border-radius: var(--r-md); padding: 0.875rem 1rem; font-size: 0.75rem; overflow-x: auto; color: color-mix(in srgb, var(--foreground) 85%, transparent); margin-top: 0.75rem; cursor: pointer; position: relative; }
+  pre::after { content: "click to copy"; position: absolute; top: 0.5rem; right: 0.75rem; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted-foreground); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  pre:hover::after { color: var(--pastel-pink); }
+  .row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+  .row + .row { margin-top: 0.75rem; }
+  .label-note { font-size: 0.7rem; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: 0.05em; width: 100%; margin-bottom: -0.25rem; }
+
+  .swatch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr)); gap: 0.75rem; }
+  .swatch { border-radius: var(--r-md); overflow: hidden; background: var(--surface-2); }
+  .swatch .chip { height: 4rem; }
+  .swatch .meta { padding: 0.5rem 0.75rem; font-size: 0.75rem; }
+  .swatch .meta b { display: block; font-size: 0.8rem; }
+  .swatch .meta code { color: var(--muted-foreground); font-size: 0.7rem; display: block; }
+
+  .spec-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  .spec-table th { text-align: left; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted-foreground); padding: 0.5rem 0.75rem; border-bottom: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent); }
+  .spec-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid color-mix(in srgb, var(--foreground) 6%, transparent); vertical-align: top; }
+  .spec-table tr:last-child td { border-bottom: none; }
+  .spec-table td code { font-size: 0.72rem; }
+
+  .rules { display: grid; gap: 0.75rem; }
+  .rule { border-radius: var(--r-md); padding: 0.875rem 1rem; font-size: 0.875rem; }
+  .rule b { display: block; margin-bottom: 0.125rem; }
+  .rule-do { background: color-mix(in srgb, var(--pastel-mint) 12%, var(--surface)); border-left: 4px solid var(--pastel-mint); }
+  .rule-dont { background: color-mix(in srgb, var(--pastel-red) 12%, var(--surface)); border-left: 4px solid var(--pastel-red); }
+  .rule-warn { background: color-mix(in srgb, var(--pastel-yellow) 12%, var(--surface)); border-left: 4px solid var(--pastel-yellow); }
+
+  /* ---------- component replicas (match Tailwind output) ---------- */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.375rem; border-radius: 9999px; border: 2px solid transparent; font-size: 0.875rem; font-weight: 700; white-space: nowrap; height: 2.25rem; padding: 0 1rem; cursor: pointer; user-select: none; transition: background-color .15s, border-color .15s, color .15s; font-family: inherit; color: inherit; background: none; }
+  .btn:active { transform: translateY(1px); }
+  .btn-default { background: var(--pastel-pink); color: var(--ink); }
+  .btn-default:hover { background: color-mix(in srgb, var(--pastel-pink) 80%, transparent); }
+  .btn-outline { background: transparent; color: var(--foreground); border-color: color-mix(in srgb, var(--foreground) 40%, transparent); }
+  .btn-outline:hover { border-color: var(--foreground); background: var(--surface-2); }
+  .btn-secondary { background: var(--surface-2); color: var(--foreground); }
+  .btn-secondary:hover { background: var(--accent); }
+  .btn-pastel { background: var(--pastel-yellow); color: var(--ink); }
+  .btn-pastel:hover { background: color-mix(in srgb, var(--pastel-yellow) 80%, transparent); }
+  .btn-ghost { background: transparent; color: var(--foreground); }
+  .btn-ghost:hover { background: var(--surface-2); }
+  .btn-destructive { background: var(--pastel-red); color: var(--ink); }
+  .btn-destructive:hover { background: color-mix(in srgb, var(--pastel-red) 80%, transparent); }
+  .btn-link { background: transparent; color: var(--pastel-pink); }
+  .btn-link:hover { text-decoration: underline; text-underline-offset: 4px; }
+  .btn:disabled { opacity: 0.5; pointer-events: none; }
+  .btn-xs { height: 1.75rem; padding: 0 0.625rem; font-size: 0.75rem; }
+  .btn-sm { height: 2rem; padding: 0 0.75rem; font-size: 0.8rem; }
+  .btn-lg { height: 2.75rem; padding: 0 1.5rem; font-size: 1rem; }
+
+  .icon-btn { display: inline-flex; align-items: center; justify-content: center; border-radius: 9999px; border: none; background: transparent; color: var(--muted-foreground); cursor: pointer; transition: background-color .15s, color .15s; font-family: inherit; }
+  .icon-btn:hover { background: var(--surface-2); color: var(--foreground); }
+  .icon-btn.md { width: 2rem; height: 2rem; }
+  .icon-btn.lg { width: 2.25rem; height: 2.25rem; }
+  .icon-btn.sm { width: 1.75rem; height: 1.75rem; }
+  .icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .icon-btn:disabled:hover { background: transparent; color: var(--muted-foreground); }
+  .icon-btn.danger:hover { background: var(--pastel-red); color: var(--ink); }
+  .icon-btn.pink:hover { background: var(--pastel-pink); color: var(--ink); }
+
+  .badge { display: inline-flex; align-items: center; gap: 0.25rem; border-radius: 9999px; border: 2px solid transparent; padding: 0.125rem 0.625rem; font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
+  .badge-default { background: var(--pastel-pink); color: var(--ink); }
+  .badge-secondary { background: var(--surface-2); color: var(--foreground); }
+  .badge-destructive { background: var(--pastel-red); color: var(--ink); }
+  .badge-outline { border-color: color-mix(in srgb, var(--foreground) 40%, transparent); color: var(--foreground); }
+  .badge-success { background: var(--pastel-mint); color: var(--ink); }
+  .badge-info { background: var(--pastel-sky); color: var(--ink); }
+  .badge-warning { background: var(--pastel-yellow); color: var(--ink); }
+  .badge-lavender { background: var(--pastel-lavender); color: var(--ink); }
+  .badge-muted { background: var(--surface-2); color: var(--muted-foreground); }
+
+  .status-pill { display: inline-flex; align-items: center; gap: 0.25rem; border-radius: 9999px; padding: 0.125rem 0.5rem; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink); white-space: nowrap; }
+
+  .cover { position: relative; overflow: hidden; background: var(--surface-2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .cover svg { color: color-mix(in srgb, var(--muted-foreground) 40%, transparent); }
+
+  .track-row { display: flex; align-items: center; gap: 0.75rem; border-radius: var(--r-xl); padding: 0.625rem 0.5rem; transition: background-color .15s; }
+  .track-row:hover { background: var(--surface-2); }
+  .track-row.active { background: var(--surface-2); }
+
+  .play-disc { display: inline-flex; align-items: center; justify-content: center; border-radius: 9999px; border: none; cursor: pointer; background: var(--pastel-pink); color: var(--ink); transition: background-color .15s, transform .15s; flex-shrink: 0; }
+  .play-disc:hover { background: color-mix(in srgb, var(--pastel-pink) 80%, transparent); }
+  .play-row { display: inline-flex; align-items: center; justify-content: center; width: 2.25rem; height: 2.25rem; border-radius: 9999px; border: none; cursor: pointer; background: transparent; color: var(--foreground); transition: background-color .15s, color .15s; flex-shrink: 0; }
+  .play-row:hover { background: var(--pastel-pink); color: var(--ink); }
+  .play-row:disabled { color: color-mix(in srgb, var(--muted-foreground) 40%, transparent); cursor: not-allowed; }
+  .play-row:disabled:hover { background: transparent; }
+
+  .menu-panel { width: 14rem; overflow: hidden; border-radius: var(--r-xl); border: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent); background: var(--surface); padding: 0.25rem 0; }
+  .menu-item { display: flex; width: 100%; align-items: center; gap: 0.625rem; padding: 0.5rem 0.75rem; text-align: left; font-size: 0.875rem; background: none; border: none; color: var(--foreground); cursor: pointer; transition: background-color .15s; font-family: inherit; }
+  .menu-item:hover { background: var(--surface-2); }
+  .menu-item svg { color: var(--muted-foreground); flex-shrink: 0; }
+  .menu-footer { border-top: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent); margin-top: 0.25rem; padding-top: 0.25rem; }
+
+  .tab-pill { display: inline-flex; align-items: center; gap: 0.375rem; border-radius: 9999px; border: none; padding: 0.375rem 0.75rem; font-size: 0.875rem; font-weight: 700; cursor: pointer; transition: background-color .15s, color .15s; font-family: inherit; }
+  .tab-pill.on { background: var(--pastel-yellow); color: var(--ink); }
+  .tab-pill.off { background: var(--surface-2); color: var(--muted-foreground); }
+  .tab-pill.off:hover { color: var(--foreground); }
+
+  .input { height: 2.5rem; width: 100%; max-width: 20rem; border-radius: var(--r-xl); border: 2px solid transparent; background: var(--surface-2); color: var(--foreground); padding: 0.25rem 0.875rem; font-size: 0.875rem; outline: none; transition: border-color .15s; font-family: inherit; }
+  .input::placeholder { color: var(--muted-foreground); }
+  .input:focus { border-color: var(--pastel-pink); }
+  textarea.input { height: auto; min-height: 6rem; padding: 0.5rem 0.875rem; resize: vertical; }
+  .input[aria-invalid="true"] { border-color: var(--pastel-red); }
+  .field-label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.375rem; }
+
+  .switch { display: inline-flex; align-items: center; height: 1.5rem; width: 2.75rem; border-radius: 9999px; background: var(--surface-2); cursor: pointer; border: none; transition: background-color .15s; padding: 0; }
+  .switch .thumb { display: block; width: 1rem; height: 1rem; border-radius: 9999px; background: var(--foreground); transform: translateX(2px); transition: transform .15s; }
+  .switch[aria-checked="true"] { background: var(--pastel-pink); }
+  .switch[aria-checked="true"] .thumb { transform: translateX(calc(100% + 4px)); }
+
+  .callout { border-radius: var(--r-xl); padding: 0.5rem 0.75rem; font-size: 0.875rem; max-width: 28rem; }
+  .status-dot { display: inline-block; width: 0.375rem; height: 0.375rem; border-radius: 9999px; }
+  .specimen { border-bottom: 1px solid color-mix(in srgb, var(--foreground) 8%, transparent); padding: 1rem 0; }
+  .specimen:last-child { border-bottom: none; }
+  .specimen .usage { font-size: 0.7rem; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem; }
+  .skeleton { background: var(--surface-2); animation: sk 1.5s ease-in-out infinite; }
+  @keyframes sk { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+  .icon-cell { display: flex; flex-direction: column; align-items: center; gap: 0.375rem; padding: 0.75rem 0.5rem; background: var(--surface-2); border-radius: var(--r-md); font-size: 0.65rem; color: var(--muted-foreground); text-align: center; }
+  .icon-cell svg { color: var(--foreground); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>Audioseerr Design System</h1>
+  <span>Local reference — not committed. Source of truth: <code>src/app/globals.css</code> + <code>src/components/ui/</code>.</span>
+</div>
+
+<nav>
+  <a href="#tokens">Tokens</a>
+  <a href="#radius">Radius &amp; spacing</a>
+  <a href="#typography">Typography</a>
+  <a href="#icons">Iconography</a>
+  <a href="#buttons">Buttons</a>
+  <a href="#play-buttons">Play buttons</a>
+  <a href="#download-buttons">Download</a>
+  <a href="#badges">Badges &amp; pills</a>
+  <a href="#covers">Cover art</a>
+  <a href="#track-row">Track row</a>
+  <a href="#tiles">Tiles &amp; grids</a>
+  <a href="#player-bar">Player bar</a>
+  <a href="#menus">Menus</a>
+  <a href="#tabs">Tabs</a>
+  <a href="#forms">Forms</a>
+  <a href="#modals">Modals</a>
+  <a href="#feedback">Feedback</a>
+  <a href="#sidebar">Sidebar</a>
+  <a href="#rules">Rules</a>
+  <a href="#contract">Consistency contract</a>
+</nav>
+
+<main>
+
+<!-- ==================== TOKENS ==================== -->
+<section id="tokens">
+  <h2>Design tokens</h2>
+  <p class="lede">Source of truth: <code>:root</code> in <code>src/app/globals.css</code>. Dark-only palette, flat surfaces — depth comes from the surface scale, never shadows.</p>
+
+  <h3>Surfaces &amp; text</h3>
+  <div class="swatch-grid">
+    <div class="swatch"><div class="chip" style="background:#131316"></div><div class="meta"><b>background</b><code>#131316 · bg-background</code></div></div>
+    <div class="swatch"><div class="chip" style="background:#1c1c21"></div><div class="meta"><b>surface / card / popover</b><code>#1c1c21 · bg-surface · bg-card</code></div></div>
+    <div class="swatch"><div class="chip" style="background:#26262c"></div><div class="meta"><b>surface-2 / secondary / muted</b><code>#26262c · bg-surface-2</code></div></div>
+    <div class="swatch"><div class="chip" style="background:#2e2e35"></div><div class="meta"><b>accent (hover only)</b><code>#2e2e35 · bg-accent</code></div></div>
+    <div class="swatch"><div class="chip" style="background:#0a0a0c"></div><div class="meta"><b>ink</b><code>#0a0a0c · text-ink (on pastels)</code></div></div>
+    <div class="swatch"><div class="chip" style="background:#f2f1ee"></div><div class="meta"><b>foreground</b><code>#f2f1ee · text-foreground</code></div></div>
+    <div class="swatch"><div class="chip" style="background:#9b9aa3"></div><div class="meta"><b>muted-foreground</b><code>#9b9aa3 · text-muted-foreground</code></div></div>
+  </div>
+
+  <h3>Pastel accents — semantic mapping</h3>
+  <p class="lede">Always pair pastel backgrounds with <code>text-ink</code>. Each pastel has a job — don't freestyle.</p>
+  <div class="swatch-grid">
+    <div class="swatch"><div class="chip" style="background:#f5a8d8"></div><div class="meta"><b>pastel-pink = primary</b><code>#f5a8d8 · primary action, liked, ring</code></div></div>
+    <div class="swatch"><div class="chip" style="background:#f8e47a"></div><div class="meta"><b>pastel-yellow</b><code>#f8e47a · attention, active tab/filter</code></div></div>
+    <div class="swatch"><div class="chip" style="background:#a8e6b0"></div><div class="meta"><b>pastel-mint = success</b><code>#a8e6b0 · in library, completed</code></div></div>
+    <div class="swatch"><div class="chip" style="background:#a8d8f0"></div><div class="meta"><b>pastel-sky = info</b><code>#a8d8f0 · downloading, in progress</code></div></div>
+    <div class="swatch"><div class="chip" style="background:#c9b8f0"></div><div class="meta"><b>pastel-lavender</b><code>#c9b8f0 · secondary accent only</code></div></div>
+    <div class="swatch"><div class="chip" style="background:#f0978b"></div><div class="meta"><b>pastel-red = destructive</b><code>#f0978b · error, delete, failed</code></div></div>
+  </div>
+</section>
+
+<!-- ==================== RADIUS & SPACING ==================== -->
+<section id="radius">
+  <h2>Radius &amp; spacing</h2>
+  <p class="lede">Base <code>--radius: 1rem</code>. Computed Tailwind values: <code>rounded-md</code> 0.8rem, <code>rounded-lg</code> 1rem, <code>rounded-xl</code> 1.4rem, <code>rounded-2xl</code> 1.8rem. <b>Core principle: roundness scales down as elements get smaller.</b></p>
+
+  <h3>The radius ladder</h3>
+  <div class="panel">
+    <table class="spec-table">
+      <tr><th>Class</th><th>Value</th><th>Use for</th></tr>
+      <tr><td><code>rounded-full</code></td><td>∞</td><td>Anything pill-shaped: buttons, badges, status pills, tabs, icon buttons, switches, dots, scrubbers, artist images</td></tr>
+      <tr><td><code>rounded-2xl</code></td><td>1.8rem</td><td>Page-level containers: modals, large cards, empty states</td></tr>
+      <tr><td><code>rounded-xl</code></td><td>1.4rem</td><td>Medium components: tiles &amp; grid covers, hero covers, inputs, callouts, menus/popovers, track rows, player bar thumb</td></tr>
+      <tr><td><code>rounded-lg</code></td><td>1rem</td><td>Small media: row thumbnails (40–56px), chart thumbs, mix card covers</td></tr>
+      <tr><td><code>rounded-md</code></td><td>0.8rem</td><td>Tiny thumbnails (&lt;40px) only</td></tr>
+    </table>
+    <div class="row" style="margin-top:1rem">
+      <div style="width:7rem;height:7rem;background:var(--surface-2);border-radius:var(--r-2xl);display:flex;align-items:center;justify-content:center;font-size:0.6rem;color:var(--muted-foreground);text-align:center">modal / card<br>2xl</div>
+      <div style="width:5.5rem;height:5.5rem;background:var(--surface-2);border-radius:var(--r-xl);display:flex;align-items:center;justify-content:center;font-size:0.6rem;color:var(--muted-foreground);text-align:center">tile cover<br>xl</div>
+      <div style="width:3rem;height:3rem;background:var(--surface-2);border-radius:var(--r-lg);display:flex;align-items:center;justify-content:center;font-size:0.6rem;color:var(--muted-foreground)">lg</div>
+      <div style="width:1.75rem;height:1.75rem;background:var(--surface-2);border-radius:var(--r-md)"></div>
+      <div style="width:2rem;height:2rem;background:var(--surface-2);border-radius:9999px"></div>
+    </div>
+  </div>
+  <div class="rule rule-dont"><b>DON'T</b>Use bare <code>rounded</code> or <code>rounded-sm</code> on music UI — and never <code>rounded-md</code> on tiles (discovery cards currently do this — migrate to <code>rounded-xl</code>). Artist images are the only non-ladder case: always <code>rounded-full</code>.</div>
+
+  <h3>Spacing system</h3>
+  <div class="panel">
+    <table class="spec-table">
+      <tr><th>Context</th><th>Standard</th></tr>
+      <tr><td>Page container</td><td><code>mx-auto w-full flex-1 max-w-5xl px-4 py-8 md:px-6</code> (narrower: max-w-3xl for settings/mix; wider: max-w-6xl home)</td></tr>
+      <tr><td>Page vertical rhythm</td><td><code>flex flex-col gap-6</code> (dense pages) or <code>gap-8</code> (detail pages), <code>gap-10</code> discover</td></tr>
+      <tr><td>Section header → content</td><td><code>space-y-3</code>; header row <code>flex items-baseline justify-between gap-3</code></td></tr>
+      <tr><td>Track list container</td><td><code>ol flex flex-col gap-1</code> — always; <b>never <code>divide-y</code></b></td></tr>
+      <tr><td>Track row padding</td><td><code>px-2 py-2.5</code>, internal <code>gap-3</code></td></tr>
+      <tr><td>Card grids (albums/playlists)</td><td><code>grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5</code></td></tr>
+      <tr><td>Discovery track grids</td><td><code>grid grid-cols-3 gap-x-4 gap-y-6 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6</code></td></tr>
+      <tr><td>Horizontal shelf</td><td><code>-mx-4 overflow-x-auto px-4 md:-mx-6 md:px-6</code> → <code>ul flex gap-4 pb-2</code>, items <code>w-36 shrink-0 sm:w-40</code></td></tr>
+      <tr><td>Card internal</td><td><code>gap-4 px-4 py-4</code> (sm: gap-3 px-3 py-3)</td></tr>
+      <tr><td>Icon ↔ label gap</td><td><code>gap-1.5</code> in buttons, <code>gap-2.5</code> in menu items &amp; nav links</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ==================== TYPOGRAPHY ==================== -->
+<section id="typography">
+  <h2>Typography</h2>
+  <p class="lede">System font stack (<code>--font-sans</code>). Headings are always <code>font-extrabold tracking-tight</code>. Durations/counts use <code>tabular-nums</code>.</p>
+
+  <div class="panel">
+    <div class="specimen">
+      <div class="usage">Detail-page hero title — album / artist / playlist / liked</div>
+      <div style="font-size:2.4rem;font-weight:800;letter-spacing:-0.025em;line-height:1.2">text-3xl md:text-5xl font-extrabold tracking-tight leading-tight</div>
+    </div>
+    <div class="specimen">
+      <div class="usage">Standard page title (h1)</div>
+      <div style="font-size:1.875rem;font-weight:800;letter-spacing:-0.025em">text-3xl font-extrabold tracking-tight</div>
+    </div>
+    <div class="specimen">
+      <div class="usage">Section header (h2) — one style everywhere</div>
+      <div style="font-size:1.125rem;font-weight:800;letter-spacing:-0.025em">text-lg font-extrabold tracking-tight</div>
+    </div>
+    <div class="specimen">
+      <div class="usage">Track/row title · tile title</div>
+      <div style="font-size:0.875rem;font-weight:500">text-sm (rows: font-normal truncate · tiles: font-medium leading-snug)</div>
+    </div>
+    <div class="specimen">
+      <div class="usage">Row meta / tile subtitle / description</div>
+      <div style="font-size:0.75rem;color:var(--muted-foreground)">text-xs text-muted-foreground</div>
+    </div>
+    <div class="specimen">
+      <div class="usage">Duration / counts (right-aligned row meta)</div>
+      <div style="font-size:0.75rem;color:var(--muted-foreground);font-variant-numeric:tabular-nums">text-xs text-muted-foreground tabular-nums — 3:42</div>
+    </div>
+    <div class="specimen">
+      <div class="usage">"See all" link next to section headers</div>
+      <div style="font-size:0.75rem;font-weight:700;color:var(--muted-foreground)">text-xs font-bold text-muted-foreground hover:text-foreground + ArrowRight →</div>
+    </div>
+  </div>
+  <div class="rules" style="margin-top:1rem">
+    <div class="rule rule-warn"><b>⚠ Drift to fix</b><code>login</code>, <code>setup</code>, <code>invite</code>, <code>admin/settings</code>, <code>import/spotify</code> use <code>font-semibold</code> titles → migrate to <code>font-extrabold</code>.</div>
+    <div class="rule rule-warn"><b>⚠ Drift to fix</b>Section headers exist in 3 styles (<code>text-lg font-medium</code>, <code>text-lg font-extrabold</code>, uppercase small). Standard is <code>text-lg font-extrabold tracking-tight</code>.</div>
+  </div>
+</section>
+
+<!-- ==================== ICONOGRAPHY ==================== -->
+<section id="icons">
+  <h2>Iconography</h2>
+  <p class="lede"><code>lucide-react</code> only. Always size with <code>h-* w-*</code> (not <code>size-*</code>) except inside <code>Button</code>, which auto-sizes. Stroke width 2 (default). Filled icons only for Play/Pause/Heart active states.</p>
+
+  <h3>Size ladder</h3>
+  <div class="panel">
+    <table class="spec-table">
+      <tr><th>Size</th><th>Context</th></tr>
+      <tr><td><code>h-3 w-3</code></td><td>Overlay badges on covers (LikedBadge, InLibraryBadge check)</td></tr>
+      <tr><td><code>h-3.5 w-3.5</code></td><td>Compact icon buttons (h-7), card-overlay actions, sidebar nav icons, search adornments, tag pill icons</td></tr>
+      <tr><td><code>h-4 w-4</code></td><td><b>Default.</b> Buttons, icon buttons (h-8/h-9), menus, row actions, player bar controls</td></tr>
+      <tr><td><code>h-5 w-5</code></td><td>Cover-overlay play disc (h-11), modal checkboxes</td></tr>
+      <tr><td><code>h-6 w-6</code></td><td>Empty-state icons (muted-foreground/60)</td></tr>
+      <tr><td>relative</td><td>Cover placeholders: Disc3 <code>h-1/2 w-1/2</code> (≤48px thumbs), <code>h-1/3 w-1/3</code> (tiles/heroes), always <code>text-muted-foreground/40</code></td></tr>
+    </table>
+  </div>
+
+  <h3>Canonical icon mapping</h3>
+  <p class="lede">One icon per action — don't improvise. <b>Refresh is <code>RefreshCw</code> everywhere</b> (RefreshCcw in SyncNowButton is drift).</p>
+  <div class="panel">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(5.5rem,1fr));gap:0.5rem" id="icon-grid"></div>
+  </div>
+  <pre>import { Play, Pause, Loader2, SkipBack, SkipForward, Download, PlusCircle, UserPlus,
+  Check, CheckCircle2, X, Heart, ListPlus, Plus, MoreVertical, Radio, Trash2,
+  ChevronDown, ChevronRight, ArrowLeft, ArrowRight, Search, SearchX, Shuffle,
+  MonitorPlay, Bell, BellRing, Pencil, Disc3, ListMusic, Library, Inbox,
+  Compass, Home, Settings, User, LogOut, Clock, AlertTriangle, RefreshCw,
+  ExternalLink, Copy, Share2, Lock, ImagePlus, Square, SquareCheck, Sparkles,
+  Flame, Volume2, VolumeX, PanelLeftClose, PanelLeftOpen } from "lucide-react"</pre>
+</section>
+
+<!-- ==================== BUTTONS ==================== -->
+<section id="buttons">
+  <h2>Buttons</h2>
+  <p class="lede">Component: <code>src/components/ui/button.tsx</code>. rounded-full, font-bold, 2px transparent border, press-down active state. <b>Always use this component for labeled actions</b> — hand-rolled <code>inline-flex h-9 rounded-full…</code> duplicates appear ~10× across pages and are drift.</p>
+
+  <div class="panel">
+    <div class="row"><span class="label-note">Variants</span>
+      <button class="btn btn-default">Default</button>
+      <button class="btn btn-outline">Outline</button>
+      <button class="btn btn-secondary">Secondary</button>
+      <button class="btn btn-pastel">Pastel</button>
+      <button class="btn btn-ghost">Ghost</button>
+      <button class="btn btn-destructive">Destructive</button>
+      <button class="btn btn-link">Link</button>
+      <button class="btn btn-default" disabled>Disabled</button>
+    </div>
+<pre>&lt;Button variant="default"&gt;     // bg-primary text-primary-foreground · primary actions (play all, save, download album)
+&lt;Button variant="outline"&gt;     // border-foreground/40 → hover border-foreground bg-surface-2
+&lt;Button variant="secondary"&gt;   // bg-secondary → hover bg-accent · neutral actions (shuffle, cancel)
+&lt;Button variant="pastel"&gt;      // bg-pastel-yellow text-ink
+&lt;Button variant="ghost"&gt;       // transparent → hover bg-surface-2
+&lt;Button variant="destructive"&gt; // bg-destructive text-ink
+&lt;Button variant="link"&gt;        // text-primary underline on hover</pre>
+
+    <div class="row" style="margin-top:1.5rem"><span class="label-note">Sizes</span>
+      <button class="btn btn-default btn-xs">xs</button>
+      <button class="btn btn-default btn-sm">sm</button>
+      <button class="btn btn-default">default</button>
+      <button class="btn btn-default btn-lg">lg</button>
+    </div>
+<pre>&lt;Button size="xs" | "sm" | "default" | "lg"&gt;   // h-7 / h-8 / h-9 / h-11
+// hero "play" pills use h-10: &lt;Button className="h-10 gap-2 px-4"&gt;</pre>
+  </div>
+
+  <h3>Icon buttons</h3>
+  <p class="lede">No shared component exists yet — <b>extract this as <code>ui/icon-button.tsx</code></b>. One chrome for every icon-only action: rounded-full, muted → hover bg-surface-2 + foreground.</p>
+  <div class="panel">
+    <div class="row"><span class="label-note">Default (md = h-8, icon h-4) · row actions, menus trigger</span>
+      <button class="icon-btn md"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg></button>
+      <button class="icon-btn md"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+      <button class="icon-btn md"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg></button>
+      <button class="icon-btn md" disabled><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg></button>
+    </div>
+    <div class="row"><span class="label-note">Large (lg = h-9) · player bar skip/close</span>
+      <button class="icon-btn lg"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" x2="5" y1="19" y2="5"/></svg></button>
+      <button class="icon-btn lg"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" x2="19" y1="5" y2="19"/></svg></button>
+      <button class="icon-btn lg"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </div>
+    <div class="row"><span class="label-note">Small (sm = h-7, icon h-3.5) · hover-reveal row edit cluster · danger variant</span>
+      <button class="icon-btn sm"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></button>
+      <button class="icon-btn sm"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></button>
+      <button class="icon-btn sm danger"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </div>
+<pre>// standard:
+className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full
+  text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground
+  disabled:cursor-not-allowed disabled:opacity-40"
+// sizes: sm h-7 w-7 (icon h-3.5) · md h-8 w-8 (icon h-4) · lg h-9 w-9 (icon h-4)
+// danger hover: hover:bg-pastel-red hover:text-ink
+// state colors: success text-pastel-mint · error text-pastel-red · liked text-pastel-pink</pre>
+  </div>
+</section>
+
+<!-- ==================== PLAY BUTTONS ==================== -->
+<section id="play-buttons">
+  <h2>Play buttons</h2>
+  <p class="lede">The app currently has <b>3 different row play buttons</b> (filled pink / ghost→pink / bordered) — this is the worst consistency offender. Going forward there are exactly <b>three</b> play buttons, chosen by context:</p>
+
+  <h3>1 · Row play — ghost disc, pink on hover <span style="color:var(--pastel-mint);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em">standard for all track rows</span></h3>
+  <div class="panel">
+    <div class="panel-dark">
+      <div class="track-row">
+        <button class="play-row"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg></button>
+        <div class="cover" style="width:2.5rem;height:2.5rem;border-radius:var(--r-lg)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="2"/></svg></div>
+        <div style="flex:1;min-width:0"><div style="font-size:0.875rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Midnight in a Perfect World</div><div style="font-size:0.75rem;color:var(--muted-foreground)">DJ Shadow · Endtroducing…</div></div>
+        <span style="font-size:0.75rem;color:var(--muted-foreground);font-variant-numeric:tabular-nums">4:57</span>
+      </div>
+    </div>
+<pre>className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full
+  transition-colors hover:bg-pastel-pink hover:text-ink
+  disabled:cursor-not-allowed disabled:text-muted-foreground/40"
+// icon: Play h-4 w-4 · while playing: Pause (or Loader2 animate-spin while buffering)
+// migrate: AlbumDetail & MixDetail (filled pink at rest), TopTracksList/OwnedTrackList/
+// PlaylistRecommendations (bordered) → this style</pre>
+  </div>
+
+  <h3>2 · Filled pink disc — cover overlays &amp; player bar</h3>
+  <div class="panel">
+    <div class="row">
+      <div class="cover" style="width:7rem;height:7rem;border-radius:var(--r-xl)">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="2"/></svg>
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.3)">
+          <button class="play-disc" style="width:2.75rem;height:2.75rem"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg></button>
+        </div>
+      </div>
+      <button class="play-disc" style="width:2.5rem;height:2.5rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg></button>
+      <div style="font-size:0.75rem;color:var(--muted-foreground);max-width:16rem">h-11 w-11 + icon h-5 w-5 fill-current on tile covers (revealed on group-hover over <code>bg-black/30</code> scrim); h-10 w-10 + icon h-4 in the player bar (adds <code>hover:scale-105</code>).</div>
+    </div>
+<pre>// overlay scrim: absolute inset-0 flex items-center justify-center bg-black/30
+//   opacity-0 transition-opacity group-hover:opacity-100 (opacity-100 while track active)
+// disc: flex h-11 w-11 items-center justify-center rounded-full bg-pastel-pink text-ink
+// player bar: h-10 w-10 bg-pastel-pink text-ink hover:scale-105 transition-transform</pre>
+  </div>
+
+  <h3>3 · Hero play pill — labeled, h-10</h3>
+  <div class="panel">
+    <div class="row">
+      <button class="btn btn-default" style="height:2.5rem;gap:0.5rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>Play</button>
+      <button class="btn" style="height:2.5rem;gap:0.5rem;background:var(--surface)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 14 4 4-4 4"/><path d="m18 2 4 4-4 4"/><path d="M2 18h1.973a4 4 0 0 0 3.3-1.7l5.454-8.6a4 4 0 0 1 3.3-1.7H22"/><path d="M2 6h1.972a4 4 0 0 1 3.6 2.2"/><path d="M22 18h-6.041a4 4 0 0 1-3.3-1.8l-.359-.45"/></svg>Shuffle</button>
+    </div>
+<pre>&lt;Button className="h-10 gap-2 px-4"&gt;&lt;Play className="h-4 w-4" fill="currentColor" /&gt; Play&lt;/Button&gt;
+// companion shuffle: &lt;Button variant="secondary" className="h-10 gap-2 px-4"&gt;
+// compact header variant (library "Play all"): size="sm" → h-8 text-xs</pre>
+  </div>
+</section>
+
+<!-- ==================== DOWNLOAD BUTTONS ==================== -->
+<section id="download-buttons">
+  <h2>Download buttons</h2>
+  <p class="lede">"Download" = request via Soulseek. One state machine, one visual per state. Uses the <b>icon button</b> chrome (h-8 w-8) in rows and the <b>Button</b> component for hero/labelled actions.</p>
+
+  <div class="panel">
+    <div class="row"><span class="label-note">Row download states (icon button h-8, icon h-4)</span>
+      <button class="icon-btn md" title="Download"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg></button>
+      <button class="icon-btn md" style="color:var(--pastel-sky)" title="Downloading"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg></button>
+      <button class="icon-btn md" title="Requested — click to unrequest"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+      <span class="icon-btn md" style="color:var(--pastel-mint);cursor:default" title="In library"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></span>
+      <button class="icon-btn md" style="color:var(--pastel-red)" title="Failed"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></button>
+    </div>
+<pre>default:     Download h-4 w-4            · icon-btn chrome (muted → hover bg-surface-2 fg)
+downloading: Loader2 h-4 w-4 animate-spin text-pastel-sky
+requested:   X h-4 w-4                   · same chrome (click = unrequest)
+in library:  CheckCircle2 text-pastel-mint · static span, NOT a button
+failed:      AlertTriangle text-pastel-red · click = retry</pre>
+
+    <div class="row" style="margin-top:1.25rem"><span class="label-note">Hero download (album/artist pages)</span>
+      <button class="btn btn-default"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>Download album</button>
+      <button class="btn btn-default"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/></svg>Request artist</button>
+    </div>
+<pre>&lt;Button&gt;&lt;PlusCircle className="h-4 w-4" /&gt; Download album&lt;/Button&gt;
+&lt;Button&gt;&lt;UserPlus className="h-4 w-4" /&gt; Request artist&lt;/Button&gt;
+// blocked state: CheckCircle2 text-pastel-mint + status text + ghost "Unrequest" size="sm"</pre>
+
+    <div class="row" style="margin-top:1.25rem"><span class="label-note">Discovery card overlay (top-right) &amp; done badge (bottom-left)</span>
+      <div class="cover" style="width:7rem;height:7rem;border-radius:var(--r-xl)">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="2"/></svg>
+        <button class="play-disc" style="position:absolute;top:0.375rem;right:0.375rem;width:1.75rem;height:1.75rem;background:var(--pastel-yellow)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg></button>
+        <span style="position:absolute;bottom:0.375rem;left:0.375rem;display:inline-flex;width:1.5rem;height:1.5rem;align-items:center;justify-content:center;border-radius:9999px;background:var(--pastel-mint);color:var(--ink)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+      </div>
+      <div style="font-size:0.75rem;color:var(--muted-foreground);max-width:18rem">Download: <code>absolute top-1.5 right-1.5 h-7 w-7 rounded-full bg-pastel-yellow text-ink hover:bg-pastel-yellow/80</code>, icon h-3.5. Error → <code>bg-pastel-red</code>. In-library badge: <code>absolute bottom-1.5 left-1.5 h-6 w-6 rounded-full bg-pastel-mint text-ink</code> + Check h-3 strokeWidth 3 (downloading variant: sky Disc3 animate-pulse).</div>
+    </div>
+
+    <div class="row" style="margin-top:1.25rem"><span class="label-note">Live progress bar (w-32)</span>
+      <div style="width:8rem;display:flex;flex-direction:column;align-items:flex-end;gap:0.25rem">
+        <span style="font-size:11px;font-weight:700;color:var(--pastel-sky);font-variant-numeric:tabular-nums">42%</span>
+        <div style="height:0.5rem;width:100%;overflow:hidden;border-radius:9999px;background:var(--surface-2)"><div style="height:100%;width:42%;border-radius:9999px;background:var(--pastel-sky)"></div></div>
+      </div>
+    </div>
+<pre>// DownloadProgressBar: label text-[11px] font-bold tabular-nums text-pastel-sky
+// track h-2 rounded-full bg-surface-2 · fill bg-pastel-sky transition-all duration-500</pre>
+  </div>
+</section>
+
+<!-- ==================== BADGES & PILLS ==================== -->
+<section id="badges">
+  <h2>Badges &amp; status pills</h2>
+  <p class="lede">Two components, two jobs. <b>Badge</b> (<code>ui/badge.tsx</code>): text-xs labels. <b>Status pill</b>: micro uppercase labels inside track rows — currently hand-rolled in 3 places, <b>extract as <code>ui/status-pill.tsx</code></b>.</p>
+
+  <div class="panel">
+    <div class="row"><span class="label-note">Badge — rounded-full border-2 text-xs font-bold</span>
+      <span class="badge badge-default">Default</span>
+      <span class="badge badge-secondary">Secondary</span>
+      <span class="badge badge-destructive">Destructive</span>
+      <span class="badge badge-outline">Outline</span>
+      <span class="badge badge-success">Success</span>
+      <span class="badge badge-info">Info</span>
+      <span class="badge badge-warning">Warning</span>
+      <span class="badge badge-lavender">Lavender</span>
+      <span class="badge badge-muted">Muted</span>
+    </div>
+<pre>&lt;Badge variant="default | secondary | destructive | outline | success | info | warning | lavender | muted"&gt;</pre>
+
+    <div class="row" style="margin-top:1.25rem"><span class="label-note">Status pill — in-row track state (hidden below sm)</span>
+      <span class="status-pill" style="background:var(--pastel-sky)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>Downloading</span>
+      <span class="status-pill" style="background:var(--pastel-yellow)">Unavailable</span>
+      <span class="status-pill" style="background:var(--pastel-red)">Failed to load</span>
+      <span class="status-pill" style="background:var(--pastel-mint)">In playlist</span>
+      <span class="status-pill" style="background:var(--pastel-sky)">Imported</span>
+    </div>
+<pre>className="hidden shrink-0 items-center gap-1 rounded-full px-2 py-0.5
+  text-[10px] font-bold uppercase tracking-wider text-ink sm:inline-flex
+  bg-pastel-{sky|yellow|red|mint}"</pre>
+  </div>
+</section>
+
+<!-- ==================== COVER ART ==================== -->
+<section id="covers">
+  <h2>Cover art</h2>
+  <p class="lede">Radius follows the ladder (xl for tiles/heroes, lg for row thumbs). Album/playlist covers are square; artist images are always <code>rounded-full</code>. Fallback: <code>Disc3</code> (album/track), <code>User</code> (artist), <code>ListMusic</code> (playlist), <code>Heart</code> (liked) at <code>text-muted-foreground/40</code>, sized 1/2 of container ≤48px, 1/3 above.</p>
+
+  <div class="panel">
+    <table class="spec-table">
+      <tr><th>Context</th><th>Size</th><th>Radius</th></tr>
+      <tr><td>Album hero</td><td><code>h-56 w-56 md:h-64 md:w-64</code></td><td><code>rounded-xl</code></td></tr>
+      <tr><td>Playlist hero (supports 2×2 collage)</td><td><code>h-40 w-40 md:h-48 md:w-48</code></td><td><code>rounded-xl</code></td></tr>
+      <tr><td>Artist hero</td><td><code>h-56 w-56 md:h-64 md:w-64</code></td><td><code>rounded-full</code></td></tr>
+      <tr><td>Liked/system hero tile</td><td><code>h-36 w-36</code> (pastel fill + icon)</td><td><code>rounded-xl</code></td></tr>
+      <tr><td>Grid tile (search/library/discover)</td><td><code>relative aspect-square w-full</code></td><td><code>rounded-xl</code></td></tr>
+      <tr><td>Player bar thumb</td><td><code>h-12 w-12</code></td><td><code>rounded-xl</code></td></tr>
+      <tr><td>Chart / modal / mix / import thumbs</td><td><code>h-11 w-11 – h-16 w-16</code></td><td><code>rounded-lg</code></td></tr>
+      <tr><td>Track row thumb</td><td><code>h-10 w-10</code></td><td><code>rounded-lg</code></td></tr>
+      <tr><td>Tiny thumb (&lt;40px)</td><td>—</td><td><code>rounded-md</code></td></tr>
+    </table>
+  </div>
+
+  <h3>Tile cover — with overlay slots</h3>
+  <div class="panel">
+    <div class="row" style="align-items:flex-start">
+      <div style="width:9rem" class="tile-demo">
+        <div class="cover" style="width:100%;aspect-ratio:1;border-radius:var(--r-xl)">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="2"/></svg>
+          <span style="position:absolute;top:0.375rem;left:0.375rem;display:inline-flex;width:1.75rem;height:1.75rem;align-items:center;justify-content:center;border-radius:9999px;background:var(--pastel-pink);color:var(--ink)"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></span>
+          <span style="position:absolute;bottom:0.375rem;left:0.375rem;display:inline-flex;width:1.5rem;height:1.5rem;align-items:center;justify-content:center;border-radius:9999px;background:var(--pastel-mint);color:var(--ink)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+        </div>
+        <p style="margin-top:0.5rem;font-size:0.875rem;font-weight:500;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Endtroducing…</p>
+        <p style="font-size:0.75rem;color:var(--muted-foreground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">DJ Shadow · 1996</p>
+      </div>
+      <div style="flex:1;min-width:16rem;font-size:0.8rem;color:var(--muted-foreground)">
+        <p style="margin-bottom:0.5rem"><b style="color:var(--foreground)">Overlay slot convention</b> (all positioned inside the cover's <code>relative</code> wrapper):</p>
+        <p>· <b>top-left</b> — like button (h-7, pink when liked)<br>· <b>top-right</b> — download (h-7 yellow) or "…" menu (h-7 bg-card → hover pastel-yellow)<br>· <b>bottom-left</b> — in-library badge (h-6 mint check / sky pulse)<br>· <b>center</b> — play disc on hover scrim<br>· image hover: <code>transition-transform duration-200 group-hover:scale-[1.02]</code> · active track: <code>ring-2 ring-foreground</code></p>
+      </div>
+    </div>
+<pre>&lt;div className="group relative aspect-square overflow-hidden rounded-xl bg-surface-2"&gt;
+  {image
+    ? &lt;Image fill className="object-cover transition-transform duration-200 group-hover:scale-[1.02]" … /&gt;
+    : &lt;Disc3 className="h-1/3 w-1/3 text-muted-foreground/40" /&gt;}
+  {/* overlay slots: top-left like · top-right download/menu · bottom-left library badge · center play */}
+&lt;/div&gt;
+&lt;p className="mt-2 truncate text-sm font-medium leading-snug"&gt;{title}&lt;/p&gt;
+&lt;p className="truncate text-xs text-muted-foreground"&gt;{subtitle}&lt;/p&gt;</pre>
+  </div>
+</section>
+
+<!-- ==================== TRACK ROW ==================== -->
+<section id="track-row">
+  <h2>Track row</h2>
+  <p class="lede">The most-repeated component in the app — currently <b>5+ divergent layouts</b>. This is the canonical anatomy. <b>Extract as <code>TrackRow</code></b> with slots for actions.</p>
+
+  <div class="panel">
+    <div class="panel-dark" style="padding:0.5rem">
+      <div class="track-row">
+        <button class="play-row"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg></button>
+        <span style="width:1.5rem;text-align:right;font-size:0.75rem;color:var(--muted-foreground);font-variant-numeric:tabular-nums">1</span>
+        <div class="cover" style="width:2.5rem;height:2.5rem;border-radius:var(--r-lg)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="2"/></svg></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:0.875rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Building Steam with a Grain of Salt</div>
+          <div style="font-size:0.75rem;color:var(--muted-foreground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">DJ Shadow · Endtroducing…</div>
+        </div>
+        <span class="status-pill" style="background:var(--pastel-sky)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>Downloading</span>
+        <button class="icon-btn md" style="color:var(--pastel-pink)"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+        <span style="font-size:0.75rem;color:var(--muted-foreground);font-variant-numeric:tabular-nums">6:40</span>
+        <button class="icon-btn md"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg></button>
+      </div>
+      <div class="track-row active">
+        <button class="play-row" style="background:var(--pastel-pink);color:var(--ink)"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg></button>
+        <span style="width:1.5rem;text-align:right;font-size:0.75rem;color:var(--muted-foreground);font-variant-numeric:tabular-nums">2</span>
+        <div class="cover" style="width:2.5rem;height:2.5rem;border-radius:var(--r-lg)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="2"/></svg></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:0.875rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Midnight in a Perfect World</div>
+          <div style="font-size:0.75rem;color:var(--muted-foreground)">DJ Shadow · Endtroducing…</div>
+        </div>
+        <button class="icon-btn md"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+        <span style="font-size:0.75rem;color:var(--muted-foreground);font-variant-numeric:tabular-nums">4:57</span>
+        <button class="icon-btn md"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg></button>
+      </div>
+    </div>
+<pre>&lt;ol className="flex flex-col gap-1"&gt;
+  &lt;li className="group flex items-center gap-3 rounded-xl px-2 py-2.5
+    transition-colors hover:bg-surface-2 data-[active]:bg-surface-2"&gt;
+    &lt;RowPlayButton /&gt;                        {/* ghost disc, §play-buttons #1 */}
+    &lt;span className="w-6 text-right text-xs text-muted-foreground tabular-nums"&gt;{i}&lt;/span&gt;  {/* album rows */}
+    &lt;Cover className="h-10 w-10 rounded-lg bg-surface-2" /&gt;    {/* omit on album-disc rows */}
+    &lt;div className="min-w-0 flex-1"&gt;
+      &lt;p className="truncate text-sm"&gt;{title}&lt;/p&gt;
+      &lt;p className="truncate text-xs text-muted-foreground"&gt;{artist} · {album}&lt;/p&gt;
+    &lt;/div&gt;
+    &lt;StatusPill /&gt;        {/* hidden below sm, only when downloading/unavailable/failed */}
+    &lt;IconButton&gt;&lt;Heart /&gt;&lt;/IconButton&gt;          {/* pink when liked */}
+    &lt;span className="hidden text-xs text-muted-foreground tabular-nums sm:inline"&gt;{duration}&lt;/span&gt;
+    &lt;IconButton className="opacity-0 group-hover:opacity-100"&gt;&lt;MoreVertical /&gt;&lt;/IconButton&gt;
+  &lt;/li&gt;
+&lt;/ol&gt;</pre>
+
+    <table class="spec-table" style="margin-top:1rem">
+      <tr><th>Slot rule</th><th>Standard</th></tr>
+      <tr><td>Container</td><td><code>ol flex flex-col gap-1</code> — never <code>divide-y</code></td></tr>
+      <tr><td>Row chrome</td><td><code>group flex items-center gap-3 rounded-xl px-2 py-2.5 hover:bg-surface-2</code>; active row <code>bg-surface-2</code></td></tr>
+      <tr><td>Index number</td><td>Only on album-disc rows (where cover is omitted): <code>w-6 text-right text-xs tabular-nums</code></td></tr>
+      <tr><td>Secondary actions</td><td>Icon buttons, always visible for primary pair (like + duration); edit/remove/… cluster hover-revealed with <code>opacity-0 group-hover:opacity-100 focus-within:opacity-100</code></td></tr>
+      <tr><td>Context menu</td><td><code>onContextMenu</code> → global TrackMenu on every row</td></tr>
+      <tr><td>Unplayable</td><td><code>opacity-50</code> on the whole row; play button disabled</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ==================== TILES & GRIDS ==================== -->
+<section id="tiles">
+  <h2>Tiles, cards &amp; grids</h2>
+  <p class="lede">Tile = cover + title + subtitle, linked. Card (<code>ui/card.tsx</code>) = bg-card rounded-2xl bordered-free container for panels.</p>
+
+  <div class="panel">
+    <div class="row" style="align-items:flex-start">
+      <div style="width:8rem">
+        <div class="cover" style="width:100%;aspect-ratio:1;border-radius:var(--r-xl)"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="2"/></svg></div>
+        <p style="margin-top:0.5rem;font-size:0.875rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Album tile</p>
+        <p style="font-size:0.75rem;color:var(--muted-foreground)">Artist · Year</p>
+      </div>
+      <div style="width:8rem">
+        <div class="cover" style="width:100%;aspect-ratio:1;border-radius:9999px"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+        <p style="margin-top:0.5rem;font-size:0.875rem;font-weight:500;text-align:center">Artist tile</p>
+        <p style="font-size:0.75rem;color:var(--muted-foreground);text-align:center">rounded-full</p>
+      </div>
+      <div style="width:8rem">
+        <div class="cover" style="width:100%;aspect-ratio:1;border-radius:var(--r-xl);display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:0">
+          <div style="background:var(--pastel-pink);opacity:.35"></div><div style="background:var(--pastel-sky);opacity:.35"></div><div style="background:var(--pastel-mint);opacity:.35"></div><div style="background:var(--pastel-lavender);opacity:.35"></div>
+        </div>
+        <p style="margin-top:0.5rem;font-size:0.875rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Playlist tile</p>
+        <p style="font-size:0.75rem;color:var(--muted-foreground)">2×2 collage or ListMusic</p>
+      </div>
+    </div>
+<pre>// tile title: mt-2 truncate text-sm font-medium leading-snug  (NOT font-bold — search AlbumCard is drift)
+// tile subtitle: truncate text-xs text-muted-foreground
+// grids: albums grid-cols-2 gap-4 sm:3 md:4 lg:5 · discovery grid-cols-3 gap-x-4 gap-y-6 → lg:6
+// genre tiles rotate pastels: pink → yellow → mint → sky → lavender, label text-ink font-extrabold</pre>
+  </div>
+
+  <h3>Card</h3>
+  <div class="panel">
+    <div style="background:var(--surface);border:1px solid color-mix(in srgb, var(--foreground) 8%, transparent);border-radius:var(--r-2xl);max-width:22rem;display:flex;flex-direction:column;gap:1rem;padding:1rem 0 0">
+      <div style="padding:0 1rem"><div style="font-weight:700">Discovery Weekly</div><div style="font-size:0.875rem;color:var(--muted-foreground)">30 tracks · updated Monday</div></div>
+      <div style="padding:0 1rem;font-size:0.875rem">Cards are borderless, shadowless containers. Sections separated by <code>gap-4</code>, padded <code>px-4</code>.</div>
+      <div style="display:flex;align-items:center;border-top:1px solid color-mix(in srgb, var(--foreground) 10%, transparent);background:color-mix(in srgb, var(--surface-2) 50%, transparent);padding:1rem;border-radius:0 0 var(--r-2xl) var(--r-2xl)"><button class="btn btn-default btn-sm">Subscribe</button></div>
+    </div>
+<pre>&lt;Card&gt; &lt;CardHeader&gt; &lt;CardTitle/&gt; &lt;CardDescription/&gt; &lt;CardAction/&gt; &lt;/CardHeader&gt;
+  &lt;CardContent/&gt; &lt;CardFooter/&gt;   // muted bg + border-t, radius follows card
+&lt;/Card&gt;   // size="sm" for compact</pre>
+  </div>
+</section>
+
+<!-- ==================== PLAYER BAR ==================== -->
+<section id="player-bar">
+  <h2>Player bar</h2>
+  <p class="lede">Component: <code>PreviewPlayer.tsx</code> (fixed bottom, offset by sidebar width on md+). Page bottom padding comes from <code>--preview-player-bottom-offset: 7rem</code> on <code>&lt;html&gt;</code>.</p>
+
+  <div class="panel" style="padding:0;overflow:hidden">
+    <div style="border-top:1px solid color-mix(in srgb, var(--foreground) 10%, transparent);background:var(--surface);padding:0.75rem 1rem;display:flex;align-items:center;gap:0.75rem">
+      <div class="cover" style="width:3rem;height:3rem;border-radius:var(--r-xl)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="2"/></svg></div>
+      <div style="min-width:0">
+        <div style="font-size:0.875rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:10rem">Midnight in a Perfect World</div>
+        <div style="font-size:0.75rem;color:var(--muted-foreground)">DJ Shadow</div>
+      </div>
+      <button class="icon-btn md" style="color:var(--pastel-pink)"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+      <div style="flex:1"></div>
+      <button class="icon-btn lg"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" x2="5" y1="19" y2="5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      <button class="play-disc" style="width:2.5rem;height:2.5rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg></button>
+      <button class="icon-btn lg"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" x2="19" y1="5" y2="19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      <span style="font-size:0.75rem;color:var(--muted-foreground);font-variant-numeric:tabular-nums">1:23 / 4:57</span>
+      <div style="width:8rem;height:0.25rem;border-radius:9999px;background:var(--surface-2);position:relative"><div style="position:absolute;left:0;top:0;height:100%;width:33%;background:var(--pastel-pink);border-radius:9999px"></div></div>
+      <button class="icon-btn lg"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></svg></button>
+      <button class="icon-btn lg"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </div>
+  </div>
+<pre>bar:       fixed inset-x-0 bottom-0 z-40 border-t border-foreground/10 bg-surface md:left-[var(--sidebar-width)]
+inner:     mx-auto flex w-full max-w-5xl items-center gap-3 px-4 py-3 md:gap-4 md:px-6
+left:      cover h-12 w-12 rounded-xl · title text-sm font-medium · artist text-xs text-muted-foreground · like
+center:    skip (icon-btn lg) · play/pause (filled disc h-10, hover:scale-105) · skip · time text-xs tabular-nums
+scrubber:  track h-1 rounded-full bg-secondary · fill bg-pastel-pink · thumb h-3 w-3 opacity-0 group-hover:opacity-100
+right:     volume (w-20, same scrubber pattern) · close (icon-btn lg)
+mobile:    controls collapse to gap-1 cluster + compact h-1 scrubber row below</pre>
+</section>
+
+<!-- ==================== MENUS ==================== -->
+<section id="menus">
+  <h2>Menus &amp; popovers</h2>
+  <p class="lede">All hand-rolled today (no library). One panel style for everything: context menus, dropdowns, confirm popovers. <b>Extract as <code>ui/menu.tsx</code></b> (base-ui has Menu/Popover primitives available).</p>
+
+  <div class="panel">
+    <div class="row" style="align-items:flex-start">
+      <div class="menu-panel">
+        <button class="menu-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="2"/><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/></svg><span><div style="font-size:0.875rem">Start station</div><div style="font-size:0.75rem;color:var(--muted-foreground)">Radio from this track</div></span></button>
+        <button class="menu-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg><span style="font-size:0.875rem">Download</span></button>
+        <button class="menu-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg><span style="font-size:0.875rem">Like</span></button>
+        <div class="menu-footer"><button class="menu-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg><span style="font-size:0.875rem">New playlist…</span></button></div>
+      </div>
+      <div style="flex:1;min-width:16rem;font-size:0.8rem;color:var(--muted-foreground)">
+        <p>· panel: <code>w-56</code> (context menu) / <code>w-64</code> (dropdowns) / <code>w-64–72</code> (confirms)<br>· item: icon <code>h-4 w-4 text-muted-foreground</code> + label <code>text-sm</code> (+ optional <code>text-xs</code> sublabel)<br>· footer actions separated by <code>border-t border-foreground/10</code><br>· trigger: "…" = icon-btn md (<code>MoreVertical h-4 w-4</code>), hover-revealed inside rows/tiles</p>
+      </div>
+    </div>
+<pre>panel:  overflow-hidden rounded-xl border border-foreground/10 bg-popover py-1
+item:   flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm
+        transition-colors hover:bg-surface-2
+footer: border-t border-foreground/10</pre>
+
+    <div class="row" style="margin-top:1.25rem"><span class="label-note">Confirm-destructive popover (one canonical style)</span>
+      <div class="menu-panel" style="width:16rem;padding:0.75rem">
+        <p style="font-size:0.875rem;margin-bottom:0.75rem">Remove <b>Endtroducing…</b> from your library?</p>
+        <div style="display:flex;gap:0.5rem;justify-content:flex-end">
+          <button class="btn btn-ghost btn-sm">Cancel</button>
+          <button class="btn btn-destructive btn-sm">Remove</button>
+        </div>
+      </div>
+    </div>
+<pre>// confirm panel: same menu panel + p-3 text-sm
+// actions: &lt;Button variant="ghost" size="sm"&gt; + &lt;Button variant="destructive" size="sm"&gt;
+// migrate: rounded-md/text-destructive-foreground variants in PlaylistDetail & RemoveFromLibraryButton</pre>
+  </div>
+</section>
+
+<!-- ==================== TABS ==================== -->
+<section id="tabs">
+  <h2>Tabs &amp; filters</h2>
+  <p class="lede">One style: <b>pill tabs</b> — pastel-yellow active, surface-2 inactive. The underline tabs in admin are legacy; migrate them. Genre chips are the same pill with <code>capitalize</code> and no active state.</p>
+
+  <div class="panel">
+    <div class="row"><span class="label-note">Standalone pills (requests, library sort)</span>
+      <button class="tab-pill on">All <span style="font-size:0.75rem;opacity:0.7">12</span></button>
+      <button class="tab-pill off">Pending <span style="font-size:0.75rem;opacity:0.7">3</span></button>
+      <button class="tab-pill off">Completed</button>
+    </div>
+    <div class="row" style="margin-top:1rem"><span class="label-note">On a track (settings segmented control)</span>
+      <div style="display:flex;width:fit-content;gap:0.25rem;border-radius:9999px;background:var(--surface-2);padding:0.25rem">
+        <button class="tab-pill on">General</button>
+        <button class="tab-pill off" style="background:transparent">Integrations</button>
+        <button class="tab-pill off" style="background:transparent">Users</button>
+      </div>
+    </div>
+<pre>pill:    inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-bold transition-colors
+active:  bg-pastel-yellow text-ink
+off:     bg-surface-2 text-muted-foreground hover:text-foreground  (on a track: bg-transparent)
+track:   flex w-fit gap-1 rounded-full bg-surface-2 p-1
+count:   ml-1.5 text-xs opacity-70</pre>
+  </div>
+</section>
+
+<!-- ==================== FORMS ==================== -->
+<section id="forms">
+  <h2>Forms</h2>
+  <p class="lede">Components: <code>input.tsx</code>, <code>textarea.tsx</code>, <code>label.tsx</code>, <code>switch.tsx</code>. bg-surface-2, rounded-xl, 2px transparent border → pink on focus.</p>
+
+  <div class="panel">
+    <div style="max-width:20rem;margin-bottom:1.25rem">
+      <div class="field-label">Playlist name</div>
+      <input class="input" placeholder="e.g. Late night jazz">
+    </div>
+    <div style="max-width:20rem;margin-bottom:1.25rem">
+      <div class="field-label">Invalid state</div>
+      <input class="input" aria-invalid="true" value="bad value">
+    </div>
+    <div style="max-width:20rem;margin-bottom:1.25rem">
+      <div class="field-label">Description</div>
+      <textarea class="input" placeholder="Optional description"></textarea>
+    </div>
+    <div class="row">
+      <button class="switch" aria-checked="true" onclick="this.setAttribute('aria-checked', this.getAttribute('aria-checked')!=='true')"><span class="thumb"></span></button>
+      <button class="switch" aria-checked="false" onclick="this.setAttribute('aria-checked', this.getAttribute('aria-checked')!=='true')"><span class="thumb"></span></button>
+      <span style="font-size:0.875rem;color:var(--muted-foreground)">Switch — checked = bg-primary</span>
+    </div>
+<pre>&lt;Label&gt;Playlist name&lt;/Label&gt;
+&lt;Input placeholder="e.g. Late night jazz" /&gt;
+&lt;Input aria-invalid /&gt;          // border-destructive
+&lt;Textarea /&gt;
+&lt;Switch checked={...} /&gt;
+// search variant: h-10 rounded-xl bg-surface-2 pl-9 + Search h-4 w-4 adornment</pre>
+  </div>
+</section>
+
+<!-- ==================== MODALS ==================== -->
+<section id="modals">
+  <h2>Modals</h2>
+  <p class="lede">Bottom sheet on mobile, centered dialog on sm+. Overlay <code>bg-background/80</code>, panel bg-popover rounded-2xl.</p>
+
+  <div class="panel">
+<pre>overlay: fixed inset-0 z-50 flex items-end bg-background/80 p-0
+         sm:items-center sm:justify-center sm:p-6
+panel:   flex max-h-[88vh] w-full flex-col overflow-hidden
+         rounded-t-2xl border border-foreground/10 bg-popover sm:max-w-3xl sm:rounded-2xl
+header:  flex items-start justify-between gap-4 border-b border-foreground/10 p-4
+         h2 = text-lg font-extrabold tracking-tight · close = icon-btn md + X h-4 w-4
+body:    flex-1 overflow-y-auto
+footer:  flex flex-col gap-3 border-t border-foreground/10 p-4
+         sm:flex-row sm:items-center sm:justify-between
+         cancel = &lt;Button variant="ghost"&gt; · confirm = &lt;Button&gt;</pre>
+  </div>
+</section>
+
+<!-- ==================== FEEDBACK ==================== -->
+<section id="feedback">
+  <h2>Feedback</h2>
+  <p class="lede">Empty states, skeletons, callouts, snackbar, banner. No toast library — the snackbar pattern below is the standard.</p>
+
+  <h3>Empty state</h3>
+  <div class="panel">
+    <div style="border-radius:var(--r-2xl);border:2px dashed color-mix(in srgb, var(--foreground) 15%, transparent);background:var(--surface);padding:2rem;text-align:center">
+      <svg style="margin:0 auto 0.75rem;color:color-mix(in srgb, var(--muted-foreground) 60%, transparent)" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+      <p style="font-size:0.875rem;color:var(--muted-foreground)">No liked songs yet. Like tracks to triage them here.</p>
+    </div>
+<pre>className="rounded-2xl border-2 border-dashed border-foreground/15 bg-card
+  p-8 text-center text-sm text-muted-foreground"
+// icon: mx-auto mb-3 h-6 w-6 text-muted-foreground/60 · optional CTA &lt;Button&gt; below</pre>
+  </div>
+
+  <h3>Skeletons</h3>
+  <div class="panel">
+    <div class="row" style="align-items:center">
+      <div class="skeleton" style="width:2.5rem;height:2.5rem;border-radius:var(--r-lg)"></div>
+      <div style="flex:1">
+        <div class="skeleton" style="height:0.75rem;width:60%;border-radius:var(--r-sm);margin-bottom:0.375rem"></div>
+        <div class="skeleton" style="height:0.625rem;width:40%;border-radius:var(--r-sm)"></div>
+      </div>
+    </div>
+<pre>// always: animate-pulse bg-surface-2 — never bg-secondary
+// radius mirrors the real component (cover → rounded-lg, text bars → rounded-sm)</pre>
+  </div>
+
+  <h3>Callouts &amp; alerts</h3>
+  <div class="panel">
+    <div class="callout" style="background:var(--pastel-red);color:var(--ink);font-weight:700;margin-bottom:0.5rem">Error — rounded-xl bg-pastel-red px-3 py-2 text-sm font-bold text-ink</div>
+    <div class="callout" style="background:var(--pastel-mint);color:var(--ink)">Success — rounded-xl bg-pastel-mint px-3 py-2.5 text-sm text-ink</div>
+    <div class="callout" style="margin-top:0.5rem;border:1px solid color-mix(in srgb, var(--foreground) 10%, transparent);background:var(--surface);color:var(--muted-foreground)">Info — bordered surface variant for neutral notices</div>
+<pre>// flat pastel fills on music surfaces. The admin tinted-border alert idiom
+// (border-destructive/50 bg-destructive/10) is legacy — migrate to these.</pre>
+  </div>
+
+  <h3>Snackbar &amp; banner</h3>
+  <div class="panel">
+<pre>snackbar (station saved, etc.):
+  fixed right-4 top-4 z-50 w-80 rounded-xl border border-foreground/10 bg-popover p-3 text-sm
+  auto-dismiss · action chip rounded-full bg-surface-2 px-2.5 py-1 text-xs font-bold hover:bg-accent
+banner (version update):
+  full-width top strip bg-pastel-yellow px-4 py-2 text-sm text-ink
+  link pill bg-ink text-pastel-yellow · dismiss h-7 w-7 rounded-full hover:border-ink</pre>
+  </div>
+</section>
+
+<!-- ==================== SIDEBAR ==================== -->
+<section id="sidebar">
+  <h2>Sidebar navigation</h2>
+  <p class="lede">Component: <code>Sidebar.tsx</code> + <code>SidebarLink.tsx</code>. Desktop-only (<code>hidden md:flex</code>), collapsible via <code>--sidebar-width</code> (15rem / 4.5rem).</p>
+
+  <div class="panel">
+    <div style="width:15rem;background:#101013;border-radius:var(--r-xl);border:1px solid color-mix(in srgb, var(--foreground) 8%, transparent);padding:0.75rem">
+      <div style="display:flex;align-items:center;gap:0.625rem;padding:0.75rem 0.5rem 1rem;font-size:1.25rem;font-weight:800;letter-spacing:-0.025em">
+        <span style="display:flex;width:2rem;height:2rem;align-items:center;justify-content:center;border-radius:var(--r-xl);background:var(--pastel-pink);color:var(--ink)">♪</span>Audioseerr
+      </div>
+      <div style="display:flex;flex-direction:column;gap:0.375rem">
+        <span style="display:inline-flex;align-items:center;gap:0.625rem;border-radius:9999px;padding:0.5rem 0.75rem;font-size:0.875rem;font-weight:600;background:var(--pastel-pink);color:var(--ink)"><span style="display:inline-flex;width:1.5rem;height:1.5rem;align-items:center;justify-content:center;border-radius:9999px;background:rgba(10,10,12,0.1)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"/></svg></span>Home</span>
+        <span style="display:inline-flex;align-items:center;gap:0.625rem;border-radius:9999px;padding:0.5rem 0.75rem;font-size:0.875rem;font-weight:600;color:var(--muted-foreground)"><span style="display:inline-flex;width:1.5rem;height:1.5rem;align-items:center;justify-content:center;border-radius:9999px;background:var(--pastel-sky);color:var(--ink)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg></span>Discover</span>
+        <span style="display:inline-flex;align-items:center;gap:0.625rem;border-radius:9999px;padding:0.5rem 0.75rem;font-size:0.875rem;font-weight:600;color:var(--muted-foreground)"><span style="display:inline-flex;width:1.5rem;height:1.5rem;align-items:center;justify-content:center;border-radius:9999px;background:var(--pastel-mint);color:var(--ink)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/></svg></span>Library</span>
+      </div>
+    </div>
+<pre>link:    sidebar-link inline-flex items-center gap-2.5 rounded-full px-3 py-2
+         text-sm font-semibold transition-colors
+active:  bg-pastel-{section} text-ink · icon chip bg-ink/10
+inactive: text-muted-foreground hover:bg-surface-2 hover:text-foreground · icon chip = section pastel
+icon:    h-3.5 w-3.5 inside size-6 rounded-full chip
+accents: Home pink · Discover sky · Liked red · Playlists lavender · Library mint · Requests yellow · Settings sky
+footer:  border-t border-foreground/10 · username font-mono font-bold</pre>
+  </div>
+</section>
+
+<!-- ==================== RULES ==================== -->
+<section id="rules">
+  <h2>Do's &amp; don'ts</h2>
+  <p class="lede">The flat pastel system in one list.</p>
+  <div class="rules">
+    <div class="rule rule-do"><b>DO</b>Keep it flat — no shadows, gradients, or glows. Depth = surface scale (background → surface → surface-2 → accent).</div>
+    <div class="rule rule-do"><b>DO</b>Always <code>text-ink</code> on pastel backgrounds. Never white/foreground.</div>
+    <div class="rule rule-do"><b>DO</b>Follow the radius ladder: 2xl modals/cards → xl tiles/inputs/menus/rows → lg row thumbs → md tiny thumbs → full for pills &amp; artists. Roundness decreases as elements shrink.</div>
+    <div class="rule rule-do"><b>DO</b>Use shared components: <code>Button</code>, <code>Badge</code>, <code>Card</code>, <code>Input</code> — and extract <code>IconButton</code>, <code>TrackRow</code>, <code>StatusPill</code>, <code>Menu</code>, <code>Cover</code> instead of re-rolling them per page.</div>
+    <div class="rule rule-do"><b>DO</b>One icon per action from the canonical map, <code>h-4 w-4</code> by default, lucide only.</div>
+    <div class="rule rule-do"><b>DO</b>Semantic pastels: pink primary/liked · mint success/in-library · sky info/downloading · yellow attention/active tab · red error/destructive · lavender secondary only.</div>
+    <div class="rule rule-do"><b>DO</b>Hover language: pastel/80 (filled pastels) · bg-surface-2 + foreground (ghost/icon buttons) · bg-accent (secondary) · pastel swap (danger hover → bg-pastel-red text-ink).</div>
+    <div class="rule rule-dont"><b>DON'T</b>Introduce new hex values — extend <code>:root</code> tokens first.</div>
+    <div class="rule rule-dont"><b>DON'T</b>Use <code>divide-y</code> track lists, bordered row play buttons, <code>rounded-md</code> tiles, <code>font-semibold</code> titles, or underline tabs — all are legacy patterns to migrate.</div>
+    <div class="rule rule-dont"><b>DON'T</b>Use <code>border-border</code> (pure ink, invisible) for separators — use <code>border-foreground/10</code>. <code>border-2 border-transparent</code> is only for layout-stability on interactive chips.</div>
+    <div class="rule rule-dont"><b>DON'T</b>Mix <code>size-*</code> and <code>h-* w-*</code> icon sizing — standardize on <code>h-* w-*</code>.</div>
+  </div>
+</section>
+
+<!-- ==================== CONSISTENCY CONTRACT ==================== -->
+<section id="contract">
+  <h2>Consistency contract</h2>
+  <p class="lede">Migration checklist — every known divergence, the chosen standard, and where the offenders live. Check items off as they're unified.</p>
+  <div class="panel">
+    <table class="spec-table">
+      <tr><th>#</th><th>Decision</th><th>Standard</th><th>Offenders to migrate</th></tr>
+      <tr><td>1</td><td>Row play button</td><td>Ghost disc → pink hover</td><td>AlbumDetail, MixDetail (filled); TopTracksList, OwnedTrackList, PlaylistRecommendations (bordered)</td></tr>
+      <tr><td>2</td><td>Row thumb radius</td><td><code>rounded-lg</code></td><td>PlaylistDetail/LikedInbox/LibraryView (rounded-xl), OwnedTrackList/Recommendations (rounded)</td></tr>
+      <tr><td>3</td><td>Track list container</td><td><code>flex flex-col gap-1</code></td><td>TopTracksList, OwnedTrackList, PlaylistRecommendations, requests (divide-y)</td></tr>
+      <tr><td>4</td><td>Tile cover radius</td><td><code>rounded-xl</code></td><td>DiscoveryAlbumCard, DiscoveryTrackList (rounded-md)</td></tr>
+      <tr><td>5</td><td>Section header</td><td><code>text-lg font-extrabold tracking-tight</code></td><td>ChartList, DiscoveryRow, OwnedTrackList (font-medium); album/artist uppercase labels</td></tr>
+      <tr><td>6</td><td>Page title weight</td><td><code>font-extrabold</code></td><td>login, setup, invite, admin/settings, import/spotify (font-semibold)</td></tr>
+      <tr><td>7</td><td>Labeled buttons</td><td><code>&lt;Button&gt;</code></td><td>~10 hand-rolled pills: LikedInbox, PlaylistDetail, MixDetail, LibraryView, home, CreatePlaylistInline, SubscribeButton</td></tr>
+      <tr><td>8</td><td>Confirm-destructive</td><td>Menu panel + ghost/destructive Buttons</td><td>PlaylistDetail, RemoveFromLibraryButton (rounded-md, text-destructive-foreground)</td></tr>
+      <tr><td>9</td><td>Tabs</td><td>Pill tabs (yellow active)</td><td>admin/settings underline tabs</td></tr>
+      <tr><td>10</td><td>Skeletons</td><td><code>animate-pulse bg-surface-2</code>, mirrored radii</td><td>MixCards, PlaylistRecommendations (bg-secondary), discover skeletons (rounded)</td></tr>
+      <tr><td>11</td><td>Row download icon button</td><td>icon-btn h-8 + hover bg-surface-2</td><td>TopTracksList (no hover bg); MixDetail text-pastel-red → same token, use text-pastel-red consistently</td></tr>
+      <tr><td>12</td><td>Refresh icon</td><td><code>RefreshCw</code></td><td>SyncNowButton (RefreshCcw)</td></tr>
+      <tr><td>13</td><td>Tile title weight</td><td><code>text-sm font-medium</code></td><td>search AlbumCard (font-bold)</td></tr>
+      <tr><td>14</td><td>Separators</td><td><code>border-foreground/10</code></td><td>ChartList cards, modal sections, AddToPlaylist footer (border-border)</td></tr>
+      <tr><td>15</td><td>Legacy chrome</td><td>Delete or restyle</td><td>ShuffleLibraryButton (rounded-md border), SevenDigitalButton, admin alert idioms, UsersAdminClient rounded-md/divide-y</td></tr>
+    </table>
+  </div>
+</section>
+
+</main>
+
+<style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+<script>
+  document.querySelectorAll('pre').forEach(function (pre) {
+    pre.addEventListener('click', function () {
+      navigator.clipboard.writeText(pre.textContent).then(function () {
+        pre.style.outline = '2px solid var(--pastel-mint)';
+        setTimeout(function () { pre.style.outline = ''; }, 400);
+      });
+    });
+  });
+
+  var icons = [
+    ["Play","M6 3l14 9-14 9V3z",1],["Pause","M6 4h4v16H6zM14 4h4v16h-4z",1],
+    ["SkipBack",'<polygon points="19 20 9 12 19 4 19 20"/><line x1="5" x2="5" y1="19" y2="5"/>'],
+    ["SkipForward",'<polygon points="5 4 15 12 5 20 5 4"/><line x1="19" x2="19" y1="5" y2="19"/>'],
+    ["Download",'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>'],
+    ["PlusCircle",'<circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/>'],
+    ["Check",'<path d="M20 6 9 17l-5-5"/>'],
+    ["CheckCircle2",'<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>'],
+    ["X",'<path d="M18 6 6 18M6 6l12 12"/>'],
+    ["Heart",'<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>'],
+    ["ListPlus",'<path d="M11 12H3M16 6H3M16 18H3M18 9v6M21 12h-6"/>'],
+    ["Plus",'<path d="M5 12h14M12 5v14"/>'],
+    ["MoreVertical",'<circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/>'],
+    ["Trash2",'<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>'],
+    ["Search",'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>'],
+    ["Shuffle",'<path d="m18 14 4 4-4 4M18 2l4 4-4 4M2 18h1.973a4 4 0 0 0 3.3-1.7l5.454-8.6a4 4 0 0 1 3.3-1.7H22M2 6h1.972a4 4 0 0 1 3.6 2.2M22 18h-6.041a4 4 0 0 1-3.3-1.8l-.359-.45"/>'],
+    ["Disc3",'<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="2"/>'],
+    ["ListMusic",'<path d="M21 15V6M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM12 12H3M16 6H3M12 18H3"/>'],
+    ["Library",'<path d="m16 6 4 14M12 6v14M8 8v12M4 4v16"/>'],
+    ["Inbox",'<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>'],
+    ["Compass",'<circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>'],
+    ["Home",'<path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"/>'],
+    ["Settings",'<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>'],
+    ["User",'<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'],
+    ["Clock",'<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>'],
+    ["AlertTriangle",'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3M12 9v4M12 17h.01"/>'],
+    ["RefreshCw",'<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/>'],
+    ["Pencil",'<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>'],
+    ["Bell",'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>'],
+    ["ChevronDown",'<path d="m6 9 6 6 6-6"/>'],
+    ["ChevronRight",'<path d="m9 18 6-6-6-6"/>'],
+    ["ArrowRight",'<path d="M5 12h14M12 5l7 7-7 7"/>'],
+    ["Loader2",'<path d="M21 12a9 9 0 1 1-6.219-8.56"/>'],
+    ["Radio",'<circle cx="12" cy="12" r="2"/><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5M19.1 4.9C23 8.8 23 15.1 19.1 19"/>'],
+    ["MonitorPlay",'<path d="M10 7.75a.75.75 0 0 1 1.142-.638l3.664 2.249a.75.75 0 0 1 0 1.278l-3.664 2.25a.75.75 0 0 1-1.142-.64z"/><path d="M12 17v4M8 21h8"/><rect x="2" y="3" width="20" height="14" rx="2"/>'],
+    ["Volume2",'<path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/>']
+  ];
+  var grid = document.getElementById('icon-grid');
+  icons.forEach(function (item) {
+    var cell = document.createElement('div');
+    cell.className = 'icon-cell';
+    var inner = item[1].indexOf('<') === 0 ? item[1] : '<path d="' + item[1] + '"/>';
+    var fill = item[2] ? 'fill="currentColor" stroke="none"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+    cell.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" ' + fill + '>' + inner + '</svg>' + item[0];
+    grid.appendChild(cell);
+  });
+</script>
+
+</body>
+</html>
