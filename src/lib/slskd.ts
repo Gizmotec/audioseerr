@@ -108,6 +108,12 @@ function buildUrl(base: string, path: string): string {
   return `${trimmed}/api/v0${suffix}`;
 }
 
+// Hard ceiling on any single slskd HTTP call. Without it, a wedged slskd
+// (accepts the connection, never responds) leaves the fetch unsettled forever
+// — which once hung syncActiveRequests mid-run, pinning its `running` guard
+// and silently stopping ALL searches/downloads until restart.
+const REQUEST_TIMEOUT_MS = 15000;
+
 async function slskdFetch<T>(
   config: SlskdConfig,
   path: string,
@@ -115,6 +121,7 @@ async function slskdFetch<T>(
 ): Promise<T> {
   const res = await fetch(buildUrl(config.url, path), {
     ...init,
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     headers: {
       "X-API-Key": config.apiKey,
       Accept: "application/json",

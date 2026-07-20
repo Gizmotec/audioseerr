@@ -41,7 +41,14 @@ const NOT_FOUND_RETRY_MS = 30 * 60 * 1000;
 
 type TrackCandidate = { username: string; filename: string; size: number };
 
+// A run is allowed this long before the next tick assumes it wedged (a
+// never-settling network call) and starts fresh. Far above any healthy run:
+// 5 searches × ~30s + reconciliation is well under 5 minutes.
+const STUCK_RUN_MS = 15 * 60 * 1000;
+
 let running = false;
+let runToken = 0;
+let runningSince = 0;
 
 /**
  * Reconciles APPROVED / DOWNLOADING track + album requests against slskd
@@ -52,8 +59,19 @@ export async function syncActiveRequests(): Promise<{
   scanned: number;
   changed: number;
 }> {
-  if (running) return { scanned: 0, changed: 0 };
+  if (running) {
+    if (Date.now() - runningSince < STUCK_RUN_MS) {
+      return { scanned: 0, changed: 0 };
+    }
+    // The previous run never settled — without this escape hatch the guard
+    // stays pinned for the process's lifetime and the job silently dies.
+    console.warn(
+      "[sync] previous syncActiveRequests run exceeded 15m; assuming it wedged and starting fresh.",
+    );
+  }
   running = true;
+  runningSince = Date.now();
+  const token = ++runToken;
   try {
     const settings = await getSettings();
     if (!settings.setupComplete) {
@@ -334,7 +352,9 @@ export async function syncActiveRequests(): Promise<{
       changed,
     };
   } finally {
-    running = false;
+    // A wedged run that eventually settles must not clear the guard for the
+    // fresh run that replaced it.
+    if (runToken === token) running = false;
   }
 }
 

@@ -23,8 +23,9 @@ export async function preloadMixes(
   kind: MixKind,
 ): Promise<{ users: number; requested: number }> {
   const settings = await getSettings();
-  // Off, or no Last.fm key (mixes can't be built) → nothing to do.
-  if (!settings.preDownloadMixes || !settings.lastFmApiKey) {
+  // Off → nothing to do. (Mixes are built from Deezer + local listening data;
+  // no Last.fm key is needed here.)
+  if (!settings.preDownloadMixes) {
     return { users: 0, requested: 0 };
   }
 
