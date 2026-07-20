@@ -445,9 +445,23 @@ async function runTrackSearches(slskdConfig: SlskdConfig): Promise<number> {
         },
       });
       changed++;
-    } catch {
-      // Transient (slskd down, enqueue rejected): leave it APPROVED with no
-      // file so the next tick retries the search.
+    } catch (err) {
+      // Transient (slskd down, Soulseek disconnected, enqueue rejected): leave
+      // it APPROVED with no file so a later tick retries the search — but
+      // stamp the attempt and the reason. Without that, a persistent outage
+      // is invisible (the requests sit "fetching" forever) and the same
+      // never-searched requests sort to the head of the queue every run,
+      // consuming the whole per-run search budget indefinitely.
+      const msg = err instanceof Error ? err.message : "Soulseek search failed.";
+      console.warn(
+        `[sync] track search failed for ${req.id} (${req.artistName} — ${req.title}): ${msg}`,
+      );
+      await prisma.request
+        .update({
+          where: { id: req.id },
+          data: { lastSearchedAt: new Date(), declineReason: msg },
+        })
+        .catch(() => {});
     }
   }
   return changed;
