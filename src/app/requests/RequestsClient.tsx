@@ -243,9 +243,9 @@ function TabButton({
       role="tab"
       aria-selected={active}
       onClick={onClick}
-      className={`rounded-full border-2 px-3 py-1.5 text-sm font-bold transition-colors ${
+      className={`rounded-full px-3 py-1.5 text-sm font-bold transition-colors ${
         active
-          ? "border-ink bg-pastel-yellow text-ink"
+          ? "bg-pastel-yellow text-ink"
           : "border-transparent bg-surface-2 text-muted-foreground hover:text-foreground"
       }`}
     >
@@ -257,7 +257,7 @@ function TabButton({
 
 function EmptyHint({ children }: { children: ReactNode }) {
   return (
-    <div className="rounded-2xl border-2 border-dashed border-ink/40 bg-card p-10 text-center text-sm text-muted-foreground">
+    <div className="rounded-2xl border-2 border-dashed border-foreground/15 bg-card p-10 text-center text-sm text-muted-foreground">
       {children}
     </div>
   );
