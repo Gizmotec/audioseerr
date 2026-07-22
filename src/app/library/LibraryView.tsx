@@ -2,6 +2,7 @@
 
 import {
   Check,
+  Clock,
   Disc3,
   Loader2,
   MoreVertical,
@@ -36,6 +37,7 @@ export type LibraryTrack = {
   durationMs: number | null;
   recordingMbid: string | null;
   streamUrl: string;
+  caption?: string | null;
 };
 
 type SortKey = "recent" | "artist" | "title";
@@ -286,6 +288,11 @@ export function LibraryView({
                       t.artistName
                     )}
                   </p>
+                  {t.caption && (
+                    <p className="truncate text-xs text-pastel-yellow md:hidden">
+                      {t.caption}
+                    </p>
+                  )}
                 </div>
 
                 {failed && (
@@ -294,6 +301,13 @@ export function LibraryView({
                     title="Audioseerr couldn't load this file — it may have been moved or deleted."
                   >
                     Failed to load
+                  </span>
+                )}
+
+                {t.caption && (
+                  <span className="hidden shrink-0 items-center gap-1 text-xs text-pastel-yellow tabular-nums md:inline-flex">
+                    <Clock className="h-3.5 w-3.5" />
+                    {t.caption}
                   </span>
                 )}
 

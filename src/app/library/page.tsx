@@ -1,16 +1,29 @@
-import { ArrowLeft, Disc3 } from "lucide-react";
+import { ArrowLeft, Clock, Disc3 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { getLikedSet, trackLikeTargetId } from "@/lib/likes";
 import { isSetupComplete } from "@/lib/settings";
+import {
+  formatTemporaryExpiryCaption,
+  parseLibraryTab,
+} from "@/lib/temporaryLibrary";
 import { isAdmin } from "@/lib/userLibrary";
+import { cn } from "@/lib/utils";
 import { LibraryView, type LibraryTrack } from "./LibraryView";
 
 export const dynamic = "force-dynamic";
 
-export default async function LibraryPage() {
+function currentDate(): Date {
+  return new Date();
+}
+
+export default async function LibraryPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   if (!(await isSetupComplete())) {
     redirect("/setup");
   }
@@ -22,6 +35,9 @@ export default async function LibraryPage() {
   const role = (session.user as { role?: string }).role;
   const viewer = { id: userId, role };
   const admin = isAdmin(viewer);
+  const tab = parseLibraryTab((await searchParams).tab);
+  const temporary = tab === "temporary";
+  const renderedAt = currentDate();
 
   // Track-first library: read the actual downloaded files (DownloadedTrack),
   // scoped to what the viewer owns via UserDownloadedTrack. Admins see every
@@ -29,9 +45,10 @@ export default async function LibraryPage() {
   // (We no longer read the album rollup LibraryItem here — that's why one
   // downloaded song no longer surfaces the whole album.)
   const rows = await prisma.downloadedTrack.findMany({
-    // ephemeral: false — pre-downloaded discovery-mix temp tracks stay out of
-    // the library until the user keeps them (likes / adds to a playlist).
-    where: { ephemeral: false, ...(admin ? {} : { users: { some: { userId } } }) },
+    where: {
+      ephemeral: temporary,
+      ...(admin ? {} : { users: { some: { userId } } }),
+    },
     select: {
       id: true,
       title: true,
@@ -42,6 +59,7 @@ export default async function LibraryPage() {
       coverUrl: true,
       durationMs: true,
       recordingMbid: true,
+      expiresAt: true,
     },
     orderBy: { createdAt: "desc" },
   });
@@ -57,6 +75,9 @@ export default async function LibraryPage() {
     durationMs: r.durationMs,
     recordingMbid: r.recordingMbid,
     streamUrl: `/api/stream/local/${r.id}`,
+    caption: temporary
+      ? formatTemporaryExpiryCaption(r.expiresAt, renderedAt)
+      : null,
   }));
 
   const likeTargetIds = tracks
@@ -78,25 +99,78 @@ export default async function LibraryPage() {
       <header className="mt-4 mb-8">
         <h1 className="text-3xl font-extrabold tracking-tight">Library</h1>
         <p className="text-sm text-muted-foreground">
-          Every track you&rsquo;ve downloaded.
+          {temporary
+            ? "Full-length mix tracks waiting to be kept or cleaned up."
+            : "Every track you’ve downloaded and kept."}
         </p>
       </header>
 
+      <nav aria-label="Library sections" className="mb-6 flex gap-1 border-b border-border">
+        <LibraryTabLink href="/library" label="Library" active={!temporary} />
+        <LibraryTabLink
+          href="/library?tab=temporary"
+          label="Temporary"
+          active={temporary}
+        />
+      </nav>
+
+      {temporary && (
+        <div className="mb-6 flex items-start gap-2 rounded-xl bg-pastel-yellow/10 px-4 py-3 text-sm text-muted-foreground">
+          <Clock className="mt-0.5 h-4 w-4 shrink-0 text-pastel-yellow" />
+          <p>
+            Like a track or add it to a playlist to keep it permanently. Otherwise,
+            it is removed after the expiry shown below.
+          </p>
+        </div>
+      )}
+
       {isEmpty ? (
         <div className="rounded-2xl border-2 border-dashed border-foreground/15 bg-card p-8 text-center text-sm text-muted-foreground">
-          <Disc3 className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" />
-          <p>Nothing in the library yet.</p>
+          {temporary ? (
+            <Clock className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" />
+          ) : (
+            <Disc3 className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" />
+          )}
+          <p>{temporary ? "No temporary tracks." : "Nothing in the library yet."}</p>
           <p className="mt-1">
-            Tracks show up here once a request finishes downloading.
+            {temporary
+              ? "Pre-downloaded Daily Mix and Discover Weekly tracks will appear here."
+              : "Tracks show up here once a request finishes downloading."}
           </p>
         </div>
       ) : (
         <LibraryView
+          key={tab}
           tracks={tracks}
           canDelete={admin}
           likedTrackIds={likedTrackIds}
         />
       )}
     </main>
+  );
+}
+
+function LibraryTabLink({
+  href,
+  label,
+  active,
+}: {
+  href: string;
+  label: string;
+  active: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors",
+        active
+          ? "border-foreground text-foreground"
+          : "border-transparent text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {label}
+    </Link>
   );
 }
