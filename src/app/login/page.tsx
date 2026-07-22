@@ -1,9 +1,13 @@
 import { redirect } from "next/navigation";
 import { auth, signIn } from "@/auth";
 import { Button } from "@/components/ui/button";
+import { getJellyfinAuthConfig } from "@/lib/jellyfin";
 import { getOidcBootConfig, OIDC_PROVIDER_ID } from "@/lib/oidc";
+import { getPlexAuthConfig } from "@/lib/plex";
 import { isSetupComplete } from "@/lib/settings";
+import { JellyfinLoginForm } from "./JellyfinLoginForm";
 import { LoginForm } from "./LoginForm";
+import { PlexLoginButton } from "./PlexLoginButton";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +25,19 @@ function ssoErrorMessage(code: string): string {
   return "SSO sign-in failed. Try again, or use your username and password.";
 }
 
+function OrDivider({ label = "or" }: { label?: string }) {
+  return (
+    <div className="relative">
+      <div className="absolute inset-0 flex items-center">
+        <span className="w-full border-t border-border" />
+      </div>
+      <div className="relative flex justify-center text-xs uppercase">
+        <span className="bg-background px-2 text-muted-foreground">{label}</span>
+      </div>
+    </div>
+  );
+}
+
 export default async function LoginPage({
   searchParams,
 }: {
@@ -34,10 +51,13 @@ export default async function LoginPage({
     redirect("/home");
   }
 
-  // The SSO button mirrors the provider registration in src/auth.ts: both
-  // read the same boot-time snapshot, so the button appears exactly when the
-  // OIDC provider is live (SSO setting changes apply on restart).
+  // The external sign-in buttons mirror the provider registrations in
+  // src/auth.ts: OIDC reads the boot-time DB snapshot, Plex/Jellyfin read the
+  // same env-based config the providers were built from, so a button appears
+  // exactly when its provider is live (changes apply on restart).
   const oidc = getOidcBootConfig();
+  const plex = getPlexAuthConfig();
+  const jellyfin = getJellyfinAuthConfig();
   const error = (await searchParams)?.error;
 
   return (
@@ -54,27 +74,28 @@ export default async function LoginPage({
           </p>
         )}
 
-        {oidc && (
+        {(oidc || plex) && (
           <div className="mb-4 space-y-4">
-            <form action={signInWithOidc}>
-              <Button type="submit" variant="outline" className="w-full">
-                {oidc.buttonLabel}
-              </Button>
-            </form>
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-border" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  or
-                </span>
-              </div>
-            </div>
+            {oidc && (
+              <form action={signInWithOidc}>
+                <Button type="submit" variant="outline" className="w-full">
+                  {oidc.buttonLabel}
+                </Button>
+              </form>
+            )}
+            {plex && <PlexLoginButton />}
+            <OrDivider />
           </div>
         )}
 
         <LoginForm />
+
+        {jellyfin && (
+          <div className="mt-6 space-y-4">
+            <OrDivider label="or" />
+            <JellyfinLoginForm />
+          </div>
+        )}
       </div>
     </main>
   );

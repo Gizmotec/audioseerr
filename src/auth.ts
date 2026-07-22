@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { authConfig } from "@/auth.config";
+import { buildExternalProviders } from "@/lib/external-auth";
 import {
   buildOidcProvider,
   OIDC_PROVIDER_ID,
@@ -48,6 +49,10 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
       },
     }),
     ...(oidcProvider ? [oidcProvider] : []),
+    // Plex/Jellyfin sign-ins: credentials providers that verify against the
+    // upstream service inside authorize() (src/lib/external-auth.ts). Empty
+    // when neither is configured via environment variables.
+    ...buildExternalProviders(),
   ],
   callbacks: {
     async signIn({ account, profile }) {

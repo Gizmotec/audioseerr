@@ -439,3 +439,65 @@ export async function searchArtists(
       });
   });
 }
+
+// Recent release groups for one artist, server-side date-filtered via the
+// search API (`firstreleasedate` range). We use search instead of the
+// /release-group?artist= browse endpoint because browse can't filter by date
+// and isn't date-sorted — prolific artists have hundreds of release groups
+// across dozens of pages, while the date-filtered search is ONE request per
+// artist no matter the discography size. Search also returns artist-credit
+// (browse doesn't), which keeps VA/collab artist names correct.
+//
+// `since` is a YYYY-MM-DD lower bound (day-quantized by the caller) and is
+// part of the cache key, so each artist is fetched at most once per day even
+// though the window slides.
+export async function getRecentArtistAlbums(
+  artistMbid: string,
+  since: string,
+  limit = 50,
+): Promise<MbAlbum[]> {
+  const cacheKey = `mb:rg:recent:v1:${artistMbid}:${since}:${limit}`;
+  return withCache<MbAlbum[]>(cacheKey, 24 * 60 * 60, async () => {
+    const data = await mbFetch<MbReleaseGroupSearchResponse>("/release-group", {
+      query: `arid:${artistMbid} AND primarytype:Album AND firstreleasedate:[${since} TO *]`,
+      limit: String(limit),
+    });
+    return data["release-groups"].map((rg) => {
+      const credit = joinArtistCredit(rg["artist-credit"]);
+      return {
+        mbid: rg.id,
+        title: rg.title,
+        artistName: credit.name,
+        artistMbid: credit.mbid,
+        firstReleaseDate: rg["first-release-date"] ?? null,
+        primaryType: rg["primary-type"] ?? null,
+        coverUrl: coverUrl(rg.id),
+      };
+    });
+  });
+}
+
+// Just the owning artist of a release group — the cheap way to answer
+// "which artist is this album by?" without getAlbum's tracklist fetches.
+// Cached long (30d): an album's artist essentially never changes.
+export async function getAlbumArtist(
+  releaseGroupMbid: string,
+): Promise<{ mbid: string; name: string } | null> {
+  const cacheKey = `mb:rg:artist:v1:${releaseGroupMbid}`;
+  return withCache<{ mbid: string; name: string } | null>(
+    cacheKey,
+    30 * 24 * 60 * 60,
+    async () => {
+      try {
+        const rg = await mbFetch<MbReleaseGroupDetail>(
+          `/release-group/${releaseGroupMbid}`,
+          { inc: "artist-credits" },
+        );
+        const credit = joinArtistCredit(rg["artist-credit"]);
+        return credit.mbid ? { mbid: credit.mbid, name: credit.name } : null;
+      } catch {
+        return null;
+      }
+    },
+  );
+}

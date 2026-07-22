@@ -8,8 +8,11 @@ import {
   listSystemPlaylists,
 } from "@/lib/playlists";
 import { isSetupComplete } from "@/lib/settings";
+import { listSmartPlaylists } from "@/lib/smartPlaylists";
 import { CreatePlaylistInline } from "./CreatePlaylistInline";
+import { NewSmartPlaylistButton } from "./NewSmartPlaylistButton";
 import { PlaylistTile } from "./PlaylistTile";
+import { SmartPlaylistTile } from "./SmartPlaylistTile";
 
 export const dynamic = "force-dynamic";
 
@@ -23,11 +26,13 @@ export default async function PlaylistsPage() {
     redirect("/login");
   }
 
-  const [playlists, sharedPlaylists, systemPlaylists] = await Promise.all([
-    listPlaylists(userId),
-    listSharedPlaylists(userId),
-    listSystemPlaylists(),
-  ]);
+  const [playlists, sharedPlaylists, systemPlaylists, smartPlaylists] =
+    await Promise.all([
+      listPlaylists(userId),
+      listSharedPlaylists(userId),
+      listSystemPlaylists(),
+      listSmartPlaylists(userId),
+    ]);
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 md:px-6">
@@ -52,6 +57,7 @@ export default async function PlaylistsPage() {
           >
             <Download className="h-4 w-4" /> Import from Spotify
           </Link>
+          <NewSmartPlaylistButton />
           <CreatePlaylistInline />
         </div>
       </header>
@@ -77,7 +83,7 @@ export default async function PlaylistsPage() {
         </section>
       )}
 
-      {playlists.length === 0 ? (
+      {playlists.length === 0 && smartPlaylists.length === 0 ? (
         <div className="rounded-2xl border-2 border-dashed border-foreground/15 bg-card p-8 text-center text-sm text-muted-foreground">
           <ListMusic className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" />
           <p>No playlists yet.</p>
@@ -87,6 +93,11 @@ export default async function PlaylistsPage() {
         </div>
       ) : (
         <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          {smartPlaylists.map((p) => (
+            <li key={p.id}>
+              <SmartPlaylistTile playlist={p} />
+            </li>
+          ))}
           {playlists.map((p) => (
             <li key={p.id}>
               <PlaylistTile playlist={p} />

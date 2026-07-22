@@ -2,6 +2,7 @@ import { ArrowLeft, BarChart3, Download, KeyRound } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { ImportHistoryCard } from "@/components/scrobble/ImportHistoryCard";
 import { ScrobblingSection } from "@/components/scrobble/ScrobblingSection";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -87,6 +88,15 @@ export default async function AccountPage({
         scrobbleConnected={params.scrobbleConnected ?? null}
         scrobbleError={params.scrobbleError ?? null}
       />
+
+      {/* History import is Last.fm-only (ListenBrainz has no equivalent here);
+          hidden entirely without a Last.fm connection — the Last.fm card above
+          explains how to connect. */}
+      {user.lastfmSessionKey && (
+        <div className="mt-6">
+          <ImportHistoryCard username={user.lastfmUsername} />
+        </div>
+      )}
 
       <Card className="mt-6">
         <CardHeader>

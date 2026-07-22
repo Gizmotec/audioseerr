@@ -59,6 +59,16 @@ type EnvFlags = {
   audioseerrSecret: boolean;
 };
 
+// Read-only status for the env-configured external login methods (Plex PIN
+// flow, Jellyfin username/password). Computed on the server from the same
+// helpers that built the Auth.js providers at boot.
+export type ExternalLoginStatus = {
+  plexEnabled: boolean;
+  plexClientIdSet: boolean;
+  jellyfinServerUrl: string | null;
+  jellyfinApiKeySet: boolean;
+};
+
 export type StorageStats = {
   reachable: boolean;
   root: string | null;
@@ -87,6 +97,7 @@ type SectionId =
   | "playback"
   | "predownload"
   | "sso"
+  | "external-login"
   | "storage";
 
 type SectionDef = { id: SectionId; tab: TabId; title: string; keywords: string };
@@ -149,6 +160,13 @@ const SECTIONS: SectionDef[] = [
       "sso oidc openid connect single sign-on authentik keycloak pocket id pocketid login authentication issuer client secret",
   },
   {
+    id: "external-login",
+    tab: "general",
+    title: "External login (Plex, Jellyfin)",
+    keywords:
+      "plex jellyfin emby external login pin oauth media server sign-in environment variables read-only",
+  },
+  {
     id: "storage",
     tab: "system",
     title: "Storage",
@@ -161,6 +179,7 @@ const normalize = (s: string) => s.toLowerCase().trim();
 export function SettingsForm({
   initial,
   env,
+  externalLogin,
   storage,
   spotify,
   isAdmin,
@@ -169,6 +188,7 @@ export function SettingsForm({
 }: {
   initial: Initial;
   env: EnvFlags;
+  externalLogin: ExternalLoginStatus;
   storage: StorageStats;
   spotify: SpotifyIntegration;
   isAdmin: boolean;
@@ -661,6 +681,51 @@ export function SettingsForm({
         );
       case "storage":
         return <StorageCard storage={storage} />;
+      case "external-login":
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>External login (Plex, Jellyfin)</CardTitle>
+              <CardDescription>
+                Extra sign-in methods for the login page: Plex.tv accounts via
+                Plex&apos;s PIN flow, and username/password accounts on a
+                Jellyfin server. External sign-ins are matched to local
+                accounts by email and created automatically on first login,
+                always as regular users. Both methods are configured with
+                environment variables, so this card is read-only — changes
+                apply on the next server restart.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2">
+              <EnvRow label="PLEX_ENABLED" set={externalLogin.plexEnabled} />
+              <EnvRow
+                label="PLEX_CLIENT_IDENTIFIER"
+                set={externalLogin.plexClientIdSet}
+              />
+              <EnvValueRow
+                label="JELLYFIN_SERVER_URL"
+                value={externalLogin.jellyfinServerUrl}
+              />
+              <EnvRow
+                label="JELLYFIN_API_KEY"
+                set={externalLogin.jellyfinApiKeySet}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Set <code className="font-mono">PLEX_ENABLED=1</code> to add a
+                “Sign in with Plex” button. Plex identifies this server with a
+                stable client id derived from AUDIOSEERR_SECRET unless{" "}
+                <code className="font-mono">PLEX_CLIENT_IDENTIFIER</code> is
+                set. Set <code className="font-mono">JELLYFIN_SERVER_URL</code>{" "}
+                (e.g. <code className="font-mono">http://jellyfin:8096</code>)
+                to add the Jellyfin sign-in form;{" "}
+                <code className="font-mono">JELLYFIN_API_KEY</code> is optional.
+                Jellyfin users without an email on their server get a{" "}
+                <code className="font-mono">&lt;username&gt;@jellyfin.local</code>{" "}
+                address for account matching.
+              </p>
+            </CardContent>
+          </Card>
+        );
       case "youtube":
         return (
           <IntegrationCard
@@ -940,6 +1005,23 @@ function EnvRow({ label, set }: { label: string; set: boolean }) {
         />
         {set ? "set" : "not set"}
       </span>
+    </div>
+  );
+}
+
+// Like EnvRow, but for non-secret values worth showing verbatim (e.g. the
+// Jellyfin server URL) rather than as a set/not-set flag.
+function EnvValueRow({ label, value }: { label: string; value: string | null }) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-xl bg-surface-2 px-3 py-2.5">
+      <code className="font-mono text-xs">{label}</code>
+      {value ? (
+        <code className="font-mono text-xs break-all text-pastel-mint">
+          {value}
+        </code>
+      ) : (
+        <span className="text-xs text-muted-foreground">not set</span>
+      )}
     </div>
   );
 }

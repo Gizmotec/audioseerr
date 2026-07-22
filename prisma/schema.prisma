@@ -105,6 +105,8 @@ model User {
   issues      Issue[]
   // Resume-playback positions, one row per in-progress track.
   playPositions PlayPosition[]
+  // Rule-driven playlists that re-evaluate on view (Plex-style smart playlists).
+  smartPlaylists SmartPlaylist[]
   invitesCreated Invite[] @relation("InvitesCreated")
   invitesUsed    Invite[] @relation("InvitesUsed")
   libraryItems   UserLibraryItem[]
@@ -283,6 +285,22 @@ model PlayPosition {
 
   @@unique([userId, trackKey])
   @@index([userId, updatedAt])
+}
+
+// Plex-style smart playlist: a stored rule set, evaluated at view time against
+// the user's library/history (not a frozen track list). rulesJson is a
+// stringified JSON array of rule objects, validated in src/lib/smartPlaylist.ts.
+model SmartPlaylist {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  rulesJson String
+  limit     Int      @default(50)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
 
 // Snapshot of a Spotify playlist's track IDs at the time of the user's last

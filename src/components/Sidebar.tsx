@@ -7,6 +7,7 @@ import {
   ListMusic,
   LogOut,
   Settings as SettingsIcon,
+  Sparkles,
   User,
 } from "lucide-react";
 import Link from "next/link";
@@ -53,6 +54,13 @@ export async function Sidebar() {
           icon={<Compass className="h-3.5 w-3.5" />}
         >
           Discover
+        </SidebarLink>
+        <SidebarLink
+          href="/releases"
+          accent="yellow"
+          icon={<Sparkles className="h-3.5 w-3.5" />}
+        >
+          Releases
         </SidebarLink>
         <SidebarLink
           href="/home"

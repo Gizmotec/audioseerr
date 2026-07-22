@@ -6,6 +6,8 @@ import { redirect } from "next/navigation";
 import { UsersAdminClient } from "@/app/admin/users/UsersAdminClient";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { getJellyfinAuthConfig } from "@/lib/jellyfin";
+import { getPlexAuthConfig } from "@/lib/plex";
 import { getSettings, isSetupComplete, type SettingsView } from "@/lib/settings";
 import { applyPathMap, parsePathMap } from "@/lib/streaming";
 import { cn } from "@/lib/utils";
@@ -130,6 +132,17 @@ async function SettingsTab({
     audioseerrSecret: !!process.env.AUDIOSEERR_SECRET,
   };
 
+  // External login methods are env-configured (no Settings columns for them),
+  // so the settings UI only reports status. These mirror the exact helpers
+  // src/auth.ts used to build the providers at boot.
+  const jellyfin = getJellyfinAuthConfig();
+  const externalLogin = {
+    plexEnabled: !!getPlexAuthConfig(),
+    plexClientIdSet: !!process.env.PLEX_CLIENT_IDENTIFIER?.trim(),
+    jellyfinServerUrl: jellyfin?.serverUrl ?? null,
+    jellyfinApiKeySet: !!process.env.JELLYFIN_API_KEY?.trim(),
+  };
+
   // Derive the redirect URI from the request origin so it matches whatever
   // host the user is actually accessing Audioseerr at. They paste this URI
   // into their Spotify app's redirect-URI list verbatim.
@@ -158,6 +171,7 @@ async function SettingsTab({
       }}
       oidcCallbackUrl={oidcCallbackUrl}
       env={env}
+      externalLogin={externalLogin}
       storage={await getStorageStats(settings)}
       spotify={{
         initialClientId: user?.spotifyClientId ?? "",

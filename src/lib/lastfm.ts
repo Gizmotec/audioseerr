@@ -412,3 +412,84 @@ export async function getSimilarTracks(
       .filter((t) => t.name.length > 0 && t.artistName.length > 0);
   });
 }
+
+type LastFmRecentTracksResponse = {
+  recenttracks?: {
+    // Last.fm quirk: a single-result page comes back as an object, not an array.
+    track?:
+      | Array<{
+          name?: string;
+          mbid?: string;
+          duration?: string | number;
+          artist?: { mbid?: string; "#text"?: string };
+          album?: { mbid?: string; "#text"?: string };
+          date?: { uts?: string; "#text"?: string };
+          "@attr"?: { nowplaying?: string };
+        }>
+      | {
+          name?: string;
+          mbid?: string;
+          duration?: string | number;
+          artist?: { mbid?: string; "#text"?: string };
+          album?: { mbid?: string; "#text"?: string };
+          date?: { uts?: string; "#text"?: string };
+          "@attr"?: { nowplaying?: string };
+        };
+    "@attr"?: { page?: string; totalPages?: string; total?: string };
+  };
+};
+
+export type LastFmRecentTrack = {
+  name: string;
+  artistName: string;
+  albumTitle: string | null;
+  /** Recording MBID when Last.fm has one — frequently empty. */
+  mbid: string | null;
+  /** When the scrobble happened; null for the "now playing" row. */
+  playedAt: Date | null;
+  /** Rarely present on this endpoint; null when absent. */
+  durationMs: number | null;
+};
+
+export type LastFmRecentTracksPage = {
+  tracks: LastFmRecentTrack[];
+  totalPages: number;
+};
+
+// user.getRecentTracks — a user's scrobble history, newest first. Read-only
+// (api_key only, no session/signature needed). Deliberately uncached: history
+// imports are a live user action and caching would fight incremental re-runs.
+export async function getRecentTracks(
+  config: LastFmConfig,
+  user: string,
+  opts?: { limit?: number; page?: number; to?: number },
+): Promise<LastFmRecentTracksPage> {
+  const params: Record<string, string> = {
+    method: "user.getrecenttracks",
+    user,
+    limit: String(opts?.limit ?? 200),
+    page: String(opts?.page ?? 1),
+  };
+  if (opts?.to != null) params.to = String(opts.to);
+  const data = await lastFmFetch<LastFmRecentTracksResponse>(config, params);
+  const raw = data.recenttracks?.track;
+  const tracks = raw ? (Array.isArray(raw) ? raw : [raw]) : [];
+  return {
+    tracks: tracks.map((t) => {
+      const uts = t.date?.uts ? Number(t.date.uts) : NaN;
+      const durationSec = t.duration != null ? Number(t.duration) : NaN;
+      return {
+        name: t.name ?? "",
+        artistName: t.artist?.["#text"] ?? "",
+        albumTitle: t.album?.["#text"] || null,
+        mbid: t.mbid && t.mbid.length > 0 ? t.mbid : null,
+        playedAt: Number.isFinite(uts) ? new Date(uts * 1000) : null,
+        durationMs:
+          Number.isFinite(durationSec) && durationSec > 0
+            ? Math.round(durationSec * 1000)
+            : null,
+      };
+    }),
+    totalPages: Number(data.recenttracks?.["@attr"]?.totalPages ?? "1") || 1,
+  };
+}
