@@ -40,6 +40,13 @@ enum LikeTargetType {
   ARTIST
 }
 
+enum NotificationType {
+  REQUEST_APPROVED
+  REQUEST_DECLINED
+  REQUEST_AVAILABLE
+  REQUEST_FAILED
+}
+
 model User {
   id           String    @id @default(cuid())
   email        String    @unique
@@ -62,12 +69,24 @@ model User {
   spotifyAccessToken    String?
   spotifyRefreshToken   String?
   spotifyTokenExpiresAt DateTime?
+  // Scrobbling connections. Last.fm uses a session key from its web-auth flow
+  // (requires the app-level lastFmApiSecret on Settings); ListenBrainz uses a
+  // user-supplied token. Both secrets are AES-256-GCM encrypted at rest via
+  // src/lib/encryption.ts, same as the Spotify tokens.
+  lastfmUsername         String?
+  lastfmSessionKey       String?
+  scrobbleLastfm         Boolean @default(false)
+  listenbrainzUsername   String?
+  listenbrainzToken      String?
+  scrobbleListenbrainz   Boolean @default(false)
   createdAt    DateTime  @default(now())
   requests     Request[]
   likes        Like[]
   recentSearches RecentSearch[]
   playlists      Playlist[]
   plays          PlayHistory[]
+  notifications  Notification[]
+  apiKeys        ApiKey[]
   invitesCreated Invite[] @relation("InvitesCreated")
   invitesUsed    Invite[] @relation("InvitesUsed")
   libraryItems   UserLibraryItem[]
@@ -191,6 +210,13 @@ model Settings {
   // "new" tracks into temporary (ephemeral) storage so they play full-length
   // instantly; unkept temp tracks are auto-pruned (src/lib/jobs).
   preDownloadMixes       Boolean @default(false)
+  // Global outbound webhook: JSON POST fired on any request status change so
+  // users can self-wire Discord / ntfy / Gotify without per-service
+  // integrations (design doc §8). Secret-free; payload carries no credentials.
+  notificationWebhookUrl String?
+  // Last.fm API secret — required (with the public lastFmApiKey) to sign
+  // scrobble-auth requests. Encrypted at rest like the other keys.
+  lastFmApiSecret        String?
 }
 
 // Snapshot of a Spotify playlist's track IDs at the time of the user's last
@@ -454,5 +480,40 @@ model UserDownloadedTrack {
   addedAt           DateTime        @default(now())
 
   @@unique([userId, downloadedTrackId])
+  @@index([userId])
+}
+
+// In-app notification for the bell + /notifications page (design doc §8).
+// Created at request-lifecycle transition points (approve/decline in
+// actions/requests.ts, AVAILABLE/FAILED in jobs/syncActiveRequests.ts).
+// readAt null = unread; the badge counts those.
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  body      String?
+  // Optional deep link back to the request that triggered it.
+  requestId String?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, readAt])
+}
+
+// Per-user key for the public REST API (/api/v1/*). The raw key is shown
+// exactly once at creation; only its sha256 hex digest is stored. prefix
+// (first 8 chars of the raw key) identifies keys in the management UI.
+model ApiKey {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label      String
+  prefix     String
+  keyHash    String    @unique
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+
   @@index([userId])
 }

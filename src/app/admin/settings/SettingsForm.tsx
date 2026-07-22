@@ -26,6 +26,7 @@ import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import {
   type SlskdProbeResult,
+  pingWebhookAction,
   probeSlskdAction,
   saveAdminSettingsAction,
 } from "./actions";
@@ -43,6 +44,8 @@ type Initial = {
   lastFmApiKey: string;
   mediaPathMap: string;
   preDownloadMixes: boolean;
+  notificationWebhookUrl: string;
+  lastFmApiSecretMasked: string;
 };
 
 type EnvFlags = {
@@ -73,6 +76,7 @@ type SectionId =
   | "slskd"
   | "lastfm"
   | "spotify"
+  | "notifications"
   | "playback"
   | "predownload"
   | "storage"
@@ -98,6 +102,12 @@ const SECTIONS: SectionDef[] = [
     tab: "integrations",
     title: "Spotify",
     keywords: "spotify playlists import oauth connect account",
+  },
+  {
+    id: "notifications",
+    tab: "integrations",
+    title: "Notifications",
+    keywords: "notifications webhook url discord ntfy gotify push alerts http",
   },
   {
     id: "playback",
@@ -165,10 +175,19 @@ export function SettingsForm({
   const [slskdProbeMsg, setSlskdProbeMsg] = useState<string | null>(null);
 
   const [lastFmApiKey, setLastFmApiKey] = useState(initial.lastFmApiKey);
+  const [lastFmApiSecret, setLastFmApiSecret] = useState(
+    initial.lastFmApiSecretMasked,
+  );
+  const [lastFmSecretEdited, setLastFmSecretEdited] = useState(false);
   const [mediaPathMap, setMediaPathMap] = useState(initial.mediaPathMap);
   const [preDownloadMixes, setPreDownloadMixes] = useState(
     initial.preDownloadMixes,
   );
+  const [notificationWebhookUrl, setNotificationWebhookUrl] = useState(
+    initial.notificationWebhookUrl,
+  );
+  const [webhookTesting, setWebhookTesting] = useState(false);
+  const [webhookPingMsg, setWebhookPingMsg] = useState<string | null>(null);
 
   const slskdConfigured = !!slskdUrl.trim() && !!slskdApiKey;
   const lastFmConfigured = !!lastFmApiKey.trim();
@@ -199,6 +218,14 @@ export function SettingsForm({
     setSlskdProbeMsg(res.ok ? "Connected to slskd." : res.error);
   }
 
+  async function pingWebhook() {
+    setWebhookTesting(true);
+    setWebhookPingMsg(null);
+    const res = await pingWebhookAction({ url: notificationWebhookUrl });
+    setWebhookTesting(false);
+    setWebhookPingMsg(res.ok ? "Test notification delivered." : res.error);
+  }
+
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
@@ -215,6 +242,11 @@ export function SettingsForm({
         lastFmApiKey,
         mediaPathMap,
         preDownloadMixes,
+        notificationWebhookUrl,
+        lastFmApiSecret:
+          lastFmSecretEdited || !initial.lastFmApiSecretMasked
+            ? lastFmApiSecret
+            : KEY_UNCHANGED_SENTINEL,
       });
       if (!res.ok) {
         setError(res.error);
@@ -222,7 +254,9 @@ export function SettingsForm({
       }
       setSaved(true);
       setSlskdKeyEdited(false);
+      setLastFmSecretEdited(false);
       if (slskdApiKey) setSlskdApiKey("••••••••");
+      if (lastFmApiSecret) setLastFmApiSecret("••••••••");
       router.refresh();
     });
   }
@@ -325,23 +359,103 @@ export function SettingsForm({
           <IntegrationCard
             provider="lastfm"
             name="Last.fm"
-            description="Powers discovery — tag charts, genre browsing, and similar-artist recommendations."
+            description="Powers discovery — tag charts, genre browsing, and similar-artist recommendations. The API secret additionally enables scrobbling."
             connected={lastFmConfigured}
             action={{
               onToggle: () => toggleExpanded("lastfm"),
               expanded: !!expanded.lastfm,
             }}
           >
-            <div className="space-y-1.5">
-              <Label htmlFor="lastFm">API key</Label>
-              <Input
-                id="lastFm"
-                value={lastFmApiKey}
-                onChange={(e) => setLastFmApiKey(e.target.value)}
-                placeholder="Optional — enables tag charts and genre browsing"
-              />
+            <div className="flex flex-col gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="lastFm">API key</Label>
+                <Input
+                  id="lastFm"
+                  value={lastFmApiKey}
+                  onChange={(e) => setLastFmApiKey(e.target.value)}
+                  placeholder="Optional — enables tag charts and genre browsing"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="lastFmApiSecret">API secret</Label>
+                <Input
+                  id="lastFmApiSecret"
+                  type="password"
+                  value={lastFmApiSecret}
+                  onChange={(e) => {
+                    setLastFmApiSecret(e.target.value);
+                    setLastFmSecretEdited(true);
+                  }}
+                  onFocus={() => {
+                    if (!lastFmSecretEdited && lastFmApiSecret.startsWith("••")) {
+                      setLastFmApiSecret("");
+                    }
+                  }}
+                  placeholder="Optional — required for scrobbling"
+                />
+                <p className="text-xs text-muted-foreground">
+                  From your Last.fm API account. Stored encrypted, like the
+                  slskd key.
+                </p>
+              </div>
             </div>
           </IntegrationCard>
+        );
+      case "notifications":
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Notifications</CardTitle>
+              <CardDescription>
+                A global outbound webhook: Audioseerr POSTs a JSON event here
+                whenever any request changes status (approved, declined,
+                available, failed). Point it at Discord, ntfy, Gotify, or any
+                receiver — deliveries time out after 4 seconds and never block
+                requests.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="notificationWebhookUrl">Webhook URL</Label>
+                <Input
+                  id="notificationWebhookUrl"
+                  value={notificationWebhookUrl}
+                  onChange={(e) => setNotificationWebhookUrl(e.target.value)}
+                  placeholder="https://discord.com/api/webhooks/… (optional)"
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={pingWebhook}
+                  disabled={pending || webhookTesting}
+                >
+                  {webhookTesting ? (
+                    <>
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      Sending
+                    </>
+                  ) : (
+                    "Send test notification"
+                  )}
+                </Button>
+                {webhookPingMsg && (
+                  <span
+                    className={
+                      webhookPingMsg.startsWith("Test notification delivered")
+                        ? "text-sm text-pastel-mint"
+                        : "text-sm text-destructive"
+                    }
+                    role="status"
+                  >
+                    {webhookPingMsg}
+                  </span>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         );
       case "spotify":
         return <SpotifyIntegrationCard {...spotify} />;

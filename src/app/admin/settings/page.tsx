@@ -147,6 +147,8 @@ async function SettingsTab({
         lastFmApiKey: settings.lastFmApiKey ?? "",
         mediaPathMap: settings.mediaPathMap ?? "",
         preDownloadMixes: settings.preDownloadMixes,
+        notificationWebhookUrl: settings.notificationWebhookUrl ?? "",
+        lastFmApiSecretMasked: settings.lastFmApiSecret ? "••••••••" : "",
       }}
       env={env}
       storage={await getStorageStats(settings)}

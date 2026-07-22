@@ -1,4 +1,4 @@
-import { Bird } from "lucide-react"
+import { AudioLines, Bird } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -28,6 +28,11 @@ const PROVIDERS = {
     label: "Last.fm",
     tile: "bg-red-500/15 text-red-500",
     Mark: LastFmMark,
+  },
+  listenbrainz: {
+    label: "ListenBrainz",
+    tile: "bg-orange-500/15 text-orange-500",
+    Mark: AudioLines,
   },
   spotify: {
     label: "Spotify",

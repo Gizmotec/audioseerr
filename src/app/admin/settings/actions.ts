@@ -25,6 +25,8 @@ const saveInput = z.object({
   lastFmApiKey: z.string(),
   mediaPathMap: z.string(),
   preDownloadMixes: z.boolean(),
+  notificationWebhookUrl: z.string(),
+  lastFmApiSecret: z.string(),
 });
 
 export type SaveResult = { ok: true } | { ok: false; error: string };
@@ -44,6 +46,16 @@ export async function saveAdminSettingsAction(
     const url = z.string().url("slskd URL must be a valid URL").safeParse(data.slskdUrl);
     if (!url.success) {
       return { ok: false, error: url.error.issues[0]?.message ?? "Invalid URL" };
+    }
+  }
+
+  if (data.notificationWebhookUrl.trim()) {
+    const url = z
+      .string()
+      .url("Webhook URL must be a valid URL")
+      .safeParse(data.notificationWebhookUrl.trim());
+    if (!url.success) {
+      return { ok: false, error: url.error.issues[0]?.message ?? "Invalid webhook URL" };
     }
   }
 
@@ -71,6 +83,16 @@ export async function saveAdminSettingsAction(
     lastFmApiKey: data.lastFmApiKey.trim() ? data.lastFmApiKey.trim() : null,
     mediaPathMap: data.mediaPathMap.trim() ? data.mediaPathMap.trim() : null,
     preDownloadMixes: data.preDownloadMixes,
+    notificationWebhookUrl: data.notificationWebhookUrl.trim()
+      ? data.notificationWebhookUrl.trim()
+      : null,
+    ...(data.lastFmApiSecret === KEY_UNCHANGED
+      ? {}
+      : {
+          lastFmApiSecret: data.lastFmApiSecret.trim()
+            ? data.lastFmApiSecret.trim()
+            : null,
+        }),
   });
 
   revalidatePath("/admin/settings");
@@ -78,6 +100,53 @@ export async function saveAdminSettingsAction(
 }
 
 export type SlskdProbeResult = { ok: true } | { ok: false; error: string };
+
+export type WebhookPingResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * "Send test notification" button on the Notifications settings card. Posts a
+ * small PING payload to the given URL so the admin can verify the receiver
+ * before saving. 4s timeout, same as real deliveries.
+ */
+export async function pingWebhookAction(input: {
+  url: string;
+}): Promise<WebhookPingResult> {
+  await requireAdmin();
+
+  const parsed = z.string().url().safeParse(input.url.trim());
+  if (!parsed.success) {
+    return { ok: false, error: "Enter a valid webhook URL to test." };
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 4000);
+  try {
+    const res = await fetch(parsed.data, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        event: "PING",
+        message: "Test notification from Audioseerr.",
+        timestamp: new Date().toISOString(),
+      }),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      return { ok: false, error: `Webhook responded HTTP ${res.status}.` };
+    }
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      return { ok: false, error: "Webhook timed out after 4 seconds." };
+    }
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Could not reach the webhook.",
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 export async function probeSlskdAction(input: {
   url: string;

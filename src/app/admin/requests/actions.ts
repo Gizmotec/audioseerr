@@ -14,6 +14,7 @@ import {
   type SlskdConfig,
 } from "@/lib/slskd";
 import { getSettings, type SettingsView } from "@/lib/settings";
+import { notifyRequestTransition } from "@/lib/notifications";
 import type { Request } from "@prisma/client";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
@@ -53,6 +54,20 @@ export async function approveRequestAction(requestId: string): Promise<ActionRes
  * FAILED depending on the outcome.
  */
 export async function executeRequestApproval(
+  request: Request,
+  settings: SettingsView,
+): Promise<ActionResult> {
+  const result = await runApproval(request, settings);
+  if (result.ok) {
+    // Notify the requester on every approve path — the admin button here and
+    // every auto-approve flow (album/track pages, playlist import, mix
+    // pre-download) all funnel through this function. Never throws.
+    await notifyRequestTransition(request, "REQUEST_APPROVED");
+  }
+  return result;
+}
+
+async function runApproval(
   request: Request,
   settings: SettingsView,
 ): Promise<ActionResult> {
@@ -124,7 +139,7 @@ async function approveAlbumViaSlskd(
     const album = await getAlbum(request.mbid);
     if (!album || album.tracks.length === 0) {
       const reason = "Couldn't load the album tracklist from MusicBrainz.";
-      await markFailed(request.id, reason);
+      await markFailed(request, reason);
       revalidateTrackRequestPaths(request);
       return { ok: false, error: reason };
     }
@@ -142,7 +157,7 @@ async function approveAlbumViaSlskd(
         candidates.length === 0
           ? `Soulseek returned no files for "${query}".`
           : `Soulseek returned files for "${query}" but no folder matched the album closely enough.`;
-      await markFailed(request.id, reason);
+      await markFailed(request, reason);
       revalidateTrackRequestPaths(request);
       return { ok: false, error: reason };
     }
@@ -173,7 +188,7 @@ async function approveAlbumViaSlskd(
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Soulseek album download failed.";
-    await markFailed(request.id, msg);
+    await markFailed(request, msg);
     revalidateTrackRequestPaths(request);
     return { ok: false, error: msg };
   }
@@ -208,17 +223,22 @@ export async function declineRequestAction(
     data: { status: "DECLINED", declineReason: trimmed },
   });
 
+  await notifyRequestTransition(request, "REQUEST_DECLINED", {
+    reason: trimmed,
+  });
+
   revalidatePath("/admin/requests");
   revalidatePath("/requests");
   revalidatePath(`/album/${request.albumMbid ?? request.mbid}`);
   return { ok: true };
 }
 
-async function markFailed(requestId: string, reason: string) {
+async function markFailed(request: Request, reason: string) {
   await prisma.request.update({
-    where: { id: requestId },
+    where: { id: request.id },
     data: { status: "FAILED", declineReason: reason },
   });
+  await notifyRequestTransition(request, "REQUEST_FAILED", { reason });
 }
 
 function revalidateTrackRequestPaths(request: {

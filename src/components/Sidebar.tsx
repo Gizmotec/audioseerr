@@ -11,14 +11,22 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { auth, signOut } from "@/auth";
+import { NotificationBell } from "@/components/NotificationBell";
 import { SidebarLink } from "@/components/SidebarLink";
 import { SidebarToggle } from "@/components/SidebarToggle";
 import { Button } from "@/components/ui/button";
+import { prisma } from "@/lib/db";
 
 export async function Sidebar() {
   const session = await auth();
   if (!session?.user) return null;
   const role = (session.user as { role?: string }).role;
+  const userId = (session.user as { id?: string }).id;
+  const unreadNotifications = userId
+    ? await prisma.notification.count({
+        where: { userId, readAt: null },
+      })
+    : 0;
 
   return (
     <aside className="sidebar sticky top-0 hidden h-screen shrink-0 flex-col border-r border-foreground/10 bg-sidebar md:flex">
@@ -32,7 +40,10 @@ export async function Sidebar() {
           </span>
           <span className="sidebar-wordmark">Audioseerr</span>
         </Link>
-        <SidebarToggle />
+        <div className="flex items-center gap-0.5">
+          <NotificationBell initialCount={unreadNotifications} />
+          <SidebarToggle />
+        </div>
       </div>
 
       <nav className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-3 py-2">

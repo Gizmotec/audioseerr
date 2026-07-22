@@ -7,6 +7,7 @@ import {
 } from "@/lib/downloadedTracks";
 import { getAlbum } from "@/lib/musicbrainz";
 import { getSettings } from "@/lib/settings";
+import { notifyRequestTransition } from "@/lib/notifications";
 import {
   type AlbumFileMatch,
   albumFolderOf,
@@ -115,14 +116,16 @@ export async function syncActiveRequests(): Promise<{
         // doesn't stay DOWNLOADING indefinitely.
         if (!transfer) {
           if (isStuck(req.approvedAt)) {
+            const reason =
+              "Soulseek download never started (no active transfer).";
             await prisma.request.update({
               where: { id: req.id },
               data: {
                 status: "FAILED",
-                declineReason:
-                  "Soulseek download never started (no active transfer).",
+                declineReason: reason,
               },
             });
+            await notifyRequestTransition(req, "REQUEST_FAILED", { reason });
             changed++;
           }
           continue;
@@ -143,6 +146,9 @@ export async function syncActiveRequests(): Promise<{
               status: "FAILED",
               declineReason: `Soulseek transfer failed (${transfer.state}).`,
             },
+          });
+          await notifyRequestTransition(req, "REQUEST_FAILED", {
+            reason: `Soulseek transfer failed (${transfer.state}).`,
           });
           changed++;
           continue;
@@ -166,6 +172,7 @@ export async function syncActiveRequests(): Promise<{
               where: { id: req.id },
               data: { status: "AVAILABLE" },
             });
+            await notifyRequestTransition(req, "REQUEST_AVAILABLE");
             changed++;
           } else {
             // Not landed yet, path unset, or filename couldn't be matched.
@@ -175,14 +182,16 @@ export async function syncActiveRequests(): Promise<{
               `[sync] track request ${req.id} reports done but file unresolved (path=${settings.slskdDownloadPath ?? "unset"}, file=${req.slskdFile}).`,
             );
             if (isStuck(req.approvedAt)) {
+              const reason =
+                "Download finished but the file couldn't be located on disk — check the slskd download path and path map.";
               await prisma.request.update({
                 where: { id: req.id },
                 data: {
                   status: "FAILED",
-                  declineReason:
-                    "Download finished but the file couldn't be located on disk — check the slskd download path and path map.",
+                  declineReason: reason,
                 },
               });
+              await notifyRequestTransition(req, "REQUEST_FAILED", { reason });
               changed++;
             }
           }
@@ -204,14 +213,16 @@ export async function syncActiveRequests(): Promise<{
         // No transfers under the folder — peer gone or slskd dropped them.
         if (folderTransfers.length === 0) {
           if (isStuck(req.approvedAt)) {
+            const reason =
+              "Soulseek album download never started (no active transfers).";
             await prisma.request.update({
               where: { id: req.id },
               data: {
                 status: "FAILED",
-                declineReason:
-                  "Soulseek album download never started (no active transfers).",
+                declineReason: reason,
               },
             });
+            await notifyRequestTransition(req, "REQUEST_FAILED", { reason });
             changed++;
           }
           continue;
@@ -291,17 +302,24 @@ export async function syncActiveRequests(): Promise<{
         if (!anyActive) {
           // All transfers terminal: AVAILABLE if this album produced any
           // playable tracks for the requester, else FAILED.
+          const available = availablePositions.size > 0;
+          const reason = available
+            ? null
+            : "Soulseek album download produced no playable tracks.";
           await prisma.request.update({
             where: { id: req.id },
-            data:
-              availablePositions.size > 0
-                ? { status: "AVAILABLE" }
-                : {
-                    status: "FAILED",
-                    declineReason:
-                      "Soulseek album download produced no playable tracks.",
-                  },
+            data: available
+              ? { status: "AVAILABLE" }
+              : {
+                  status: "FAILED",
+                  declineReason: reason,
+                },
           });
+          await notifyRequestTransition(
+            req,
+            available ? "REQUEST_AVAILABLE" : "REQUEST_FAILED",
+            { reason },
+          );
           changed++;
         } else if (req.status !== "DOWNLOADING") {
           await prisma.request.update({
@@ -310,13 +328,15 @@ export async function syncActiveRequests(): Promise<{
           });
           changed++;
         } else if (isStuck(req.approvedAt)) {
+          const reason = "Soulseek album download timed out.";
           await prisma.request.update({
             where: { id: req.id },
             data: {
               status: "FAILED",
-              declineReason: "Soulseek album download timed out.",
+              declineReason: reason,
             },
           });
+          await notifyRequestTransition(req, "REQUEST_FAILED", { reason });
           changed++;
         }
       } catch {

@@ -14,7 +14,19 @@ export type SettingsView = {
   lastFmApiKey: string | null;
   mediaPathMap: string | null;
   preDownloadMixes: boolean;
+  notificationWebhookUrl: string | null;
+  lastFmApiSecret: string | null;
 };
+
+// Rows written before a field gained encryption-at-rest may hold plaintext;
+// fall back to the raw value when it isn't iv:ct:tag ciphertext.
+function decryptOrRaw(value: string): string {
+  try {
+    return decrypt(value);
+  } catch {
+    return value;
+  }
+}
 
 export async function getSettings(): Promise<SettingsView> {
   const row = await prisma.settings.upsert({
@@ -31,6 +43,10 @@ export async function getSettings(): Promise<SettingsView> {
     lastFmApiKey: row.lastFmApiKey,
     mediaPathMap: row.mediaPathMap,
     preDownloadMixes: row.preDownloadMixes,
+    notificationWebhookUrl: row.notificationWebhookUrl,
+    lastFmApiSecret: row.lastFmApiSecret
+      ? decryptOrRaw(row.lastFmApiSecret)
+      : null,
   };
 }
 
@@ -42,12 +58,17 @@ export type SettingsUpdate = {
   mediaPathMap?: string | null;
   setupComplete?: boolean;
   preDownloadMixes?: boolean;
+  notificationWebhookUrl?: string | null;
+  lastFmApiSecret?: string | null;
 };
 
 export async function saveSettings(update: SettingsUpdate): Promise<void> {
   const data: SettingsUpdate = { ...update };
   if (data.slskdApiKey !== undefined && data.slskdApiKey !== null) {
     data.slskdApiKey = encrypt(data.slskdApiKey);
+  }
+  if (data.lastFmApiSecret !== undefined && data.lastFmApiSecret !== null) {
+    data.lastFmApiSecret = encrypt(data.lastFmApiSecret);
   }
   await prisma.settings.upsert({
     where: { id: 1 },
