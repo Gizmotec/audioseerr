@@ -28,7 +28,17 @@ import {
   toggleTrackLikeAction,
   type TrackLikeInput,
 } from "@/lib/actions/likes";
-import { recordPlayAction } from "@/lib/actions/plays";
+import {
+  clearPlayPositionAction,
+  getPlayPositionAction,
+  recordPlayAction,
+  savePlayPositionAction,
+} from "@/lib/actions/plays";
+import {
+  POSITION_SAVE_INTERVAL_MS,
+  isNearEnd,
+  shouldResume,
+} from "@/lib/resumePlayback";
 import { cn } from "@/lib/utils";
 
 /**
@@ -215,6 +225,63 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
     scrobbled: boolean;
   } | null>(null);
 
+  // Resume-playback state, parallel to scrobbleRef: set only for full streams
+  // (a scrobble-able track with a recordingMbid/`lidarr:` key) — Deezer 30s
+  // previews pass null meta and never persist positions.
+  const positionRef = useRef<{
+    trackKey: string;
+    title: string;
+    artistName: string;
+    lastSavedMs: number;
+    pendingResumeMs: number | null;
+    resumeApplied: boolean;
+    clearedNearEnd: boolean;
+  } | null>(null);
+
+  // Reads refs + stable setters only, so the audio listeners (registered once
+  // when the element is created) never go stale. Seeks to a stored resume
+  // point once both the lookup and the stream metadata are ready — idempotent.
+  const applyPendingResume = useCallback((el: HTMLAudioElement) => {
+    const pos = positionRef.current;
+    if (!pos || pos.resumeApplied || pos.pendingResumeMs == null) return;
+    const dur = el.duration;
+    if (!Number.isFinite(dur) || dur <= 0) return;
+    pos.resumeApplied = true;
+    const target = Math.min(pos.pendingResumeMs / 1000, Math.max(0, dur - 1));
+    pos.pendingResumeMs = null;
+    el.currentTime = target;
+    setCurrentTime(target);
+  }, []);
+
+  // Save (or, near the end, clear) the current position immediately. Used on
+  // pause/close/unmount; the ~10s cadence lives in the timeupdate listener.
+  const persistPositionNow = useCallback((el: HTMLAudioElement) => {
+    const pos = positionRef.current;
+    if (!pos) return;
+    const dur = el.duration;
+    if (!Number.isFinite(dur) || dur <= 0) return;
+    const positionMs = Math.round(el.currentTime * 1000);
+    const durationMs = Math.round(dur * 1000);
+    pos.lastSavedMs = positionMs;
+    if (isNearEnd(positionMs, durationMs)) {
+      if (!pos.clearedNearEnd) {
+        pos.clearedNearEnd = true;
+        void clearPlayPositionAction(pos.trackKey).catch(() => {});
+      }
+      return;
+    }
+    pos.clearedNearEnd = false;
+    void savePlayPositionAction({
+      trackKey: pos.trackKey,
+      title: pos.title,
+      artistName: pos.artistName,
+      positionMs,
+      durationMs,
+    }).catch(() => {
+      // Fire-and-forget: a failed save just means no resume point.
+    });
+  }, []);
+
   useEffect(() => {
     if (typeof document === "undefined") return;
     const root = document.documentElement;
@@ -301,12 +368,44 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
       setDuration(0);
       setState("loading");
       scrobbleRef.current = meta ? { meta, scrobbled: false } : null;
+      positionRef.current = meta
+        ? {
+            trackKey: meta.recordingMbid,
+            title: meta.title,
+            artistName: meta.artistName,
+            lastSavedMs: 0,
+            pendingResumeMs: null,
+            resumeApplied: false,
+            clearedNearEnd: false,
+          }
+        : null;
+      if (meta) {
+        // Look up a stored resume point. If the stream's metadata loads first,
+        // loadedmetadata applies it; if the action returns first and metadata
+        // is already known, applyPendingResume seeks immediately.
+        const trackKey = meta.recordingMbid;
+        getPlayPositionAction(trackKey)
+          .then((saved) => {
+            const pos = positionRef.current;
+            // Stale response (user already moved to another track) or nothing
+            // worth resuming — start from 0.
+            if (!pos || pos.trackKey !== trackKey || pos.resumeApplied) return;
+            if (!saved || !shouldResume(saved.positionMs, saved.durationMs)) {
+              return;
+            }
+            pos.pendingResumeMs = saved.positionMs;
+            applyPendingResume(el);
+          })
+          .catch(() => {
+            // Best-effort: a failed lookup just starts the track from 0.
+          });
+      }
       el.play().catch(() => {
         // Errors here trip the "error" event below, which handles auto-advance
         // in queue mode. Swallow so React doesn't show an unhandled rejection.
       });
     },
-    [],
+    [applyPendingResume],
   );
 
   const playQueueItem = useCallback(
@@ -378,10 +477,18 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
         if (item) clearFailed(item.id);
       }
     });
-    el.addEventListener("pause", () =>
-      setState((s) => (s === "playing" ? "paused" : s)),
-    );
+    el.addEventListener("pause", () => {
+      setState((s) => (s === "playing" ? "paused" : s));
+      // Pausing mid-track is the canonical "come back later" moment — persist.
+      persistPositionNow(el);
+    });
     el.addEventListener("ended", () => {
+      // A finished track loses its resume point — replaying starts from 0.
+      const pos = positionRef.current;
+      if (pos) {
+        pos.clearedNearEnd = true;
+        void clearPlayPositionAction(pos.trackKey).catch(() => {});
+      }
       if (queueRef.current) {
         advance(1);
       } else {
@@ -391,24 +498,62 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
     });
     el.addEventListener("timeupdate", () => {
       setCurrentTime(el.currentTime);
-      const entry = scrobbleRef.current;
-      if (!entry || entry.scrobbled) return;
       const dur = el.duration;
-      if (!Number.isFinite(dur) || dur < SCROBBLE_MIN_DURATION_S) return;
-      const played = el.currentTime;
-      if (played < dur * 0.5 && played < SCROBBLE_MAX_THRESHOLD_S) return;
-      entry.scrobbled = true;
-      void recordPlayAction({
-        ...entry.meta,
-        playedMs: Math.round(played * 1000),
-      }).catch(() => {
-        // Don't break playback if the server hiccups — the play just isn't
-        // recorded for this session.
-      });
+      const entry = scrobbleRef.current;
+      if (
+        entry &&
+        !entry.scrobbled &&
+        Number.isFinite(dur) &&
+        dur >= SCROBBLE_MIN_DURATION_S
+      ) {
+        const played = el.currentTime;
+        if (played >= dur * 0.5 || played >= SCROBBLE_MAX_THRESHOLD_S) {
+          entry.scrobbled = true;
+          void recordPlayAction({
+            ...entry.meta,
+            playedMs: Math.round(played * 1000),
+          }).catch(() => {
+            // Don't break playback if the server hiccups — the play just isn't
+            // recorded for this session.
+          });
+        }
+      }
+      // Resume-point persistence rides the same ~4Hz timeupdate (no extra
+      // interval): save at most once per POSITION_SAVE_INTERVAL_MS of
+      // progress, and clear instead of saving once the end is near.
+      const pos = positionRef.current;
+      if (!pos || !Number.isFinite(dur) || dur <= 0) return;
+      const positionMs = el.currentTime * 1000;
+      const durationMs = dur * 1000;
+      if (positionMs < pos.lastSavedMs) {
+        // Scrubbed back, or replaying after finishing — re-arm the cadence.
+        pos.lastSavedMs = 0;
+        pos.clearedNearEnd = false;
+      }
+      if (isNearEnd(positionMs, durationMs)) {
+        if (!pos.clearedNearEnd) {
+          pos.clearedNearEnd = true;
+          void clearPlayPositionAction(pos.trackKey).catch(() => {});
+        }
+        return;
+      }
+      if (positionMs - pos.lastSavedMs >= POSITION_SAVE_INTERVAL_MS) {
+        pos.lastSavedMs = positionMs;
+        void savePlayPositionAction({
+          trackKey: pos.trackKey,
+          title: pos.title,
+          artistName: pos.artistName,
+          positionMs: Math.round(positionMs),
+          durationMs: Math.round(durationMs),
+        }).catch(() => {});
+      }
     });
-    el.addEventListener("loadedmetadata", () =>
-      setDuration(Number.isFinite(el.duration) ? el.duration : 0),
-    );
+    el.addEventListener("loadedmetadata", () => {
+      setDuration(Number.isFinite(el.duration) ? el.duration : 0);
+      // Seek to a stored resume point now that the duration is known (the
+      // flags in positionRef make this fire at most once per track).
+      applyPendingResume(el);
+    });
     el.addEventListener("error", () => {
       // In queue mode, a load failure (404, codec issue, network blip) means
       // we transparently skip to the next playable track and remember that
@@ -427,7 +572,7 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
     });
     audioRef.current = el;
     return el;
-  }, [advance, markFailed, clearFailed]);
+  }, [advance, markFailed, clearFailed, persistPositionNow, applyPendingResume]);
 
   const safePlay = (el: HTMLAudioElement) => {
     el.play().catch(() => {});
@@ -518,6 +663,15 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
     return () => document.removeEventListener("keydown", onKey);
   }, [current, toggle]);
 
+  // Persist a resume point if the provider unmounts mid-playback (HMR,
+  // signing out). The audio element lives only in a ref, so read it directly.
+  useEffect(() => {
+    return () => {
+      const el = audioRef.current;
+      if (el) persistPositionNow(el);
+    };
+  }, [persistPositionNow]);
+
   const seek = useCallback((time: number) => {
     const el = audioRef.current;
     if (!el || !Number.isFinite(time)) return;
@@ -529,6 +683,9 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
   const close = useCallback(() => {
     const el = audioRef.current;
     if (el) {
+      // Capture the resume point BEFORE teardown — the pause event fires
+      // asynchronously, after src is gone and currentTime has reset to 0.
+      persistPositionNow(el);
       el.pause();
       el.removeAttribute("src");
       el.load();
@@ -536,13 +693,14 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
     queueRef.current = null;
     queueIndexRef.current = -1;
     scrobbleRef.current = null;
+    positionRef.current = null;
     refreshQueueControls();
     setFailedIds(new Set());
     setCurrent(null);
     setState("idle");
     setCurrentTime(0);
     setDuration(0);
-  }, [refreshQueueControls]);
+  }, [refreshQueueControls, persistPositionNow]);
 
   const isCurrent = useCallback(
     (id: string) => current?.id === id,

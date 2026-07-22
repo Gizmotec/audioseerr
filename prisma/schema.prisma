@@ -47,6 +47,19 @@ enum NotificationType {
   REQUEST_FAILED
 }
 
+enum IssueType {
+  WRONG_MATCH
+  METADATA
+  PLAYBACK
+  OTHER
+}
+
+enum IssueStatus {
+  OPEN
+  RESOLVED
+  CLOSED
+}
+
 model User {
   id           String    @id @default(cuid())
   email        String    @unique
@@ -85,8 +98,13 @@ model User {
   recentSearches RecentSearch[]
   playlists      Playlist[]
   plays          PlayHistory[]
-  notifications  Notification[]
-  apiKeys        ApiKey[]
+  notifications Notification[]
+  apiKeys     ApiKey[]
+
+  // Issue reports filed by this user (Overseerr-style "report a problem").
+  issues      Issue[]
+  // Resume-playback positions, one row per in-progress track.
+  playPositions PlayPosition[]
   invitesCreated Invite[] @relation("InvitesCreated")
   invitesUsed    Invite[] @relation("InvitesUsed")
   libraryItems   UserLibraryItem[]
@@ -224,6 +242,47 @@ model Settings {
   oidcClientId     String?
   oidcClientSecret String? // AES-256-GCM encrypted like the other secrets
   oidcButtonLabel  String  @default("SSO")
+}
+
+// Overseerr-style issue report: a user flags a wrong match, bad metadata, or
+// a playback problem on a specific album/track so the admin can fix it.
+model Issue {
+  id          String      @id @default(cuid())
+  reporterId  String
+  reporter    User        @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  type        IssueType
+  status      IssueStatus @default(OPEN)
+  title       String
+  description String?
+  artistName  String
+  albumTitle  String?
+  albumMbid   String?
+  trackKey    String?
+  resolverNote String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  resolvedAt  DateTime?
+
+  @@index([status, createdAt])
+}
+
+// Last known playback position for a track the user stopped mid-way
+// (Plex/Spotify "continue where you left off"). One row per user+track,
+// upserted by the player as it plays; cleared when the track finishes.
+model PlayPosition {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trackKey   String // same key scheme as PlayHistory.trackKey
+  title      String
+  artistName String
+  albumTitle String?
+  positionMs Int
+  durationMs Int
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, trackKey])
+  @@index([userId, updatedAt])
 }
 
 // Snapshot of a Spotify playlist's track IDs at the time of the user's last

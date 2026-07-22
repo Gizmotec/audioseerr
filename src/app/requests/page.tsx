@@ -1,4 +1,4 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Flag } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Request } from "@prisma/client";
@@ -100,7 +100,15 @@ async function AdminRequestsView() {
             Soulseek.
           </p>
         </div>
-        <SyncNowButton />
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/issues"
+            className="inline-flex h-9 items-center gap-1.5 rounded-full px-4 text-sm font-bold text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
+          >
+            <Flag className="h-4 w-4" /> Issues
+          </Link>
+          <SyncNowButton />
+        </div>
       </header>
 
       <RequestsClient
@@ -136,11 +144,19 @@ async function MyRequestsView({ userId }: { userId: string }) {
     <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 md:px-6">
       <HomeLink />
 
-      <header className="mt-4 mb-6">
-        <h1 className="text-2xl font-extrabold tracking-tight">My requests</h1>
-        <p className="text-sm text-muted-foreground">
-          Artists, albums, and tracks you&apos;ve asked the admin to add.
-        </p>
+      <header className="mt-4 mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-tight">My requests</h1>
+          <p className="text-sm text-muted-foreground">
+            Artists, albums, and tracks you&apos;ve asked the admin to add.
+          </p>
+        </div>
+        <Link
+          href="/issues"
+          className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-4 text-sm font-bold text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
+        >
+          <Flag className="h-4 w-4" /> My reports
+        </Link>
       </header>
 
       <RequestsClient

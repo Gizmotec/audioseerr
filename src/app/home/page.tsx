@@ -12,6 +12,10 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { PlaylistTile } from "@/app/playlists/PlaylistTile";
 import { SearchBar } from "@/app/search/SearchBar";
+import {
+  ContinuePlayingShelf,
+  type ContinuePlayingItem,
+} from "@/components/ContinuePlayingShelf";
 import { OwnedTrackList, type OwnedTrack } from "@/components/OwnedTrackList";
 import { ShuffleLibraryButton } from "@/components/ShuffleLibraryButton";
 import { prisma } from "@/lib/db";
@@ -21,6 +25,7 @@ import {
   getRecentlyPlayedTracks,
   type PlayedTrackItem,
 } from "@/lib/playHistory";
+import { getResumableTracks } from "@/lib/playPositions";
 import { listPlaylists } from "@/lib/playlists";
 import { isSetupComplete } from "@/lib/settings";
 import { isAdmin } from "@/lib/userLibrary";
@@ -48,7 +53,7 @@ export default async function HomePage() {
     ...(isAdmin(viewer) ? {} : { users: { some: { userId } } }),
   };
 
-  const [recentRows, likedSongs, playlists, recentlyPlayed, mostPlayed, artistGroups] =
+  const [recentRows, likedSongs, playlists, recentlyPlayed, mostPlayed, artistGroups, resumable] =
     await Promise.all([
       prisma.downloadedTrack.findMany({
         where: ownedWhere,
@@ -76,10 +81,24 @@ export default async function HomePage() {
         orderBy: { _count: { artistName: "desc" } },
         take: 6,
       }),
+      getResumableTracks(userId, 10, viewer),
     ]);
 
   const recentlyAdded: OwnedTrack[] = recentRows.map((t) => ({
     ...t,
+    streamUrl: streamUrl(t.id),
+  }));
+  const continuePlaying: ContinuePlayingItem[] = resumable.map((t) => ({
+    id: t.id,
+    trackKey: t.trackKey,
+    title: t.title,
+    artistName: t.artistName,
+    coverUrl: t.coverUrl,
+    recordingMbid: t.recordingMbid,
+    albumMbid: t.albumMbid,
+    durationMs: t.durationMs,
+    positionMs: t.positionMs,
+    positionDurationMs: t.positionDurationMs,
     streamUrl: streamUrl(t.id),
   }));
   const isEmpty = recentlyAdded.length === 0;
@@ -128,6 +147,8 @@ export default async function HomePage() {
         <EmptyLibrary />
       ) : (
         <>
+          <ContinuePlayingShelf items={continuePlaying} />
+
           <OwnedTrackList
             title="Recently added"
             tracks={recentlyAdded}

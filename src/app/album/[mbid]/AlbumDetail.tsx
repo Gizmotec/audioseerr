@@ -15,6 +15,7 @@ import { type QueueItem, usePreviewPlayer } from "@/components/PreviewPlayer";
 import { TrackLikeButton } from "@/components/TrackLikeButton";
 import { useTrackMenu } from "@/components/TrackMenu";
 import { RemoveFromLibraryButton } from "@/components/RemoveFromLibraryButton";
+import { ReportIssueButton } from "@/components/ReportIssueButton";
 import { YouTubeButton } from "@/components/YouTubeButton";
 import type { LibraryStatus } from "@/lib/library";
 import type { TrackWithPreview } from "./page";
@@ -202,6 +203,14 @@ export function AlbumDetail({
                 }}
               />
             )}
+            <ReportIssueButton
+              variant="default"
+              context={{
+                artistName: album.artistName,
+                albumTitle: album.title,
+                albumMbid: album.mbid,
+              }}
+            />
           </div>
         </div>
       </HeroCard>
@@ -307,6 +316,15 @@ export function AlbumDetail({
                     durationMs={t.lengthMs}
                     playerTrackId={queueId}
                     liveSync={isFull}
+                  />
+                  <ReportIssueButton
+                    context={{
+                      artistName: album.artistName,
+                      albumTitle: album.title,
+                      albumMbid: album.mbid,
+                      trackKey: trackRequestKey(album.mbid, t),
+                      trackTitle: t.title,
+                    }}
                   />
                   {t.recordingMbid ? (
                     <AddToPlaylistButton

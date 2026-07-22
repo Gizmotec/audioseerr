@@ -1,4 +1,4 @@
-import { ArrowLeft, Download, KeyRound } from "lucide-react";
+import { ArrowLeft, BarChart3, Download, KeyRound } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
@@ -87,6 +87,26 @@ export default async function AccountPage({
         scrobbleConnected={params.scrobbleConnected ?? null}
         scrobbleError={params.scrobbleError ?? null}
       />
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <BarChart3 className="h-4 w-4" /> Your listening
+          </CardTitle>
+          <CardDescription>
+            Your always-on recap — plays, minutes, and your top artists,
+            albums, and tracks over the last 4 weeks, 6 months, or all time.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link
+            href="/stats"
+            className={buttonVariants({ variant: "outline" })}
+          >
+            Open listening stats
+          </Link>
+        </CardContent>
+      </Card>
 
       <Card className="mt-6">
         <CardHeader>
