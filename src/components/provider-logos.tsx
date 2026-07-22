@@ -1,4 +1,4 @@
-import { AudioLines, Bird } from "lucide-react"
+import { AudioLines, Bird, KeyRound } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -14,6 +14,14 @@ function LastFmMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
       <path d="M10.599 17.211l-.924-2.393s-1.433 1.596-3.579 1.596c-1.915 0-3.209-1.652-3.209-4.276 0-2.624 1.294-4.276 3.268-4.276 2.203 0 3.415 1.541 3.686 3.614l.924 2.339c1.126 2.924 3.264 4.848 8.243 4.848 4.056 0 6.992-1.266 6.992-4.666 0-2.38-1.331-3.669-3.816-4.165l-1.852-.398c-1.267-.273-1.641-.769-1.641-1.591 0-.932.744-1.48 1.949-1.48 1.321 0 2.04.499 2.141 1.688l2.855-.342c-.137-2.318-1.604-3.575-4.925-3.575-2.689 0-4.474 1.056-4.474 3.635 0 1.824.857 2.861 2.959 3.321l1.917.436c1.525.342 2.026.925 2.026 1.961 0 1.122-1.004 1.614-3.254 1.614-3.367 0-4.762-1.555-5.581-4.184l-.958-2.392C14.091 6.265 12.126 4.35 9.234 4.35 5.744 4.35 3.064 7.02 3.064 12.08c0 5.114 2.68 7.764 6.171 7.764 3.628 0 5.823-1.881 5.823-1.881l-2.459-2.752z" />
+    </svg>
+  )
+}
+
+function YouTubeMark({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
     </svg>
   )
 }
@@ -38,6 +46,16 @@ const PROVIDERS = {
     label: "Spotify",
     tile: "bg-green-500/15 text-green-500",
     Mark: SpotifyMark,
+  },
+  youtube: {
+    label: "YouTube",
+    tile: "bg-rose-500/15 text-rose-500",
+    Mark: YouTubeMark,
+  },
+  secrets: {
+    label: "App secrets",
+    tile: "bg-violet-500/15 text-violet-500",
+    Mark: KeyRound,
   },
 } as const
 

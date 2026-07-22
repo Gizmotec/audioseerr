@@ -82,11 +82,12 @@ type SectionId =
   | "lastfm"
   | "spotify"
   | "notifications"
+  | "youtube"
+  | "secrets"
   | "playback"
   | "predownload"
   | "sso"
-  | "storage"
-  | "system";
+  | "storage";
 
 type SectionDef = { id: SectionId; tab: TabId; title: string; keywords: string };
 
@@ -116,6 +117,19 @@ const SECTIONS: SectionDef[] = [
     keywords: "notifications webhook url discord ntfy gotify push alerts http",
   },
   {
+    id: "youtube",
+    tab: "integrations",
+    title: "YouTube",
+    keywords: "youtube video embed watch player api key environment variable",
+  },
+  {
+    id: "secrets",
+    tab: "integrations",
+    title: "App secrets",
+    keywords:
+      "secrets auth secret audioseerr secret encryption session environment variables read-only",
+  },
+  {
     id: "playback",
     tab: "general",
     title: "Library playback",
@@ -139,12 +153,6 @@ const SECTIONS: SectionDef[] = [
     tab: "system",
     title: "Storage",
     keywords: "disk usage space free volume download",
-  },
-  {
-    id: "system",
-    tab: "system",
-    title: "System",
-    keywords: "environment variables auth secret youtube api key read-only",
   },
 ];
 
@@ -653,23 +661,55 @@ export function SettingsForm({
         );
       case "storage":
         return <StorageCard storage={storage} />;
-      case "system":
+      case "youtube":
         return (
-          <Card>
-            <CardHeader>
-              <CardTitle>System</CardTitle>
-              <CardDescription>
-                Read-only — these are configured via environment variables.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <dl className="grid grid-cols-1 gap-2 text-sm md:grid-cols-2">
-                <EnvRow label="AUTH_SECRET" set={env.authSecret} />
-                <EnvRow label="AUDIOSEERR_SECRET" set={env.audioseerrSecret} />
-                <EnvRow label="YOUTUBE_API_KEY" set={env.youtube} />
-              </dl>
-            </CardContent>
-          </Card>
+          <IntegrationCard
+            provider="youtube"
+            name="YouTube"
+            description="Powers the in-app watch player — resolves a track to an embeddable YouTube video. Without a key, the watch button falls back to opening a YouTube search in a new tab."
+            connected={env.youtube}
+          >
+            <div className="flex flex-col gap-3">
+              <EnvRow label="YOUTUBE_API_KEY" set={env.youtube} />
+              <p className="text-xs text-muted-foreground">
+                Read-only — create a key in the{" "}
+                <a
+                  href="https://console.cloud.google.com/apis/library/youtube.googleapis.com"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-foreground underline"
+                >
+                  Google Cloud Console
+                </a>{" "}
+                (YouTube Data API v3), set it as the{" "}
+                <code className="font-mono">YOUTUBE_API_KEY</code> environment
+                variable, and restart the container.
+              </p>
+            </div>
+          </IntegrationCard>
+        );
+      case "secrets":
+        return (
+          <IntegrationCard
+            provider="secrets"
+            name="App secrets"
+            description="Server-side secrets supplied as environment variables. AUTH_SECRET signs login sessions; AUDIOSEERR_SECRET encrypts the API keys stored in the database (slskd, Last.fm, OIDC)."
+            connected={env.authSecret && env.audioseerrSecret}
+            statusLabels={{ connected: "Set", disconnected: "Not set" }}
+          >
+            <div className="flex flex-col gap-2">
+              <EnvRow label="AUTH_SECRET" set={env.authSecret} />
+              <EnvRow
+                label="AUDIOSEERR_SECRET"
+                set={env.audioseerrSecret}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Read-only — set these in the environment before starting
+                Audioseerr. Rotating them invalidates existing sessions and
+                stored keys.
+              </p>
+            </div>
+          </IntegrationCard>
         );
     }
   }
@@ -884,13 +924,20 @@ function LegendItem({
 
 function EnvRow({ label, set }: { label: string; set: boolean }) {
   return (
-    <div className="flex items-center justify-between rounded-xl px-3 py-2">
+    <div className="flex items-center justify-between rounded-xl bg-surface-2 px-3 py-2.5">
       <code className="font-mono text-xs">{label}</code>
       <span
-        className={
-          set ? "text-xs text-pastel-mint" : "text-xs text-muted-foreground"
-        }
+        className={cn(
+          "inline-flex items-center gap-1.5 text-xs font-medium",
+          set ? "text-pastel-mint" : "text-muted-foreground",
+        )}
       >
+        <span
+          className={cn(
+            "size-1.5 rounded-full",
+            set ? "bg-pastel-mint" : "bg-muted-foreground/60",
+          )}
+        />
         {set ? "set" : "not set"}
       </span>
     </div>
