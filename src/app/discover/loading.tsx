@@ -19,20 +19,20 @@ const GENRE_CHIPS = [
 
 export default function DiscoverLoading() {
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-10 px-4 py-10 md:px-6">
-      <header className="flex flex-col gap-5 border-b border-foreground/10 pb-8 md:flex-row md:items-end md:justify-between">
-        <div className="max-w-2xl space-y-3">
-          <div className={`h-4 w-28 rounded ${SHIMMER}`} />
-          <div className={`h-10 w-full max-w-xl rounded ${SHIMMER}`} />
-          <div className={`h-4 w-full max-w-lg rounded ${SHIMMER}`} />
+    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-12 overflow-x-clip px-4 py-10 md:px-6">
+      <section className="rounded-3xl border-2 border-ink bg-surface p-6 shadow-[8px_8px_0_0_var(--color-ink)] md:p-10">
+        <div className="flex items-start justify-between gap-4">
+          <div className={`h-6 w-24 -rotate-2 rounded-full ${SHIMMER}`} />
+          <div className={`h-9 w-28 rotate-1 rounded-full ${SHIMMER}`} />
         </div>
-        <div className={`h-9 w-28 rounded-full ${SHIMMER}`} />
-      </header>
-
-      <section className="space-y-3">
-        <div className={`h-5 w-28 rounded ${SHIMMER}`} />
-        <div className={`h-11 w-full rounded-full ${SHIMMER}`} />
+        <div className="mt-6 max-w-xl space-y-3">
+          <div className={`h-12 w-full max-w-md rounded ${SHIMMER}`} />
+          <div className={`h-4 w-full max-w-sm rounded ${SHIMMER}`} />
+        </div>
+        <div className={`mt-6 h-11 w-full max-w-lg rounded-full border-2 border-ink ${SHIMMER}`} />
       </section>
+
+      <div className={`-mx-4 h-10 -rotate-1 border-y-2 border-ink md:-mx-6 ${SHIMMER}`} />
 
       <DiscoveryRowSkeleton titleWidth="w-44" count={6} />
       <ChartListSkeleton titleWidth="w-28" rows={10} columns={2} />

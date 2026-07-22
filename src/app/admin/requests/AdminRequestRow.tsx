@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Disc3, Loader2, Music2, Search, X } from "lucide-react";
+import { Check, Clock, Disc3, Loader2, Music2, Search, X } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import type { RequestStatus, RequestType } from "@prisma/client";
 import { approveRequestAction, declineRequestAction } from "./actions";
 
-type RowData = {
+export type RequestRowData = {
   id: string;
   type: RequestType;
   mbid: string;
@@ -22,15 +22,16 @@ type RowData = {
   downloadTitle: string | null;
   status: RequestStatus;
   declineReason: string | null;
-  requestedBy: string;
+  requestedBy: string | null;
   requestedAt: string;
+  lastSearchedAt: string | null;
 };
 
 export function AdminRequestRow({
   request,
   isPending,
 }: {
-  request: RowData;
+  request: RequestRowData;
   isPending: boolean;
 }) {
   const [pending, startTransition] = useTransition();
@@ -105,21 +106,36 @@ export function AdminRequestRow({
           {request.type === "TRACK" && request.albumTitle
             ? `${request.artistName} · ${request.albumTitle}`
             : request.artistName}{" "}
-          · {requestKind} requested by{" "}
-          <span className="font-mono">{request.requestedBy}</span> ·{" "}
-          {formatRelative(new Date(request.requestedAt))}
+          · {requestKind}
+          {request.requestedBy ? (
+            <>
+              {" "}
+              requested by{" "}
+              <span className="font-mono">{request.requestedBy}</span>
+            </>
+          ) : null}{" "}
+          · {formatRelative(new Date(request.requestedAt))}
         </p>
         {request.downloadTitle && status !== "APPROVED" && (
           <p className="truncate text-xs text-muted-foreground">
-            Torrent: {request.downloadTitle}
+            Download: {request.downloadTitle}
           </p>
         )}
-        {!isPending && status === "APPROVED" && (
-          <p className="flex items-center gap-1.5 truncate text-xs text-pastel-sky">
-            <Search className="h-3 w-3 shrink-0 animate-pulse" />
-            {request.declineReason ?? "Searching Soulseek for a match…"}
-          </p>
-        )}
+        {!isPending &&
+          status === "APPROVED" &&
+          (request.lastSearchedAt ? (
+            <p className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
+              <Clock className="h-3 w-3 shrink-0" />
+              Waiting ·{" "}
+              {request.declineReason ?? "Will scan Soulseek again soon."} ·
+              scanned {formatRelative(new Date(request.lastSearchedAt))}
+            </p>
+          ) : (
+            <p className="flex items-center gap-1.5 truncate text-xs text-pastel-sky">
+              <Search className="h-3 w-3 shrink-0 animate-pulse" />
+              Scanning Soulseek for a match…
+            </p>
+          ))}
         {!isPending &&
           (status === "DECLINED" || status === "FAILED") &&
           request.declineReason && (

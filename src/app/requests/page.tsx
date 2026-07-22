@@ -1,24 +1,21 @@
-import { ArrowLeft, Disc3, Music2, Search } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Request } from "@prisma/client";
-import { AdminRequestRow } from "@/app/admin/requests/AdminRequestRow";
+import type { RequestRowData } from "@/app/admin/requests/AdminRequestRow";
 import { SyncNowButton } from "@/app/admin/requests/SyncNowButton";
 import { auth } from "@/auth";
-import { DownloadProgressBar } from "@/components/DownloadProgressBar";
-import { DownloadsProgressProvider } from "@/components/DownloadsProgressProvider";
-import { StatusBadge } from "@/components/StatusBadge";
 import { prisma } from "@/lib/db";
 import { isSetupComplete } from "@/lib/settings";
-import { RequestTabs } from "./RequestTabs";
-import { UnrequestButton } from "./UnrequestButton";
+import { RequestsClient } from "./RequestsClient";
 
 export const dynamic = "force-dynamic";
 
-// A request belongs to the Downloads tab once a download has actually started
-// (or finished/failed); everything else — pending approval, approved & still
-// searching Soulseek, declined — stays in the Requests tab.
-const DOWNLOAD_STATUSES = ["DOWNLOADING", "AVAILABLE", "FAILED"] as const;
+// Row caps, per list. The full totals still show in the tab badges (via
+// prisma count) and truncated lists say so at the bottom.
+const REQUESTED_TAKE = 200;
+const DECLINED_TAKE = 50;
+const HISTORY_TAKE = 200;
 
 export default async function RequestsPage() {
   if (!(await isSetupComplete())) {
@@ -37,96 +34,59 @@ export default async function RequestsPage() {
   return <MyRequestsView userId={session.user.id} />;
 }
 
-// Admin: everyone's requests. Requests tab holds the approval queue + still-
-// searching/declined rows; Downloads tab holds in-flight + finished downloads.
+const requesterInclude = {
+  requestedBy: { select: { username: true } },
+} as const;
+
+// Admin: everyone's requests. Waiting approval = the PENDING queue; Requested =
+// approved (scanning/waiting on Soulseek) then declined; Downloads = in-flight
+// then history.
 async function AdminRequestsView() {
-  const [pending, requested, downloads] = await Promise.all([
+  const descNewest = { orderBy: { requestedAt: "desc" as const } };
+  const [
+    pending,
+    approved,
+    declined,
+    downloading,
+    history,
+    requestedTotal,
+    downloadsTotal,
+  ] = await Promise.all([
     prisma.request.findMany({
       where: { status: "PENDING" },
       orderBy: { requestedAt: "asc" },
-      include: { requestedBy: { select: { username: true } } },
+      include: requesterInclude,
     }),
     prisma.request.findMany({
+      where: { status: "APPROVED" },
+      take: REQUESTED_TAKE,
+      ...descNewest,
+      include: requesterInclude,
+    }),
+    prisma.request.findMany({
+      where: { status: "DECLINED" },
+      take: DECLINED_TAKE,
+      ...descNewest,
+      include: requesterInclude,
+    }),
+    prisma.request.findMany({
+      where: { status: "DOWNLOADING" },
+      ...descNewest,
+      include: requesterInclude,
+    }),
+    prisma.request.findMany({
+      where: { status: { in: ["AVAILABLE", "FAILED"] } },
+      take: HISTORY_TAKE,
+      ...descNewest,
+      include: requesterInclude,
+    }),
+    prisma.request.count({
       where: { status: { in: ["APPROVED", "DECLINED"] } },
-      orderBy: { requestedAt: "desc" },
-      take: 50,
-      include: { requestedBy: { select: { username: true } } },
     }),
-    prisma.request.findMany({
-      where: { status: { in: [...DOWNLOAD_STATUSES] } },
-      orderBy: { requestedAt: "desc" },
-      take: 50,
-      include: { requestedBy: { select: { username: true } } },
+    prisma.request.count({
+      where: { status: { in: ["DOWNLOADING", "AVAILABLE", "FAILED"] } },
     }),
   ]);
-
-  const hasActive = downloads.some((r) => r.status === "DOWNLOADING");
-
-  const toRow = (r: (typeof pending)[number]) => ({
-    id: r.id,
-    type: r.type,
-    mbid: r.mbid,
-    title: r.title,
-    artistName: r.artistName,
-    coverUrl: r.coverUrl,
-    albumMbid: r.albumMbid,
-    albumTitle: r.albumTitle,
-    downloadTitle: r.downloadTitle,
-    status: r.status,
-    declineReason: r.declineReason,
-    requestedBy: r.requestedBy.username,
-    requestedAt: r.requestedAt.toISOString(),
-  });
-
-  const requestsPanel = (
-    <>
-      <section className="mb-10">
-        <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-muted-foreground">
-          Pending {pending.length > 0 ? `(${pending.length})` : ""}
-        </h2>
-        {pending.length === 0 ? (
-          <EmptyHint>No pending requests.</EmptyHint>
-        ) : (
-          <ul className="divide-y divide-border/50">
-            {pending.map((r) => (
-              <AdminRequestRow key={r.id} request={toRow(r)} isPending />
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section>
-        <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-muted-foreground">
-          Approved &amp; declined
-        </h2>
-        {requested.length === 0 ? (
-          <EmptyHint>Nothing here yet.</EmptyHint>
-        ) : (
-          <ul className="divide-y divide-border/50">
-            {requested.map((r) => (
-              <AdminRequestRow key={r.id} request={toRow(r)} isPending={false} />
-            ))}
-          </ul>
-        )}
-      </section>
-    </>
-  );
-
-  const downloadsPanel =
-    downloads.length === 0 ? (
-      <EmptyHint>
-        Nothing downloading yet. Approved requests land here once a match is
-        found on Soulseek.
-      </EmptyHint>
-    ) : (
-      <DownloadsProgressProvider enabled={hasActive}>
-        <ul className="divide-y divide-border/50">
-          {downloads.map((r) => (
-            <AdminRequestRow key={r.id} request={toRow(r)} isPending={false} />
-          ))}
-        </ul>
-      </DownloadsProgressProvider>
-    );
 
   return (
     <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-8 md:px-6">
@@ -143,11 +103,14 @@ async function AdminRequestsView() {
         <SyncNowButton />
       </header>
 
-      <RequestTabs
-        requests={requestsPanel}
-        downloads={downloadsPanel}
-        requestsCount={pending.length + requested.length}
-        downloadsCount={downloads.length}
+      <RequestsClient
+        variant="admin"
+        pending={pending.map(toRow)}
+        requested={[...approved, ...declined].map(toRow)}
+        downloading={downloading.map(toRow)}
+        history={history.map(toRow)}
+        requestedTotal={requestedTotal}
+        downloadsTotal={downloadsTotal}
       />
     </main>
   );
@@ -159,35 +122,15 @@ async function MyRequestsView({ userId }: { userId: string }) {
     where: { requestedById: userId },
     orderBy: { requestedAt: "desc" },
   });
-  const downloadSet = new Set<string>(DOWNLOAD_STATUSES);
-  const requests = all.filter((r) => !downloadSet.has(r.status));
-  const downloads = all.filter((r) => downloadSet.has(r.status));
-  const hasActive = downloads.some((r) => r.status === "DOWNLOADING");
 
-  const requestsPanel =
-    requests.length === 0 ? (
-      <EmptyHint>
-        You haven&apos;t requested anything yet.{" "}
-        <Link href="/search" className="underline">
-          Find an album
-        </Link>{" "}
-        to get started.
-      </EmptyHint>
-    ) : (
-      <ul className="divide-y divide-border/50">{requests.map(userRow)}</ul>
-    );
-
-  const downloadsPanel =
-    downloads.length === 0 ? (
-      <EmptyHint>
-        Nothing downloading yet. Your requests appear here once a match is found
-        and the download starts.
-      </EmptyHint>
-    ) : (
-      <DownloadsProgressProvider enabled={hasActive}>
-        <ul className="divide-y divide-border/50">{downloads.map(userRow)}</ul>
-      </DownloadsProgressProvider>
-    );
+  const pending = all.filter((r) => r.status === "PENDING").map(toRow);
+  const requested = all
+    .filter((r) => r.status === "APPROVED" || r.status === "DECLINED")
+    .map(toRow);
+  const downloading = all.filter((r) => r.status === "DOWNLOADING").map(toRow);
+  const history = all
+    .filter((r) => r.status === "AVAILABLE" || r.status === "FAILED")
+    .map(toRow);
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 md:px-6">
@@ -200,96 +143,38 @@ async function MyRequestsView({ userId }: { userId: string }) {
         </p>
       </header>
 
-      <RequestTabs
-        requests={requestsPanel}
-        downloads={downloadsPanel}
-        requestsCount={requests.length}
-        downloadsCount={downloads.length}
+      <RequestsClient
+        variant="user"
+        pending={pending}
+        requested={requested}
+        downloading={downloading}
+        history={history}
+        requestedTotal={requested.length}
+        downloadsTotal={downloading.length + history.length}
       />
     </main>
   );
 }
 
-// One row in the user's Requests/Downloads lists.
-function userRow(r: Request) {
-  const href =
-    r.type === "TRACK" && r.albumMbid
-      ? `/album/${r.albumMbid}`
-      : `/album/${r.mbid}`;
-  const kind = r.type.toLowerCase();
-  // Approved track with no download started yet = still hunting on Soulseek.
-  const searching = r.status === "APPROVED";
-
-  return (
-    <li key={r.id} className="flex items-center gap-4 py-3">
-      <Link
-        href={href}
-        className="flex h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-secondary"
-      >
-        {r.coverUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={r.coverUrl}
-            alt=""
-            className="h-full w-full object-cover"
-            referrerPolicy="no-referrer"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-muted-foreground/40">
-            {r.type === "TRACK" ? (
-              <Music2 className="h-6 w-6" />
-            ) : (
-              <Disc3 className="h-6 w-6" />
-            )}
-          </div>
-        )}
-      </Link>
-      <div className="min-w-0 flex-1">
-        <Link
-          href={href}
-          className="block truncate font-medium hover:underline"
-          title={r.title}
-        >
-          {r.title}
-        </Link>
-        <p className="truncate text-xs text-muted-foreground">
-          {r.type === "TRACK" && r.albumTitle
-            ? `${r.artistName} · ${r.albumTitle}`
-            : r.artistName}{" "}
-          · {kind} requested {formatRelative(r.requestedAt)}
-        </p>
-        {searching && (
-          <p className="flex items-center gap-1.5 truncate text-xs text-pastel-sky">
-            <Search className="h-3 w-3 shrink-0 animate-pulse" />
-            {r.declineReason ?? "Searching Soulseek for a match…"}
-          </p>
-        )}
-        {r.downloadTitle && !searching && (
-          <p className="truncate text-xs text-muted-foreground">
-            Download: {r.downloadTitle}
-          </p>
-        )}
-        {(r.status === "DECLINED" || r.status === "FAILED") &&
-          r.declineReason && (
-            <p className="truncate text-xs text-muted-foreground">
-              {r.status === "FAILED" ? "Failure" : "Reason"}: {r.declineReason}
-            </p>
-          )}
-      </div>
-      <div className="flex shrink-0 flex-col items-end gap-2">
-        <StatusBadge status={r.status} />
-        {r.status === "DOWNLOADING" && <DownloadProgressBar requestId={r.id} />}
-        <UnrequestButton
-          request={{
-            id: r.id,
-            type: r.type,
-            mbid: r.mbid,
-            albumMbid: r.albumMbid,
-          }}
-        />
-      </div>
-    </li>
-  );
+function toRow(
+  r: Request & { requestedBy?: { username: string } | null },
+): RequestRowData {
+  return {
+    id: r.id,
+    type: r.type,
+    mbid: r.mbid,
+    title: r.title,
+    artistName: r.artistName,
+    coverUrl: r.coverUrl,
+    albumMbid: r.albumMbid,
+    albumTitle: r.albumTitle,
+    downloadTitle: r.downloadTitle,
+    status: r.status,
+    declineReason: r.declineReason,
+    requestedBy: r.requestedBy?.username ?? null,
+    requestedAt: r.requestedAt.toISOString(),
+    lastSearchedAt: r.lastSearchedAt?.toISOString() ?? null,
+  };
 }
 
 function HomeLink() {
@@ -301,25 +186,4 @@ function HomeLink() {
       <ArrowLeft className="h-4 w-4" /> Home
     </Link>
   );
-}
-
-function EmptyHint({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="rounded-2xl border-2 border-dashed border-foreground/15 bg-card p-10 text-center text-sm text-muted-foreground">
-      {children}
-    </div>
-  );
-}
-
-function formatRelative(date: Date): string {
-  const now = Date.now();
-  const diff = now - date.getTime();
-  const min = Math.floor(diff / 60000);
-  if (min < 1) return "just now";
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const day = Math.floor(hr / 24);
-  if (day < 7) return `${day}d ago`;
-  return date.toLocaleDateString();
 }

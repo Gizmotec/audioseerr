@@ -6,6 +6,14 @@ import { useState } from "react";
 import type { LastFmChartArtist, LastFmChartTrack } from "@/lib/lastfm";
 import type { MostLovedRow } from "@/lib/mostLoved";
 
+const RANK_FILLS = [
+  "bg-pastel-pink",
+  "bg-pastel-yellow",
+  "bg-pastel-mint",
+  "bg-pastel-sky",
+  "bg-pastel-lavender",
+];
+
 function compactNumber(value: number): string {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
   if (value >= 1_000) return `${Math.round(value / 1_000)}K`;
@@ -67,8 +75,8 @@ function Artwork({
     <div
       className={
         kind === "artist"
-          ? "flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary text-muted-foreground/50"
-          : "flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-md bg-secondary text-muted-foreground/50"
+          ? "flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-ink bg-surface-2 text-muted-foreground/50"
+          : "flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 border-ink bg-surface-2 text-muted-foreground/50"
       }
     >
       {imgOk && src ? (
@@ -102,13 +110,51 @@ function ChartSection({
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-3">
-      <header className="flex items-baseline justify-between gap-3">
-        <h2 className="text-lg font-medium">{title}</h2>
-        <span className="shrink-0 text-xs text-muted-foreground">{source}</span>
+    <section className="space-y-4">
+      <header className="flex items-center justify-between gap-3">
+        <h2 className="text-xl font-extrabold tracking-tight">{title}</h2>
+        <span className="shrink-0 -rotate-1 rounded-full border-2 border-ink bg-surface-2 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted-foreground">
+          {source}
+        </span>
       </header>
       {children}
     </section>
+  );
+}
+
+function ChartRow({
+  index,
+  href,
+  artwork,
+  title,
+  sub,
+}: {
+  index: number;
+  href: string;
+  artwork: React.ReactNode;
+  title: string;
+  sub: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group grid min-h-16 grid-cols-[2rem_2.75rem_1fr] items-center gap-3 rounded-xl border-2 border-ink bg-surface px-3 py-2 transition-all hover:-translate-y-0.5 hover:bg-surface-2 hover:shadow-[4px_4px_0_0_var(--color-ink)]"
+    >
+      <span
+        className={`flex h-7 w-7 -rotate-3 items-center justify-center rounded-lg border-2 border-ink font-mono text-[11px] font-bold text-ink transition-transform group-hover:rotate-0 ${RANK_FILLS[index % RANK_FILLS.length]}`}
+      >
+        {index + 1}
+      </span>
+      {artwork}
+      <span className="min-w-0">
+        <span className="block truncate text-sm font-bold" title={title}>
+          {title}
+        </span>
+        <span className="block truncate text-xs text-muted-foreground" title={sub}>
+          {sub}
+        </span>
+      </span>
+    </Link>
   );
 }
 
@@ -117,29 +163,16 @@ export function TopTracksChart({ tracks }: { tracks: LastFmChartTrack[] }) {
 
   return (
     <ChartSection title="Top tracks" source="Last.fm">
-      <ol className="grid gap-2 md:grid-cols-2">
+      <ol className="grid gap-2.5 md:grid-cols-2">
         {tracks.map((track, index) => (
           <li key={`${track.artistName}-${track.name}`}>
-            <Link
+            <ChartRow
+              index={index}
               href={trackHref(track)}
-              className="group grid min-h-16 grid-cols-[2rem_2.75rem_1fr] items-center gap-3 rounded-md border border-border bg-secondary/20 px-3 py-2 hover:border-foreground/30 hover:bg-secondary/50"
-            >
-              <span className="font-mono text-xs text-muted-foreground">
-                {String(index + 1).padStart(2, "0")}
-              </span>
-              <Artwork src={track.imageUrl} kind="track" />
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-medium" title={track.name}>
-                  {track.name}
-                </span>
-                <span
-                  className="block truncate text-xs text-muted-foreground"
-                  title={track.artistName}
-                >
-                  {track.artistName} · {compactNumber(track.listeners)} listeners
-                </span>
-              </span>
-            </Link>
+              artwork={<Artwork src={track.imageUrl} kind="track" />}
+              title={track.name}
+              sub={`${track.artistName} · ${compactNumber(track.listeners)} listeners`}
+            />
           </li>
         ))}
       </ol>
@@ -152,26 +185,16 @@ export function TopArtistsChart({ artists }: { artists: LastFmChartArtist[] }) {
 
   return (
     <ChartSection title="Top artists" source="Last.fm">
-      <ol className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      <ol className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
         {artists.map((artist, index) => (
           <li key={`${artist.mbid ?? artist.name}-${index}`}>
-            <Link
+            <ChartRow
+              index={index}
               href={artistHref(artist)}
-              className="group grid min-h-16 grid-cols-[2rem_2.75rem_1fr] items-center gap-3 rounded-md border border-border bg-secondary/20 px-3 py-2 hover:border-foreground/30 hover:bg-secondary/50"
-            >
-              <span className="font-mono text-xs text-muted-foreground">
-                {String(index + 1).padStart(2, "0")}
-              </span>
-              <Artwork src={artist.imageUrl} kind="artist" />
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-medium" title={artist.name}>
-                  {artist.name}
-                </span>
-                <span className="block truncate text-xs text-muted-foreground">
-                  {compactNumber(artist.listeners)} listeners
-                </span>
-              </span>
-            </Link>
+              artwork={<Artwork src={artist.imageUrl} kind="artist" />}
+              title={artist.name}
+              sub={`${compactNumber(artist.listeners)} listeners`}
+            />
           </li>
         ))}
       </ol>
@@ -184,32 +207,21 @@ export function MostLovedChart({ items }: { items: MostLovedRow[] }) {
 
   return (
     <ChartSection title="Most loved" source="Audioseerr">
-      <ol className="grid gap-2 md:grid-cols-2">
+      <ol className="grid gap-2.5 md:grid-cols-2">
         {items.map((item, index) => (
           <li key={`${item.targetType}-${item.targetId}`}>
-            <Link
+            <ChartRow
+              index={index}
               href={lovedHref(item)}
-              className="group grid min-h-16 grid-cols-[2rem_2.75rem_1fr] items-center gap-3 rounded-md border border-border bg-secondary/20 px-3 py-2 hover:border-foreground/30 hover:bg-secondary/50"
-            >
-              <span className="font-mono text-xs text-muted-foreground">
-                {String(index + 1).padStart(2, "0")}
-              </span>
-              <Artwork
-                src={item.coverUrl ?? (item.albumMbid ? `https://coverartarchive.org/release-group/${item.albumMbid}/front-250` : null)}
-                kind={item.targetType === "ARTIST" ? "artist" : "loved"}
-              />
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-medium" title={item.title}>
-                  {item.title}
-                </span>
-                <span
-                  className="block truncate text-xs text-muted-foreground"
-                  title={lovedMeta(item)}
-                >
-                  {lovedMeta(item)}
-                </span>
-              </span>
-            </Link>
+              artwork={
+                <Artwork
+                  src={item.coverUrl ?? (item.albumMbid ? `https://coverartarchive.org/release-group/${item.albumMbid}/front-250` : null)}
+                  kind={item.targetType === "ARTIST" ? "artist" : "loved"}
+                />
+              }
+              title={item.title}
+              sub={lovedMeta(item)}
+            />
           </li>
         ))}
       </ol>
