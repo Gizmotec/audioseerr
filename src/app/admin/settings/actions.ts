@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { SlskdError, testSlskdConnection } from "@/lib/slskd";
-import { getSettings, saveSettings } from "@/lib/settings";
+import {
+  getSettings,
+  OIDC_MIGRATION_PENDING,
+  saveSettings,
+} from "@/lib/settings";
 import { parsePathMap } from "@/lib/streaming";
 // Sentinel constant for "API key unchanged". Lives in its own module because
 // "use server" files may only export async functions.
@@ -27,6 +31,11 @@ const saveInput = z.object({
   preDownloadMixes: z.boolean(),
   notificationWebhookUrl: z.string(),
   lastFmApiSecret: z.string(),
+  oidcEnabled: z.boolean(),
+  oidcIssuerUrl: z.string(),
+  oidcClientId: z.string(),
+  oidcClientSecret: z.string(),
+  oidcButtonLabel: z.string(),
 });
 
 export type SaveResult = { ok: true } | { ok: false; error: string };
@@ -59,6 +68,36 @@ export async function saveAdminSettingsAction(
     }
   }
 
+  if (data.oidcIssuerUrl.trim()) {
+    const issuer = data.oidcIssuerUrl.trim();
+    const url = z
+      .string()
+      .url("Issuer URL must be a valid URL")
+      .safeParse(issuer);
+    if (!url.success) {
+      return { ok: false, error: url.error.issues[0]?.message ?? "Invalid issuer URL" };
+    }
+    if (!/^https?:\/\//.test(issuer)) {
+      return { ok: false, error: "Issuer URL must start with http:// or https://." };
+    }
+  }
+
+  if (data.oidcEnabled) {
+    if (!data.oidcIssuerUrl.trim()) {
+      return { ok: false, error: "Issuer URL is required to enable SSO." };
+    }
+    if (!data.oidcClientId.trim()) {
+      return { ok: false, error: "Client ID is required to enable SSO." };
+    }
+    const savedSecret =
+      data.oidcClientSecret === KEY_UNCHANGED
+        ? (await getSettings()).oidcClientSecret
+        : data.oidcClientSecret.trim();
+    if (!savedSecret) {
+      return { ok: false, error: "Client secret is required to enable SSO." };
+    }
+  }
+
   // Validate the path-map syntax up front so the user gets a helpful error
   // instead of seeing playback fail silently on the next request.
   if (data.mediaPathMap.trim()) {
@@ -72,8 +111,9 @@ export async function saveAdminSettingsAction(
     }
   }
 
-  await saveSettings({
-    slskdUrl: data.slskdUrl.trim() ? data.slskdUrl.trim() : null,
+  try {
+    await saveSettings({
+      slskdUrl: data.slskdUrl.trim() ? data.slskdUrl.trim() : null,
     ...(data.slskdApiKey === KEY_UNCHANGED
       ? {}
       : { slskdApiKey: data.slskdApiKey.trim() ? data.slskdApiKey.trim() : null }),
@@ -93,7 +133,33 @@ export async function saveAdminSettingsAction(
             ? data.lastFmApiSecret.trim()
             : null,
         }),
-  });
+    oidcEnabled: data.oidcEnabled,
+    oidcIssuerUrl: data.oidcIssuerUrl.trim() ? data.oidcIssuerUrl.trim() : null,
+    oidcClientId: data.oidcClientId.trim() ? data.oidcClientId.trim() : null,
+    ...(data.oidcClientSecret === KEY_UNCHANGED
+      ? {}
+      : {
+          oidcClientSecret: data.oidcClientSecret.trim()
+            ? data.oidcClientSecret.trim()
+            : null,
+        }),
+    oidcButtonLabel: data.oidcButtonLabel.trim()
+      ? data.oidcButtonLabel.trim()
+      : null,
+    });
+  } catch (err) {
+    // The OIDC columns arrive with the SSO schema migration; saveSettings
+    // throws OIDC_MIGRATION_PENDING when they're written before it lands.
+    // Non-OIDC fields were already persisted by the typed upsert.
+    if (err instanceof Error && err.message === OIDC_MIGRATION_PENDING) {
+      return {
+        ok: false,
+        error:
+          "SSO settings were not saved — the SSO database migration hasn't been applied to this install yet. All other settings were saved.",
+      };
+    }
+    throw err;
+  }
 
   revalidatePath("/admin/settings");
   return { ok: true };

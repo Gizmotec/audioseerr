@@ -46,6 +46,11 @@ type Initial = {
   preDownloadMixes: boolean;
   notificationWebhookUrl: string;
   lastFmApiSecretMasked: string;
+  oidcEnabled: boolean;
+  oidcIssuerUrl: string;
+  oidcClientId: string;
+  oidcClientSecretMasked: string;
+  oidcButtonLabel: string;
 };
 
 type EnvFlags = {
@@ -79,6 +84,7 @@ type SectionId =
   | "notifications"
   | "playback"
   | "predownload"
+  | "sso"
   | "storage"
   | "system";
 
@@ -122,6 +128,13 @@ const SECTIONS: SectionDef[] = [
     keywords: "pre-download mixes daily mix discover weekly cache eager",
   },
   {
+    id: "sso",
+    tab: "general",
+    title: "Single sign-on (OIDC)",
+    keywords:
+      "sso oidc openid connect single sign-on authentik keycloak pocket id pocketid login authentication issuer client secret",
+  },
+  {
     id: "storage",
     tab: "system",
     title: "Storage",
@@ -143,6 +156,7 @@ export function SettingsForm({
   storage,
   spotify,
   isAdmin,
+  oidcCallbackUrl,
   initialTab = "general",
 }: {
   initial: Initial;
@@ -150,6 +164,7 @@ export function SettingsForm({
   storage: StorageStats;
   spotify: SpotifyIntegration;
   isAdmin: boolean;
+  oidcCallbackUrl: string;
   initialTab?: TabId;
 }) {
   const router = useRouter();
@@ -188,6 +203,17 @@ export function SettingsForm({
   );
   const [webhookTesting, setWebhookTesting] = useState(false);
   const [webhookPingMsg, setWebhookPingMsg] = useState<string | null>(null);
+
+  const [oidcEnabled, setOidcEnabled] = useState(initial.oidcEnabled);
+  const [oidcIssuerUrl, setOidcIssuerUrl] = useState(initial.oidcIssuerUrl);
+  const [oidcClientId, setOidcClientId] = useState(initial.oidcClientId);
+  const [oidcClientSecret, setOidcClientSecret] = useState(
+    initial.oidcClientSecretMasked,
+  );
+  const [oidcSecretEdited, setOidcSecretEdited] = useState(false);
+  const [oidcButtonLabel, setOidcButtonLabel] = useState(
+    initial.oidcButtonLabel,
+  );
 
   const slskdConfigured = !!slskdUrl.trim() && !!slskdApiKey;
   const lastFmConfigured = !!lastFmApiKey.trim();
@@ -247,6 +273,14 @@ export function SettingsForm({
           lastFmSecretEdited || !initial.lastFmApiSecretMasked
             ? lastFmApiSecret
             : KEY_UNCHANGED_SENTINEL,
+        oidcEnabled,
+        oidcIssuerUrl,
+        oidcClientId,
+        oidcClientSecret:
+          oidcSecretEdited || !initial.oidcClientSecretMasked
+            ? oidcClientSecret
+            : KEY_UNCHANGED_SENTINEL,
+        oidcButtonLabel,
       });
       if (!res.ok) {
         setError(res.error);
@@ -255,8 +289,10 @@ export function SettingsForm({
       setSaved(true);
       setSlskdKeyEdited(false);
       setLastFmSecretEdited(false);
+      setOidcSecretEdited(false);
       if (slskdApiKey) setSlskdApiKey("••••••••");
       if (lastFmApiSecret) setLastFmApiSecret("••••••••");
+      if (oidcClientSecret) setOidcClientSecret("••••••••");
       router.refresh();
     });
   }
@@ -516,6 +552,102 @@ export function SettingsForm({
                   onCheckedChange={(checked) => setPreDownloadMixes(checked)}
                 />
               </div>
+            </CardContent>
+          </Card>
+        );
+      case "sso":
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Single sign-on (OIDC)</CardTitle>
+              <CardDescription>
+                Let people sign in with an external identity provider —
+                Authentik, Keycloak, Pocket ID, or any OIDC-compliant issuer.
+                SSO accounts are matched by email and created automatically on
+                first login, always as regular users. Username/password
+                sign-in keeps working either way.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <Label htmlFor="oidcEnabled">Enable SSO</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Adds a sign-in button labeled “
+                    {oidcButtonLabel.trim() || "SSO"}” to the login page.
+                  </p>
+                </div>
+                <Switch
+                  id="oidcEnabled"
+                  checked={oidcEnabled}
+                  onCheckedChange={(checked) => setOidcEnabled(checked)}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="oidcIssuerUrl">Issuer URL</Label>
+                  <Input
+                    id="oidcIssuerUrl"
+                    value={oidcIssuerUrl}
+                    onChange={(e) => setOidcIssuerUrl(e.target.value)}
+                    placeholder="https://auth.example.com/application/o/audioseerr"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    The discovery base — Audioseerr appends{" "}
+                    <code className="font-mono">/.well-known/openid-configuration</code>.
+                    For Keycloak this includes the realm, e.g.{" "}
+                    <code className="font-mono">…/realms/main</code>.
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="oidcClientId">Client ID</Label>
+                  <Input
+                    id="oidcClientId"
+                    value={oidcClientId}
+                    onChange={(e) => setOidcClientId(e.target.value)}
+                    placeholder="From your identity provider"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="oidcClientSecret">Client secret</Label>
+                  <Input
+                    id="oidcClientSecret"
+                    type="password"
+                    value={oidcClientSecret}
+                    onChange={(e) => {
+                      setOidcClientSecret(e.target.value);
+                      setOidcSecretEdited(true);
+                    }}
+                    onFocus={() => {
+                      if (!oidcSecretEdited && oidcClientSecret.startsWith("••")) {
+                        setOidcClientSecret("");
+                      }
+                    }}
+                    placeholder="Stored encrypted, like the slskd key"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="oidcButtonLabel">Button label</Label>
+                  <Input
+                    id="oidcButtonLabel"
+                    value={oidcButtonLabel}
+                    onChange={(e) => setOidcButtonLabel(e.target.value)}
+                    placeholder="SSO"
+                  />
+                </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                Register this redirect URI at your provider:{" "}
+                <code className="font-mono break-all">{oidcCallbackUrl}</code>.
+                SSO changes take effect on the{" "}
+                <strong>next server restart</strong> — the login-page button
+                appears once Audioseerr has reloaded them.
+              </p>
             </CardContent>
           </Card>
         );

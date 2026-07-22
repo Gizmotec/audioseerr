@@ -214,9 +214,16 @@ model Settings {
   // users can self-wire Discord / ntfy / Gotify without per-service
   // integrations (design doc §8). Secret-free; payload carries no credentials.
   notificationWebhookUrl String?
-  // Last.fm API secret — required (with the public lastFmApiKey) to sign
-  // scrobble-auth requests. Encrypted at rest like the other keys.
-  lastFmApiSecret        String?
+  // Last.fm API secret — needed for scrobble auth signatures (the public
+  // lastFmApiKey above isn't enough for write endpoints).
+  lastFmApiSecret String?
+  // OIDC/SSO login (Authentik/Keycloak/Pocket ID). Read at boot by
+  // src/lib/oidc.ts — changing these requires a container restart.
+  oidcEnabled      Boolean @default(false)
+  oidcIssuerUrl    String?
+  oidcClientId     String?
+  oidcClientSecret String? // AES-256-GCM encrypted like the other secrets
+  oidcButtonLabel  String  @default("SSO")
 }
 
 // Snapshot of a Spotify playlist's track IDs at the time of the user's last

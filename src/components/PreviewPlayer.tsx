@@ -135,6 +135,10 @@ type ContextValue = {
 };
 
 const PreviewPlayerContext = createContext<ContextValue | null>(null);
+// Playback position lives in its own context so timeupdate subscribers (e.g.
+// synced lyrics) re-render ~4x/sec without dragging every usePreviewPlayer
+// consumer (track rows, sidebars) along with them.
+const PreviewTimeContext = createContext<number>(0);
 const PREVIEW_PLAYER_BOTTOM_OFFSET = "7rem";
 const DEFAULT_QUEUE_CONTROLS: QueueControls = {
   hasQueue: false,
@@ -161,6 +165,14 @@ export function usePreviewPlayer(): ContextValue {
     throw new Error("usePreviewPlayer must be used within PreviewPlayerProvider");
   }
   return v;
+}
+
+/**
+ * Current playback position in seconds. Unlike usePreviewPlayer this is safe
+ * outside the provider (returns 0) so lyrics views can mount unconditionally.
+ */
+export function usePreviewTime(): number {
+  return useContext(PreviewTimeContext);
 }
 
 export function PreviewPlayerProvider({ children }: { children: React.ReactNode }) {
@@ -563,25 +575,27 @@ export function PreviewPlayerProvider({ children }: { children: React.ReactNode 
 
   return (
     <PreviewPlayerContext.Provider value={value}>
-      {children}
-      <PreviewPlayerBar
-        current={current}
-        state={state}
-        currentTime={currentTime}
-        duration={duration}
-        hasQueue={hasQueue}
-        hasNext={hasNext}
-        hasPrev={hasPrev}
-        volume={volume}
-        muted={muted}
-        onToggle={toggle}
-        onNext={next}
-        onPrev={prev}
-        onSeek={seek}
-        onClose={close}
-        onVolumeChange={setVolume}
-        onToggleMute={toggleMute}
-      />
+      <PreviewTimeContext.Provider value={currentTime}>
+        {children}
+        <PreviewPlayerBar
+          current={current}
+          state={state}
+          currentTime={currentTime}
+          duration={duration}
+          hasQueue={hasQueue}
+          hasNext={hasNext}
+          hasPrev={hasPrev}
+          volume={volume}
+          muted={muted}
+          onToggle={toggle}
+          onNext={next}
+          onPrev={prev}
+          onSeek={seek}
+          onClose={close}
+          onVolumeChange={setVolume}
+          onToggleMute={toggleMute}
+        />
+      </PreviewTimeContext.Provider>
     </PreviewPlayerContext.Provider>
   );
 }

@@ -16,7 +16,31 @@ export type SettingsView = {
   preDownloadMixes: boolean;
   notificationWebhookUrl: string | null;
   lastFmApiSecret: string | null;
+  oidcEnabled: boolean;
+  oidcIssuerUrl: string | null;
+  oidcClientId: string | null;
+  oidcClientSecret: string | null;
+  oidcButtonLabel: string;
 };
+
+export const OIDC_BUTTON_LABEL_DEFAULT = "SSO";
+
+// The oidc* columns arrive with the SSO schema migration, which the release
+// process applies separately from this code. Until then Prisma simply doesn't
+// select them, so the superset cast below reads them as undefined and SSO
+// shows as disabled — the app keeps working on the pre-migration schema.
+type OidcColumns = {
+  oidcEnabled?: boolean | null;
+  oidcIssuerUrl?: string | null;
+  oidcClientId?: string | null;
+  oidcClientSecret?: string | null;
+  oidcButtonLabel?: string | null;
+};
+
+// Thrown by saveSettings when OIDC fields are written before the SSO schema
+// migration has been applied; the settings action turns it into a friendly
+// message instead of a 500.
+export const OIDC_MIGRATION_PENDING = "OIDC_MIGRATION_PENDING";
 
 // Rows written before a field gained encryption-at-rest may hold plaintext;
 // fall back to the raw value when it isn't iv:ct:tag ciphertext.
@@ -34,6 +58,7 @@ export async function getSettings(): Promise<SettingsView> {
     update: {},
     create: { id: 1 },
   });
+  const oidc = row as unknown as OidcColumns;
 
   return {
     setupComplete: row.setupComplete,
@@ -47,6 +72,14 @@ export async function getSettings(): Promise<SettingsView> {
     lastFmApiSecret: row.lastFmApiSecret
       ? decryptOrRaw(row.lastFmApiSecret)
       : null,
+    oidcEnabled: oidc.oidcEnabled ?? false,
+    oidcIssuerUrl: oidc.oidcIssuerUrl ?? null,
+    oidcClientId: oidc.oidcClientId ?? null,
+    oidcClientSecret: oidc.oidcClientSecret
+      ? decryptOrRaw(oidc.oidcClientSecret)
+      : null,
+    oidcButtonLabel:
+      oidc.oidcButtonLabel?.trim() || OIDC_BUTTON_LABEL_DEFAULT,
   };
 }
 
@@ -60,10 +93,36 @@ export type SettingsUpdate = {
   preDownloadMixes?: boolean;
   notificationWebhookUrl?: string | null;
   lastFmApiSecret?: string | null;
+  oidcEnabled?: boolean;
+  oidcIssuerUrl?: string | null;
+  oidcClientId?: string | null;
+  oidcClientSecret?: string | null;
+  oidcButtonLabel?: string | null;
 };
 
+// Whitelisted column list for the OIDC write — column names are literals
+// here, only values are parameterized. Raw SQL because the typed Prisma API
+// rejects these keys until the SSO migration + `prisma generate` land; this
+// statement works on both sides of that boundary.
+const OIDC_COLUMNS = [
+  "oidcEnabled",
+  "oidcIssuerUrl",
+  "oidcClientId",
+  "oidcClientSecret",
+  "oidcButtonLabel",
+] as const;
+
 export async function saveSettings(update: SettingsUpdate): Promise<void> {
-  const data: SettingsUpdate = { ...update };
+  const {
+    oidcEnabled,
+    oidcIssuerUrl,
+    oidcClientId,
+    oidcClientSecret,
+    oidcButtonLabel,
+    ...rest
+  } = update;
+
+  const data: SettingsUpdate = { ...rest };
   if (data.slskdApiKey !== undefined && data.slskdApiKey !== null) {
     data.slskdApiKey = encrypt(data.slskdApiKey);
   }
@@ -75,6 +134,39 @@ export async function saveSettings(update: SettingsUpdate): Promise<void> {
     update: data,
     create: { id: 1, ...data },
   });
+
+  const oidcValues: Record<(typeof OIDC_COLUMNS)[number], unknown> = {
+    oidcEnabled: oidcEnabled === undefined ? undefined : oidcEnabled ? 1 : 0,
+    oidcIssuerUrl,
+    oidcClientId,
+    oidcClientSecret:
+      oidcClientSecret === undefined || oidcClientSecret === null
+        ? oidcClientSecret
+        : encrypt(oidcClientSecret),
+    oidcButtonLabel,
+  };
+  const sets: string[] = [];
+  const params: unknown[] = [];
+  for (const column of OIDC_COLUMNS) {
+    const value = oidcValues[column];
+    if (value === undefined) continue;
+    sets.push(`${column} = ?`);
+    params.push(value);
+  }
+  if (sets.length === 0) return;
+
+  try {
+    await prisma.$executeRawUnsafe(
+      `UPDATE Settings SET ${sets.join(", ")} WHERE id = 1`,
+      ...params,
+    );
+  } catch (err) {
+    // Pre-migration schema: better-sqlite3 reports "no such column: oidc…".
+    if (err instanceof Error && /no such column/i.test(err.message)) {
+      throw new Error(OIDC_MIGRATION_PENDING);
+    }
+    throw err;
+  }
 }
 
 export async function isSetupComplete(): Promise<boolean> {

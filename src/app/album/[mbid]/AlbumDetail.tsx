@@ -10,6 +10,7 @@ import {
 import { HeroCard } from "@/components/HeroCard";
 import { SevenDigitalButton } from "@/components/SevenDigitalButton";
 import { LikeButton } from "@/components/LikeButton";
+import { LyricsButton } from "@/components/LyricsButton";
 import { type QueueItem, usePreviewPlayer } from "@/components/PreviewPlayer";
 import { TrackLikeButton } from "@/components/TrackLikeButton";
 import { useTrackMenu } from "@/components/TrackMenu";
@@ -298,6 +299,14 @@ export function AlbumDetail({
                   <YouTubeButton
                     artistName={album.artistName}
                     trackTitle={t.title}
+                  />
+                  <LyricsButton
+                    artistName={album.artistName}
+                    trackTitle={t.title}
+                    albumTitle={album.title}
+                    durationMs={t.lengthMs}
+                    playerTrackId={queueId}
+                    liveSync={isFull}
                   />
                   {t.recordingMbid ? (
                     <AddToPlaylistButton

@@ -1,4 +1,4 @@
-import { ArrowLeft, KeyRound } from "lucide-react";
+import { ArrowLeft, Download, KeyRound } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
@@ -105,6 +105,28 @@ export default async function AccountPage({
           >
             Manage API keys
           </Link>
+        </CardContent>
+      </Card>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Download className="h-4 w-4" /> Data export
+          </CardTitle>
+          <CardDescription>
+            Download everything Audioseerr stores about you — profile, likes,
+            playlists, play history, requests, and library — as a JSON file.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {/* Plain anchor, not Link: the route streams an attachment, so the
+              browser must handle it as a download, not client navigation. */}
+          <a
+            href="/account/export"
+            className={buttonVariants({ variant: "outline" })}
+          >
+            <Download className="h-4 w-4" /> Download JSON
+          </a>
         </CardContent>
       </Card>
     </main>

@@ -137,6 +137,7 @@ async function SettingsTab({
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
   const proto = h.get("x-forwarded-proto") ?? "http";
   const redirectUri = `${proto}://${host}/api/spotify/callback`;
+  const oidcCallbackUrl = `${proto}://${host}/api/auth/callback/oidc`;
 
   return (
     <SettingsForm
@@ -149,7 +150,13 @@ async function SettingsTab({
         preDownloadMixes: settings.preDownloadMixes,
         notificationWebhookUrl: settings.notificationWebhookUrl ?? "",
         lastFmApiSecretMasked: settings.lastFmApiSecret ? "••••••••" : "",
+        oidcEnabled: settings.oidcEnabled,
+        oidcIssuerUrl: settings.oidcIssuerUrl ?? "",
+        oidcClientId: settings.oidcClientId ?? "",
+        oidcClientSecretMasked: settings.oidcClientSecret ? "••••••••" : "",
+        oidcButtonLabel: settings.oidcButtonLabel,
       }}
+      oidcCallbackUrl={oidcCallbackUrl}
       env={env}
       storage={await getStorageStats(settings)}
       spotify={{

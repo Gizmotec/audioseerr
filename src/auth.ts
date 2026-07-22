@@ -3,6 +3,17 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { authConfig } from "@/auth.config";
+import {
+  buildOidcProvider,
+  OIDC_PROVIDER_ID,
+  provisionOidcUser,
+} from "@/lib/oidc";
+
+// OIDC/SSO is registered only when the admin has enabled and configured it in
+// the database. Auth.js builds its config at module init, so the DB is read
+// once at process start (see src/lib/oidc.ts) — SSO setting changes apply on
+// the next restart, and the admin settings page says so.
+const oidcProvider = buildOidcProvider();
 
 export const { auth, handlers, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -36,9 +47,36 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
         };
       },
     }),
+    ...(oidcProvider ? [oidcProvider] : []),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async signIn({ account, profile }) {
+      if (account?.provider === OIDC_PROVIDER_ID) {
+        // The email claim is the link key to a local account — without it we
+        // can neither match an existing user nor provision a new one.
+        return typeof profile?.email === "string" && profile.email.length > 0;
+      }
+      return true;
+    },
+    async jwt({ token, user, account, profile }) {
+      if (account?.provider === OIDC_PROVIDER_ID) {
+        // SSO sign-ins carry no local user id — resolve the local account
+        // (link by email, or auto-provision a USER account) here so token.id
+        // always references our own User table.
+        const local = await provisionOidcUser({
+          email: profile?.email as string | null | undefined,
+          preferred_username: profile?.preferred_username as
+            | string
+            | null
+            | undefined,
+          name: profile?.name as string | null | undefined,
+        });
+        if (local) {
+          token.id = local.id;
+          token.role = local.role;
+        }
+        return token;
+      }
       if (user) {
         token.id = user.id;
         token.role = (user as { role?: string }).role;
