@@ -122,7 +122,11 @@ export async function saveSettings(update: SettingsUpdate): Promise<void> {
     ...rest
   } = update;
 
-  const data: SettingsUpdate = { ...rest };
+  // NOTE: no explicit type annotation — rest's inferred Omit<SettingsUpdate,
+  // oidc*> keeps the oidc keys (handled via raw SQL below) out of the typed
+  // Prisma call. Annotating as SettingsUpdate would reintroduce them at the
+  // type level and break against the generated client's required fields.
+  const data = { ...rest };
   if (data.slskdApiKey !== undefined && data.slskdApiKey !== null) {
     data.slskdApiKey = encrypt(data.slskdApiKey);
   }
