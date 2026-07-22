@@ -1,4 +1,4 @@
-import { AudioLines, Bird, KeyRound } from "lucide-react"
+import { AudioLines, Bird } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -51,11 +51,6 @@ const PROVIDERS = {
     label: "YouTube",
     tile: "bg-rose-500/15 text-rose-500",
     Mark: YouTubeMark,
-  },
-  secrets: {
-    label: "App secrets",
-    tile: "bg-violet-500/15 text-violet-500",
-    Mark: KeyRound,
   },
 } as const
 
