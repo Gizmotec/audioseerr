@@ -33,16 +33,16 @@ export function DiscoveryTrackList({
   if (tracks.length === 0) return null;
 
   return (
-    <section className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-xl font-extrabold tracking-tight">{title}</h2>
+    <section className="space-y-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="text-lg font-medium">{title}</h2>
         {href && (
           <Link
             href={href}
-            className="inline-flex shrink-0 items-center gap-0.5 rounded-full border-2 border-ink bg-surface px-3 py-1 text-xs font-extrabold text-muted-foreground transition-all hover:-translate-y-0.5 hover:text-foreground hover:shadow-[2px_2px_0_0_var(--color-ink)]"
+            className="inline-flex shrink-0 items-center gap-0.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             See more
-            <ChevronRight className="h-3.5 w-3.5" />
+            <ChevronRight className="h-4 w-4" />
           </Link>
         )}
       </div>
@@ -137,8 +137,8 @@ function DiscoveryTrackCard({ track }: { track: DiscoveryTrack }) {
     >
       <div
         className={cn(
-          "group relative aspect-square overflow-hidden rounded-xl border-2 border-ink bg-surface-2",
-          isActive && "ring-2 ring-primary",
+          "group relative aspect-square overflow-hidden rounded-md bg-secondary",
+          isActive && "ring-2 ring-foreground",
         )}
       >
         {track.coverUrl ? (

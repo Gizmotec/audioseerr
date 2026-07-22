@@ -11,19 +11,14 @@ import type { LibraryViewer } from "@/lib/userLibrary";
  */
 export function MixCards({ viewer }: { viewer: LibraryViewer }) {
   return (
-    <section className="space-y-4">
-      <h2 className="flex items-center gap-2.5 text-xl font-extrabold tracking-tight">
-        <span className="flex h-8 w-8 -rotate-6 items-center justify-center rounded-lg border-2 border-ink bg-pastel-pink text-ink shadow-[2px_2px_0_0_var(--color-ink)]">
-          <Sparkles className="h-4 w-4" />
-        </span>
-        Made for you
-      </h2>
-      <div className="grid gap-4 sm:grid-cols-2">
+    <section className="space-y-3">
+      <h2 className="text-lg font-extrabold tracking-tight">Made for you</h2>
+      <div className="grid gap-3 sm:grid-cols-2">
         <Suspense fallback={<MixCardSkeleton kind="daily" />}>
-          <MixCard viewer={viewer} kind="daily" tilt="-rotate-1" />
+          <MixCard viewer={viewer} kind="daily" />
         </Suspense>
         <Suspense fallback={<MixCardSkeleton kind="weekly" />}>
-          <MixCard viewer={viewer} kind="weekly" tilt="rotate-1" />
+          <MixCard viewer={viewer} kind="weekly" />
         </Suspense>
       </div>
     </section>
@@ -51,11 +46,9 @@ const META: Record<
 async function MixCard({
   viewer,
   kind,
-  tilt,
 }: {
   viewer: LibraryViewer;
   kind: MixKind;
-  tilt: string;
 }) {
   const mix = await getOrGenerateMix(viewer, kind);
   const meta = META[kind];
@@ -63,7 +56,7 @@ async function MixCard({
 
   if (mix.tracks.length === 0) {
     return (
-      <div className="flex items-center gap-4 rounded-2xl border-2 border-ink bg-card p-5 opacity-70">
+      <div className="flex items-center gap-4 rounded-2xl bg-card p-4 opacity-70">
         <MixCover coverUrls={[]} icon={<Icon className="h-1/3 w-1/3" />} />
         <div className="min-w-0">
           <p className="font-extrabold tracking-tight">{meta.title}</p>
@@ -78,27 +71,25 @@ async function MixCard({
   return (
     <Link
       href={`/mix/${kind}`}
-      className={`group flex items-center gap-5 rounded-2xl border-2 border-ink p-5 text-ink shadow-[6px_6px_0_0_var(--color-ink)] outline-none transition-all hover:-translate-y-1 hover:rotate-0 hover:shadow-[8px_8px_0_0_var(--color-ink)] focus-visible:ring-2 focus-visible:ring-ring ${tilt} ${meta.fill}`}
+      className={`group flex items-center gap-4 rounded-2xl p-4 text-ink outline-none transition-[filter] hover:brightness-95 focus-visible:ring-2 focus-visible:ring-ring ${meta.fill}`}
     >
-      <div className="-rotate-3 transition-transform duration-200 group-hover:rotate-0 group-hover:scale-105">
-        <MixCover
-          coverUrls={mix.coverUrls}
-          icon={<Icon className="h-1/3 w-1/3" />}
-        />
-      </div>
+      <MixCover
+        coverUrls={mix.coverUrls}
+        icon={<Icon className="h-1/3 w-1/3" />}
+      />
       <div className="min-w-0 flex-1">
-        <p className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-[0.14em] text-ink/70">
+        <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.14em] text-ink/70">
           <Icon className="h-3.5 w-3.5" />
           {kind === "daily" ? "Daily" : "Weekly"}
         </p>
-        <p className="mt-1 truncate text-lg font-extrabold tracking-tight" title={meta.title}>
+        <p className="mt-1 truncate font-extrabold tracking-tight" title={meta.title}>
           {meta.title}
         </p>
-        <p className="mt-0.5 truncate text-xs font-medium text-ink/70">
+        <p className="mt-0.5 truncate text-xs text-ink/70">
           {meta.tagline}
         </p>
       </div>
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-ink bg-ink text-pastel-yellow shadow-[2px_2px_0_0_var(--color-ink)] transition-transform group-hover:scale-110">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-card text-foreground opacity-0 transition-opacity group-hover:opacity-100">
         <Play className="h-4 w-4 fill-current" />
       </span>
     </Link>
@@ -114,7 +105,7 @@ function MixCover({
 }) {
   const grid = coverUrls.slice(0, 4);
   return (
-    <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border-2 border-ink bg-secondary shadow-[3px_3px_0_0_var(--color-ink)]">
+    <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md bg-secondary">
       {grid.length >= 4 ? (
         <div className="grid h-full w-full grid-cols-2 grid-rows-2">
           {grid.map((url, i) => (
@@ -150,12 +141,12 @@ function MixCover({
 function MixCardSkeleton({ kind }: { kind: MixKind }) {
   const meta = META[kind];
   return (
-    <div className="flex items-center gap-5 rounded-2xl border-2 border-ink bg-surface p-5">
-      <div className="h-20 w-20 shrink-0 animate-pulse rounded-xl bg-surface-2" />
+    <div className="flex items-center gap-4 rounded-lg border border-border bg-secondary/30 p-4">
+      <div className="h-16 w-16 shrink-0 animate-pulse rounded-md bg-secondary" />
       <div className="min-w-0 flex-1 space-y-2">
-        <div className="h-3 w-16 animate-pulse rounded bg-surface-2" />
-        <div className="h-4 w-28 animate-pulse rounded bg-surface-2" />
-        <div className="h-3 w-40 animate-pulse rounded bg-surface-2" />
+        <div className="h-3 w-16 animate-pulse rounded bg-secondary" />
+        <div className="h-4 w-28 animate-pulse rounded bg-secondary" />
+        <div className="h-3 w-40 animate-pulse rounded bg-secondary" />
       </div>
       <span className="sr-only">Loading {meta.title}</span>
     </div>
