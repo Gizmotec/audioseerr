@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, Copy, Loader2, Plus, Trash2 } from "lucide-react";
-import { useEffect, useState, useTransition } from "react";
+import { useState, useSyncExternalStore, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import {
   type AutoApproveType,
@@ -121,11 +121,14 @@ function InviteRow({
   const [pending, startTransition] = useTransition();
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [origin, setOrigin] = useState("");
-
-  useEffect(() => {
-    setOrigin(window.location.origin);
-  }, []);
+  // window.location is client-only; useSyncExternalStore reads it after
+  // hydration (server snapshot "") — the setState-in-effect pattern is
+  // rejected by the React Compiler lint rules.
+  const origin = useSyncExternalStore(
+    () => () => {},
+    () => window.location.origin,
+    () => "",
+  );
 
   const url = origin ? `${origin}/invite/${invite.token}` : `/invite/${invite.token}`;
 

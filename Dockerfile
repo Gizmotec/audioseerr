@@ -46,5 +46,13 @@ COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 3000
+
+# Health: /api/health is unauthenticated and checks DB + integrations. No curl
+# in bookworm-slim, so use Node's built-in fetch. --timeout must exceed the
+# route's own integration probe timeout (~4s); --start-period covers migration
+# + boot on slow hosts.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD node -e "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
 ENTRYPOINT ["tini", "--", "docker-entrypoint.sh"]
 CMD ["npm", "start"]

@@ -1,18 +1,31 @@
+# Dependencies & build output — rebuilt inside the image
 node_modules
 .next
+out
+
+# VCS / CI metadata
 .git
 .gitignore
-.env
-.env.local
-.env.*.local
-dev.db
-dev.db-journal
-prisma/dev.db
-prisma/dev.db-journal
+.github
+
+# Secrets & local data — must never enter an image
+.env*
 config
+dev.db*
+prisma/dev.db*
+music
+
+# Docs & tests — not needed for the production build
+docs
+tests
+*.md
+**/*.md
+styleguide.html
+
+# Tooling state & caches
+.claude
 .vercel
 coverage
-.DS_Store
 *.tsbuildinfo
-.claude
-docs
+.DS_Store
+npm-debug.log*

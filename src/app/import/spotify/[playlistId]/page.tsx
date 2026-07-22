@@ -19,6 +19,7 @@ import {
 } from "@/lib/spotify-api";
 import { matchSpotifyTracks, type SpotifyTrackMatch } from "@/lib/spotify-match";
 import { ImportButton } from "./ImportButton";
+import { RelativeTime } from "./RelativeTime";
 
 export const dynamic = "force-dynamic";
 // MB matching for a 50-album playlist takes ~50s on a cold cache; bump the
@@ -122,7 +123,7 @@ export default async function SpotifyPlaylistPreview({
         <Card className="border-destructive/40">
           <CardHeader>
             <CardTitle className="text-destructive">
-              Couldn't load playlist
+              Couldn&apos;t load playlist
             </CardTitle>
             <CardDescription>{fetchError}</CardDescription>
           </CardHeader>
@@ -172,11 +173,11 @@ export default async function SpotifyPlaylistPreview({
             <Card className="mt-6">
               <CardHeader>
                 <CardTitle className="text-base">
-                  Tracks we couldn't match
+                  Tracks we couldn&apos;t match
                 </CardTitle>
                 <CardDescription>
-                  These albums weren't found in MusicBrainz. They'll be skipped
-                  during import.
+                  These albums weren&apos;t found in MusicBrainz. They&apos;ll
+                  be skipped during import.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -276,19 +277,6 @@ function SummaryStat({
   );
 }
 
-function RelativeTime({ date }: { date: Date }) {
-  const ms = Date.now() - new Date(date).getTime();
-  const minutes = Math.round(ms / 60000);
-  const hours = Math.round(ms / 3_600_000);
-  const days = Math.round(ms / 86_400_000);
-  let text: string;
-  if (minutes < 1) text = "just now";
-  else if (minutes < 60) text = `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
-  else if (hours < 24) text = `${hours} hour${hours === 1 ? "" : "s"} ago`;
-  else if (days < 30) text = `${days} day${days === 1 ? "" : "s"} ago`;
-  else text = new Date(date).toLocaleDateString();
-  return <time dateTime={new Date(date).toISOString()}>{text}</time>;
-}
 
 function MatchList({ items }: { items: SpotifyTrackMatch[] }) {
   return (

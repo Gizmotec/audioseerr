@@ -7,7 +7,7 @@ export default function Loading() {
         <Loader2 className="mb-3 h-6 w-6 animate-spin" />
         <p className="font-medium text-foreground">Matching against MusicBrainz</p>
         <p className="mt-1 max-w-md">
-          One lookup per unique album, throttled to 1/sec to respect MB's
+          One lookup per unique album, throttled to 1/sec to respect MB&apos;s
           rate limit. Big playlists can take a minute.
         </p>
       </div>

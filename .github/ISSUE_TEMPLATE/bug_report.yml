@@ -1,0 +1,70 @@
+name: Bug Report
+description: Report something that isn't working in Audioseerr
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out as much of the below as you can.
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear and concise description of what the bug is.
+      placeholder: Tell us what went wrong.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: How can we make the bug happen?
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What actually happened? Include error messages if any.
+    validations:
+      required: true
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: Deployment method
+      description: How are you running Audioseerr?
+      options:
+        - Docker (docker compose)
+        - Native (npm run dev / npm start)
+        - Other (please describe in the report)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Audioseerr version
+      description: Release tag, or `main` + the commit hash you're running (see `git log -1`).
+      placeholder: e.g. v0.1.0 or main @ ccc17a3
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: |
+        Paste any relevant logs — from the browser console, `docker compose logs audioseerr`, or your terminal. Please redact secrets (API keys, passwords).
+      render: shell
+    validations:
+      required: false

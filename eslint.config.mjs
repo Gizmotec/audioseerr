@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local AI-agent state (Claude Code worktrees) — gitignored, but eslint
+    // still scans it and drowns real findings in thousands of artifacts.
+    ".claude/**",
   ]),
 ]);
 

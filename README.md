@@ -4,7 +4,15 @@ A self-hosted, multi-user "Overseerr for music" — discovery-first browse UI fo
 
 Design document: [`docs/plans/2026-05-03-audioseerr-design.md`](docs/plans/2026-05-03-audioseerr-design.md)
 
-**Status:** v1 in development. The scaffold (Next.js 16, TypeScript, Tailwind 4, shadcn/ui, Prisma 7 + SQLite, Auth.js v5, node-cron) is in place; feature milestones from §14 of the design doc are not yet built.
+**Status:** v1 nearing release. Discovery browsing, request workflow with admin approval, Soulseek (slskd) downloads, in-app streaming of your library, daily/discover mixes, playlists, and Spotify import are all working. Built with Next.js 16, TypeScript, Tailwind 4, shadcn/ui, Prisma 7 + SQLite, Auth.js v5, and node-cron.
+
+## Screenshots
+
+| | |
+|---|---|
+| ![Login page](docs/screenshots/login.png) | ![Setup wizard — create the first admin](docs/screenshots/setup-wizard.png) |
+| ![Home](docs/screenshots/home.png) | ![Discover — track-first browsing](docs/screenshots/discover.png) |
+| ![Playlists](docs/screenshots/playlists.png) | |
 
 ## Local development
 

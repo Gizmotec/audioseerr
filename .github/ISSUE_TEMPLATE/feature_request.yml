@@ -1,0 +1,31 @@
+name: Feature Request
+description: Suggest an idea for Audioseerr
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea! Bigger features may be turned into a design doc in `docs/plans/` before implementation — see CONTRIBUTING.md.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What problem would this solve for you? Is your feature request related to a frustration or gap?
+      placeholder: e.g. I'm always frustrated when ...
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Describe the solution you'd like — what should Audioseerr do?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any alternative solutions, workarounds, or features you've considered?
+    validations:
+      required: false

@@ -67,7 +67,7 @@ export function isVersionNewer(candidate: string, current: string): boolean {
   return compareVersions(candidate, current) > 0;
 }
 
-function currentAppVersion(): string {
+export function currentAppVersion(): string {
   return process.env.AUDIOSEERR_VERSION?.trim() || packageJson.version;
 }
 

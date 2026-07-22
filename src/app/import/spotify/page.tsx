@@ -63,7 +63,7 @@ export default async function SpotifyImportPage() {
         <Card className="mb-6 border-destructive/40">
           <CardHeader>
             <CardTitle className="text-destructive">
-              Couldn't load playlists
+              Couldn&apos;t load playlists
             </CardTitle>
             <CardDescription>{error}</CardDescription>
           </CardHeader>
