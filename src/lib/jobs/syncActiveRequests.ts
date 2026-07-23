@@ -8,16 +8,17 @@ import {
 import { getAlbum } from "@/lib/musicbrainz";
 import { getSettings } from "@/lib/settings";
 import { notifyRequestTransition } from "@/lib/notifications";
+import { isTrackSearchDue } from "@/lib/trackSearchPolicy";
 import {
   type AlbumFileMatch,
   albumFolderOf,
   baseName,
   classifyTransfer,
   enqueueDownload,
+  findTrackCandidatesWithFallback,
   getDownloadTransfer,
   listUserDownloads,
   matchAlbumFiles,
-  rankTrackCandidates,
   searchTracks,
   type SlskdConfig,
 } from "@/lib/slskd";
@@ -33,12 +34,11 @@ const SEARCH_MAX_WAIT_MS = 30000;
 // starve transfer/library reconciliation; the rest get searched next tick.
 // ponytail: serial + capped; raise or parallelise if drain latency matters.
 const SEARCH_BUDGET_PER_RUN = 5;
+// Rows inspected before applying the per-request age-based retry policy. This
+// stays bounded while comfortably covering normal request backlogs.
+const SEARCH_SCAN_BUDGET = 250;
 // Ranked candidates kept for peer failover on transfer errors.
 const CANDIDATE_SHORTLIST = 8;
-// How long to wait before re-searching a track we couldn't find. Tracks that
-// aren't on Soulseek yet (new/unreleased) stay APPROVED and get retried on this
-// cadence — possibly forever — instead of failing, since they may appear later.
-const NOT_FOUND_RETRY_MS = 30 * 60 * 1000;
 
 type TrackCandidate = { username: string; filename: string; size: number };
 
@@ -386,17 +386,19 @@ export async function syncActiveRequests(): Promise<{
 async function runTrackSearches(slskdConfig: SlskdConfig): Promise<number> {
   // Fresh approvals (lastSearchedAt null) sort first in SQLite ASC, so a backlog
   // of never-found tracks can't starve a new request out of the per-run budget.
-  const retryCutoff = new Date(Date.now() - NOT_FOUND_RETRY_MS);
-  const pending = await prisma.request.findMany({
+  const now = new Date();
+  const searchCandidates = await prisma.request.findMany({
     where: {
       status: "APPROVED",
       type: "TRACK",
       slskdFile: null,
-      OR: [{ lastSearchedAt: null }, { lastSearchedAt: { lt: retryCutoff } }],
     },
     orderBy: { lastSearchedAt: "asc" },
-    take: SEARCH_BUDGET_PER_RUN,
+    take: SEARCH_SCAN_BUDGET,
   });
+  const pending = searchCandidates
+    .filter((request) => isTrackSearchDue(request, now))
+    .slice(0, SEARCH_BUDGET_PER_RUN);
 
   let changed = 0;
   for (const req of pending) {
@@ -416,30 +418,37 @@ async function runTrackSearches(slskdConfig: SlskdConfig): Promise<number> {
         }
       }
 
-      const query = `${req.artistName} ${req.title}`;
-      const candidates = await searchTracks(slskdConfig, query, {
-        searchTimeoutMs: SEARCH_TIMEOUT_MS,
-        maxWaitMs: SEARCH_MAX_WAIT_MS,
-      });
-      const ranked = rankTrackCandidates(candidates, {
-        artistName: req.artistName,
-        trackTitle: req.title,
-        durationSec,
-      }).slice(0, CANDIDATE_SHORTLIST);
+      const outcome = await findTrackCandidatesWithFallback(
+        {
+          artistName: req.artistName,
+          trackTitle: req.title,
+          albumTitle: req.albumTitle,
+          durationSec,
+        },
+        (query) =>
+          searchTracks(slskdConfig, query, {
+            searchTimeoutMs: SEARCH_TIMEOUT_MS,
+            maxWaitMs: SEARCH_MAX_WAIT_MS,
+          }),
+      );
+      const ranked = outcome.ranked.slice(0, CANDIDATE_SHORTLIST);
+
+      console.log(
+        `[sync] track search ${req.id} tried=${outcome.queriesTried.length} queries=${JSON.stringify(outcome.queriesTried)} candidates=${outcome.candidateCount} matches=${ranked.length}`,
+      );
 
       if (ranked.length === 0) {
         // Not found (yet). Keep it APPROVED and stamp lastSearchedAt so it
-        // retries on the NOT_FOUND_RETRY_MS cadence — the track may appear on
-        // Soulseek later (newly released/shared). Not a status change, so it
-        // doesn't count toward `changed` or trigger a library resync.
+        // retries on the age-based cadence — the track may appear later, or a
+        // temporarily-suppressed query may start returning responses again.
         await prisma.request.update({
           where: { id: req.id },
           data: {
             lastSearchedAt: new Date(),
             declineReason:
-              candidates.length === 0
-                ? "Not on Soulseek yet — we'll keep checking and grab it when it appears."
-                : `Found ${candidates.length} files but none matched closely enough yet — we'll keep checking.`,
+              outcome.candidateCount === 0
+                ? `No Soulseek responses to ${outcome.queriesTried.length} search variations yet — we'll keep checking.`
+                : `Found ${outcome.candidateCount} files across ${outcome.queriesTried.length} searches but none matched the artist, title, and duration closely enough yet.`,
           },
         });
         continue;

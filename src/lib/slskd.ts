@@ -239,7 +239,87 @@ export type PickTrackInput = {
   trackTitle: string;
   /** Expected duration from MusicBrainz; the strongest correctness signal. */
   durationSec?: number | null;
+  /** Used by title/album-only searches to reject same-title files by other artists. */
+  requireArtistMatch?: boolean;
 };
+
+export type TrackSearchQuery = {
+  text: string;
+  /** Broad fallbacks must prove the artist appears somewhere in the remote path. */
+  requireArtistMatch: boolean;
+};
+
+export type TrackSearchInput = PickTrackInput & {
+  albumTitle?: string | null;
+};
+
+/**
+ * Build a small, ordered set of Soulseek queries. Some otherwise-common exact
+ * artist/title combinations are suppressed by the network, while a distinctive
+ * artist token, title, or album query can still return the same files. Broad
+ * fallbacks are marked for strict artist validation during candidate ranking.
+ */
+export function buildTrackSearchQueries(
+  input: TrackSearchInput,
+): TrackSearchQuery[] {
+  const queries: TrackSearchQuery[] = [];
+  const seen = new Set<string>();
+  const add = (text: string, requireArtistMatch: boolean) => {
+    const cleaned = text.replace(/\s+/g, " ").trim();
+    const key = cleaned.toLowerCase();
+    if (!cleaned || seen.has(key)) return;
+    seen.add(key);
+    queries.push({ text: cleaned, requireArtistMatch });
+  };
+
+  add(`${input.artistName} ${input.trackTitle}`, false);
+
+  const compactArtist = input.artistName
+    .split(/\s+/)
+    .map((part) => part.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ""))
+    .find(
+      (part) =>
+        part.length >= 3 && !new Set(["the", "and"]).has(part.toLowerCase()),
+    );
+  if (compactArtist) add(`${compactArtist} ${input.trackTitle}`, true);
+
+  add(input.trackTitle, true);
+  if (input.albumTitle) add(input.albumTitle, true);
+
+  return queries.slice(0, 4);
+}
+
+export type TrackSearchOutcome = {
+  ranked: SlskdFileCandidate[];
+  queriesTried: string[];
+  candidateCount: number;
+};
+
+/** Run the query plan in order and stop at the first safely-ranked match set. */
+export async function findTrackCandidatesWithFallback(
+  input: TrackSearchInput,
+  search: (query: string) => Promise<SlskdFileCandidate[]>,
+): Promise<TrackSearchOutcome> {
+  const queriesTried: string[] = [];
+  let candidateCount = 0;
+
+  for (const query of buildTrackSearchQueries(input)) {
+    queriesTried.push(query.text);
+    const candidates = await search(query.text);
+    candidateCount += candidates.length;
+    const ranked = rankTrackCandidates(candidates, {
+      artistName: input.artistName,
+      trackTitle: input.trackTitle,
+      durationSec: input.durationSec,
+      requireArtistMatch: query.requireArtistMatch,
+    });
+    if (ranked.length > 0) {
+      return { ranked, queriesTried, candidateCount };
+    }
+  }
+
+  return { ranked: [], queriesTried, candidateCount };
+}
 
 /**
  * Rank candidates best-first. Selection prioritises, in rough order:
@@ -282,11 +362,20 @@ function scoreCandidate(
   wantsRemix: boolean,
 ): number {
   const base = baseName(c.filename).toLowerCase();
+  const fullPath = c.filename.toLowerCase();
 
   // Must match at least one track-title token, else it's almost certainly the
   // wrong file — drop it (a single album folder can return dozens of siblings).
   const trackHits = trackTokens.filter((t) => base.includes(t)).length;
   if (trackTokens.length > 0 && trackHits === 0) return -Infinity;
+
+  // Broad title/album-only queries can return another artist's recording with
+  // the same title. The remote directory normally carries the artist even when
+  // the basename is just "01 Title.flac", so validate against the full path.
+  const artistHits = artistTokens.filter((t) => fullPath.includes(t)).length;
+  if (input.requireArtistMatch && artistTokens.length > 0 && artistHits === 0) {
+    return -Infinity;
+  }
 
   // Duration is the strongest correctness signal. Reject files that are far off
   // the MusicBrainz length (remixes, live cuts, extended edits, mislabels).
@@ -296,7 +385,6 @@ function scoreCandidate(
   }
 
   let score = 0;
-  const artistHits = artistTokens.filter((t) => base.includes(t)).length;
   score += trackHits * 10;
   score += artistHits * 5;
 
