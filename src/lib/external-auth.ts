@@ -23,8 +23,8 @@ import {
 // create a role-USER account with an unusable password; never auto-admin).
 //
 // Like the OIDC provider, these are built once at module init (src/auth.ts):
-// env changes apply on the next server restart, and the login page reads the
-// same env-based config helpers, so button and provider always agree.
+// Settings/env changes apply on the next server restart, and the login page
+// reads the same config helpers, so button and provider always agree.
 
 type LocalUser = {
   id: string;

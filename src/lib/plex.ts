@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+import { getExternalLoginBootRow } from "@/lib/externalLoginBoot";
 
 // Plex sign-in (OAuth PIN flow — Plex has no OIDC, so this is a custom flow
 // rather than a next-auth provider talking to a discovery document):
@@ -11,13 +12,16 @@ import { createHash, randomBytes } from "node:crypto";
 //      provider (src/lib/external-auth.ts), which RE-fetches the PIN and the
 //      plex.tv user server-side — the authToken never reaches the browser.
 //
-// Config is environment-based (no Settings columns exist for Plex and the
-// schema can't grow any in this wave):
-//   PLEX_ENABLED            "1"/"true"/"yes" turns the login button + provider on
-//   PLEX_CLIENT_IDENTIFIER  optional; defaults to a stable id derived from
-//                           AUDIOSEERR_SECRET (so Plex sees one app identity
-//                           across restarts), falling back to a per-process
-//                           random id when no secret is configured.
+// Config lives in the Settings table (plexEnabled — default ON — and
+// plexClientIdentifier), editable in /admin/settings and read at process boot
+// via the snapshot in src/lib/externalLoginBoot.ts. Environment variables
+// override the database values when set:
+//   PLEX_ENABLED            "1"/"true"/"yes" on, anything else (e.g. "0") off
+//   PLEX_CLIENT_IDENTIFIER  optional; defaults to the Settings value, else a
+//                           stable id derived from AUDIOSEERR_SECRET (so Plex
+//                           sees one app identity across restarts), falling
+//                           back to a per-process random id when no secret is
+//                           configured.
 //
 // The pure mappers/builders in this module stay free of Prisma/Next/Auth.js
 // imports so they're unit-testable in isolation (tests/plex.test.ts) — same
@@ -38,6 +42,21 @@ function envFlagEnabled(value: string | undefined): boolean {
   return /^(1|true|yes)$/i.test(value?.trim() ?? "");
 }
 
+/**
+ * Env-over-DB on/off resolution: a set PLEX_ENABLED always wins — "0" is a
+ * kill switch even when the admin toggled Plex on — and an unset/empty
+ * PLEX_ENABLED defers to the Settings toggle (default ON). Pure + exported
+ * for tests; getPlexAuthConfig feeds it process.env and the boot snapshot.
+ */
+export function resolvePlexEnabled(
+  envValue: string | undefined,
+  settingsValue: boolean,
+): boolean {
+  const env = envValue?.trim();
+  if (env) return envFlagEnabled(env);
+  return settingsValue;
+}
+
 // Module-level memo: the client identifier must be stable for the life of the
 // process (the PIN create, the auth URL, and the poll all have to agree), so
 // the random fallback is resolved once, mirroring oidc.ts's boot snapshot.
@@ -48,6 +67,9 @@ export function getPlexClientIdentifier(): string {
 
   const fromEnv = process.env.PLEX_CLIENT_IDENTIFIER?.trim();
   if (fromEnv) return (resolvedClientId = fromEnv);
+
+  const fromSettings = getExternalLoginBootRow().plexClientIdentifier;
+  if (fromSettings) return (resolvedClientId = fromSettings);
 
   const secret = process.env.AUDIOSEERR_SECRET ?? process.env.AUTH_SECRET;
   if (secret) {
@@ -62,9 +84,15 @@ export function getPlexClientIdentifier(): string {
   return (resolvedClientId = randomBytes(16).toString("hex"));
 }
 
-/** Plex sign-in is live iff PLEX_ENABLED is set (read at process boot). */
+/**
+ * Plex sign-in is live when the env var or the Settings toggle enables it
+ * (read at process boot — changes apply on the next restart).
+ */
 export function getPlexAuthConfig(): PlexAuthConfig | null {
-  if (!envFlagEnabled(process.env.PLEX_ENABLED)) return null;
+  const row = getExternalLoginBootRow();
+  if (!resolvePlexEnabled(process.env.PLEX_ENABLED, row.plexEnabled)) {
+    return null;
+  }
   return { clientId: getPlexClientIdentifier() };
 }
 

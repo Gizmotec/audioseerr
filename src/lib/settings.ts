@@ -21,6 +21,11 @@ export type SettingsView = {
   oidcClientId: string | null;
   oidcClientSecret: string | null;
   oidcButtonLabel: string;
+  plexEnabled: boolean;
+  plexClientIdentifier: string | null;
+  jellyfinEnabled: boolean;
+  jellyfinServerUrl: string | null;
+  jellyfinApiKey: string | null;
 };
 
 export const OIDC_BUTTON_LABEL_DEFAULT = "SSO";
@@ -80,6 +85,13 @@ export async function getSettings(): Promise<SettingsView> {
       : null,
     oidcButtonLabel:
       oidc.oidcButtonLabel?.trim() || OIDC_BUTTON_LABEL_DEFAULT,
+    plexEnabled: row.plexEnabled,
+    plexClientIdentifier: row.plexClientIdentifier,
+    jellyfinEnabled: row.jellyfinEnabled,
+    jellyfinServerUrl: row.jellyfinServerUrl,
+    jellyfinApiKey: row.jellyfinApiKey
+      ? decryptOrRaw(row.jellyfinApiKey)
+      : null,
   };
 }
 
@@ -98,6 +110,11 @@ export type SettingsUpdate = {
   oidcClientId?: string | null;
   oidcClientSecret?: string | null;
   oidcButtonLabel?: string | null;
+  plexEnabled?: boolean;
+  plexClientIdentifier?: string | null;
+  jellyfinEnabled?: boolean;
+  jellyfinServerUrl?: string | null;
+  jellyfinApiKey?: string | null;
 };
 
 // Whitelisted column list for the OIDC write — column names are literals
@@ -132,6 +149,9 @@ export async function saveSettings(update: SettingsUpdate): Promise<void> {
   }
   if (data.lastFmApiSecret !== undefined && data.lastFmApiSecret !== null) {
     data.lastFmApiSecret = encrypt(data.lastFmApiSecret);
+  }
+  if (data.jellyfinApiKey !== undefined && data.jellyfinApiKey !== null) {
+    data.jellyfinApiKey = encrypt(data.jellyfinApiKey);
   }
   await prisma.settings.upsert({
     where: { id: 1 },

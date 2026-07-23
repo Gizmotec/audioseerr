@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+import { getExternalLoginBootRow } from "@/lib/externalLoginBoot";
 import { sanitizeUsername } from "@/lib/oidc-username";
 import { currentAppVersion } from "@/lib/version";
 
@@ -8,13 +9,16 @@ import { currentAppVersion } from "@/lib/version";
 // server's /Users/AuthenticateByName endpoint. The local account is then
 // linked/provisioned exactly like OIDC and Plex sign-ins.
 //
-// Config is environment-based (same reason as Plex — no schema changes this
-// wave):
-//   JELLYFIN_SERVER_URL  e.g. http://jellyfin:8096 — required to enable
+// Config lives in the Settings table (jellyfinEnabled + jellyfinServerUrl,
+// optional jellyfinApiKey), editable in /admin/settings and read at process
+// boot via the snapshot in src/lib/externalLoginBoot.ts. Environment
+// variables override the database values when set:
+//   JELLYFIN_SERVER_URL  e.g. http://jellyfin:8096 — a set URL also turns the
+//                        method on regardless of the Settings toggle
 //   JELLYFIN_API_KEY     optional; appended as Token=… in X-Emby-Authorization
-//   JELLYFIN_DEVICE_ID   optional; defaults to a stable id derived from
-//                        AUDIOSEERR_SECRET so Jellyfin's device list doesn't
-//                        fill up with a new "device" on every restart.
+//   JELLYFIN_DEVICE_ID   optional (env-only); defaults to a stable id derived
+//                        from AUDIOSEERR_SECRET so Jellyfin's device list
+//                        doesn't fill up with a new "device" on every restart.
 //
 // Email: Jellyfin's UserDto has no standard email field. When the server (or
 // a fork/plugin) does return one we link on it; otherwise we synthesize
@@ -58,10 +62,8 @@ export function getJellyfinDeviceId(): string {
   return (resolvedDeviceId = `audioseerr-${randomBytes(8).toString("hex")}`);
 }
 
-/** Jellyfin sign-in is live iff JELLYFIN_SERVER_URL is a valid http(s) URL. */
-export function getJellyfinAuthConfig(): JellyfinAuthConfig | null {
-  const raw = process.env.JELLYFIN_SERVER_URL?.trim();
-  if (!raw) return null;
+/** Valid http(s) URL with trailing slashes trimmed, else null. */
+function normalizeServerUrl(raw: string): string | null {
   let parsed: URL;
   try {
     parsed = new URL(raw);
@@ -69,11 +71,54 @@ export function getJellyfinAuthConfig(): JellyfinAuthConfig | null {
     return null;
   }
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
-  return {
-    serverUrl: raw.replace(/\/+$/, ""),
-    apiKey: process.env.JELLYFIN_API_KEY?.trim() || null,
-    deviceId: getJellyfinDeviceId(),
+  return raw.replace(/\/+$/, "");
+}
+
+/**
+ * Pure env-over-DB resolution of the Jellyfin server connection. A set
+ * JELLYFIN_SERVER_URL always wins (and turns the method on by itself);
+ * otherwise the Settings toggle + URL rule. Exported for tests —
+ * getJellyfinAuthConfig feeds it process.env and the boot snapshot, and adds
+ * the process-stable device id.
+ */
+export function resolveJellyfinServerConfig(input: {
+  envUrl: string | undefined;
+  envApiKey: string | undefined;
+  settings: {
+    jellyfinEnabled: boolean;
+    jellyfinServerUrl: string | null;
+    jellyfinApiKey: string | null;
   };
+}): { serverUrl: string; apiKey: string | null } | null {
+  const fromEnv = input.envUrl?.trim();
+  if (fromEnv) {
+    const serverUrl = normalizeServerUrl(fromEnv);
+    return serverUrl
+      ? { serverUrl, apiKey: input.envApiKey?.trim() || null }
+      : null;
+  }
+  if (!input.settings.jellyfinEnabled) return null;
+  const raw = input.settings.jellyfinServerUrl?.trim();
+  if (!raw) return null;
+  const serverUrl = normalizeServerUrl(raw);
+  return serverUrl
+    ? { serverUrl, apiKey: input.settings.jellyfinApiKey?.trim() || null }
+    : null;
+}
+
+/**
+ * Jellyfin sign-in is live when a valid server URL comes from the env var or
+ * from the enabled Settings toggle (read at process boot — changes apply on
+ * the next restart).
+ */
+export function getJellyfinAuthConfig(): JellyfinAuthConfig | null {
+  const resolved = resolveJellyfinServerConfig({
+    envUrl: process.env.JELLYFIN_SERVER_URL,
+    envApiKey: process.env.JELLYFIN_API_KEY,
+    settings: getExternalLoginBootRow(),
+  });
+  if (!resolved) return null;
+  return { ...resolved, deviceId: getJellyfinDeviceId() };
 }
 
 /**

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildPlexAuthUrl, mapPlexPin, mapPlexUser } from "@/lib/plex";
+import {
+  buildPlexAuthUrl,
+  mapPlexPin,
+  mapPlexUser,
+  resolvePlexEnabled,
+} from "@/lib/plex";
 
 describe("mapPlexPin", () => {
   it("maps a fresh PIN (no authToken yet)", () => {
@@ -82,5 +87,23 @@ describe("buildPlexAuthUrl", () => {
     const url = buildPlexAuthUrl({ clientId: "id with space", code: "c&d" });
     expect(url).toContain("clientID=id+with+space");
     expect(url).toContain("code=c%26d");
+  });
+});
+
+describe("resolvePlexEnabled", () => {
+  it("falls back to the Settings toggle when PLEX_ENABLED is unset or empty", () => {
+    expect(resolvePlexEnabled(undefined, true)).toBe(true);
+    expect(resolvePlexEnabled(undefined, false)).toBe(false);
+    expect(resolvePlexEnabled("", true)).toBe(true);
+    expect(resolvePlexEnabled("   ", false)).toBe(false);
+  });
+
+  it("lets the env var override the toggle in both directions", () => {
+    expect(resolvePlexEnabled("1", false)).toBe(true);
+    expect(resolvePlexEnabled("TRUE", false)).toBe(true);
+    expect(resolvePlexEnabled("yes", false)).toBe(true);
+    // "0" is the kill switch: off even when the admin toggled Plex on.
+    expect(resolvePlexEnabled("0", true)).toBe(false);
+    expect(resolvePlexEnabled("false", true)).toBe(false);
   });
 });

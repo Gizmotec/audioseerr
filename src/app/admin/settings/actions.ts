@@ -36,6 +36,11 @@ const saveInput = z.object({
   oidcClientId: z.string(),
   oidcClientSecret: z.string(),
   oidcButtonLabel: z.string(),
+  plexEnabled: z.boolean(),
+  plexClientIdentifier: z.string(),
+  jellyfinEnabled: z.boolean(),
+  jellyfinServerUrl: z.string(),
+  jellyfinApiKey: z.string(),
 });
 
 export type SaveResult = { ok: true } | { ok: false; error: string };
@@ -98,6 +103,33 @@ export async function saveAdminSettingsAction(
     }
   }
 
+  if (data.jellyfinServerUrl.trim()) {
+    const serverUrl = data.jellyfinServerUrl.trim();
+    const url = z
+      .string()
+      .url("Jellyfin server URL must be a valid URL")
+      .safeParse(serverUrl);
+    if (!url.success) {
+      return {
+        ok: false,
+        error: url.error.issues[0]?.message ?? "Invalid Jellyfin server URL",
+      };
+    }
+    if (!/^https?:\/\//.test(serverUrl)) {
+      return {
+        ok: false,
+        error: "Jellyfin server URL must start with http:// or https://.",
+      };
+    }
+  }
+
+  if (data.jellyfinEnabled && !data.jellyfinServerUrl.trim()) {
+    return {
+      ok: false,
+      error: "Server URL is required to enable Jellyfin sign-in.",
+    };
+  }
+
   // Validate the path-map syntax up front so the user gets a helpful error
   // instead of seeing playback fail silently on the next request.
   if (data.mediaPathMap.trim()) {
@@ -146,6 +178,21 @@ export async function saveAdminSettingsAction(
     oidcButtonLabel: data.oidcButtonLabel.trim()
       ? data.oidcButtonLabel.trim()
       : null,
+    plexEnabled: data.plexEnabled,
+    plexClientIdentifier: data.plexClientIdentifier.trim()
+      ? data.plexClientIdentifier.trim()
+      : null,
+    jellyfinEnabled: data.jellyfinEnabled,
+    jellyfinServerUrl: data.jellyfinServerUrl.trim()
+      ? data.jellyfinServerUrl.trim()
+      : null,
+    ...(data.jellyfinApiKey === KEY_UNCHANGED
+      ? {}
+      : {
+          jellyfinApiKey: data.jellyfinApiKey.trim()
+            ? data.jellyfinApiKey.trim()
+            : null,
+        }),
     });
   } catch (err) {
     // The OIDC columns arrive with the SSO schema migration; saveSettings

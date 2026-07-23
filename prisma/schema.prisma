@@ -244,6 +244,16 @@ model Settings {
   oidcClientId     String?
   oidcClientSecret String? // AES-256-GCM encrypted like the other secrets
   oidcButtonLabel  String  @default("SSO")
+  // External login (Plex PIN flow, Jellyfin username/password). Read at boot
+  // by src/lib/plex.ts / src/lib/jellyfin.ts — changing these requires a
+  // container restart. The PLEX_*/JELLYFIN_* environment variables override
+  // them when set. plexEnabled defaults on: Plex sign-in needs no further
+  // config. Jellyfin sign-in requires jellyfinEnabled + jellyfinServerUrl.
+  plexEnabled          Boolean @default(true)
+  plexClientIdentifier String?
+  jellyfinEnabled      Boolean @default(false)
+  jellyfinServerUrl    String?
+  jellyfinApiKey       String? // AES-256-GCM encrypted like the other secrets
 }
 
 // Overseerr-style issue report: a user flags a wrong match, bad metadata, or

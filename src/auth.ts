@@ -51,7 +51,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
     ...(oidcProvider ? [oidcProvider] : []),
     // Plex/Jellyfin sign-ins: credentials providers that verify against the
     // upstream service inside authorize() (src/lib/external-auth.ts). Empty
-    // when neither is configured via environment variables.
+    // when neither is enabled in Settings or via environment variables.
     ...buildExternalProviders(),
   ],
   callbacks: {

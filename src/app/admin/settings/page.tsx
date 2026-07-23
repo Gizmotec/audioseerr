@@ -6,8 +6,6 @@ import { redirect } from "next/navigation";
 import { UsersAdminClient } from "@/app/admin/users/UsersAdminClient";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { getJellyfinAuthConfig } from "@/lib/jellyfin";
-import { getPlexAuthConfig } from "@/lib/plex";
 import { getSettings, isSetupComplete, type SettingsView } from "@/lib/settings";
 import { applyPathMap, parsePathMap } from "@/lib/streaming";
 import { cn } from "@/lib/utils";
@@ -132,15 +130,15 @@ async function SettingsTab({
     audioseerrSecret: !!process.env.AUDIOSEERR_SECRET,
   };
 
-  // External login methods are env-configured (no Settings columns for them),
-  // so the settings UI only reports status. These mirror the exact helpers
-  // src/auth.ts used to build the providers at boot.
-  const jellyfin = getJellyfinAuthConfig();
-  const externalLogin = {
-    plexEnabled: !!getPlexAuthConfig(),
-    plexClientIdSet: !!process.env.PLEX_CLIENT_IDENTIFIER?.trim(),
-    jellyfinServerUrl: jellyfin?.serverUrl ?? null,
-    jellyfinApiKeySet: !!process.env.JELLYFIN_API_KEY?.trim(),
+  // External login (Plex/Jellyfin) is configured in the database via the
+  // form below. These flags tell the UI when an environment variable
+  // overrides a database setting, so it can say why a toggle/field is being
+  // ignored (the env value always wins at boot).
+  const externalLoginEnv = {
+    plexEnabled: !!process.env.PLEX_ENABLED?.trim(),
+    plexClientIdentifier: !!process.env.PLEX_CLIENT_IDENTIFIER?.trim(),
+    jellyfinServerUrl: !!process.env.JELLYFIN_SERVER_URL?.trim(),
+    jellyfinApiKey: !!process.env.JELLYFIN_API_KEY?.trim(),
   };
 
   // Derive the redirect URI from the request origin so it matches whatever
@@ -168,10 +166,15 @@ async function SettingsTab({
         oidcClientId: settings.oidcClientId ?? "",
         oidcClientSecretMasked: settings.oidcClientSecret ? "••••••••" : "",
         oidcButtonLabel: settings.oidcButtonLabel,
+        plexEnabled: settings.plexEnabled,
+        plexClientIdentifier: settings.plexClientIdentifier ?? "",
+        jellyfinEnabled: settings.jellyfinEnabled,
+        jellyfinServerUrl: settings.jellyfinServerUrl ?? "",
+        jellyfinApiKeyMasked: settings.jellyfinApiKey ? "••••••••" : "",
       }}
       oidcCallbackUrl={oidcCallbackUrl}
       env={env}
-      externalLogin={externalLogin}
+      externalLoginEnv={externalLoginEnv}
       storage={await getStorageStats(settings)}
       spotify={{
         initialClientId: user?.spotifyClientId ?? "",

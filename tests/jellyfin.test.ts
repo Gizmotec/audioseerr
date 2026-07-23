@@ -3,6 +3,7 @@ import {
   buildEmbyAuthorizationHeader,
   jellyfinEmailForUser,
   mapJellyfinAuthResponse,
+  resolveJellyfinServerConfig,
 } from "@/lib/jellyfin";
 
 describe("buildEmbyAuthorizationHeader", () => {
@@ -106,5 +107,117 @@ describe("jellyfinEmailForUser", () => {
     expect(jellyfinEmailForUser({ name: "日本語", email: null })).toBe(
       "user@jellyfin.local",
     );
+  });
+});
+
+describe("resolveJellyfinServerConfig", () => {
+  const settings = (
+    over: Partial<{
+      jellyfinEnabled: boolean;
+      jellyfinServerUrl: string | null;
+      jellyfinApiKey: string | null;
+    }> = {},
+  ) => ({
+    jellyfinEnabled: false,
+    jellyfinServerUrl: null,
+    jellyfinApiKey: null,
+    ...over,
+  });
+
+  it("is off with no env URL and the Settings toggle disabled", () => {
+    expect(
+      resolveJellyfinServerConfig({
+        envUrl: undefined,
+        envApiKey: undefined,
+        settings: settings(),
+      }),
+    ).toBeNull();
+  });
+
+  it("is off when the toggle is on but no server URL is configured", () => {
+    expect(
+      resolveJellyfinServerConfig({
+        envUrl: undefined,
+        envApiKey: undefined,
+        settings: settings({ jellyfinEnabled: true }),
+      }),
+    ).toBeNull();
+  });
+
+  it("uses the Settings URL + API key when the toggle is on", () => {
+    expect(
+      resolveJellyfinServerConfig({
+        envUrl: undefined,
+        envApiKey: undefined,
+        settings: settings({
+          jellyfinEnabled: true,
+          jellyfinServerUrl: "http://jellyfin:8096/",
+          jellyfinApiKey: "db-key",
+        }),
+      }),
+    ).toEqual({ serverUrl: "http://jellyfin:8096", apiKey: "db-key" });
+  });
+
+  it("rejects invalid and non-http(s) Settings URLs", () => {
+    expect(
+      resolveJellyfinServerConfig({
+        envUrl: undefined,
+        envApiKey: undefined,
+        settings: settings({
+          jellyfinEnabled: true,
+          jellyfinServerUrl: "ftp://jellyfin",
+        }),
+      }),
+    ).toBeNull();
+    expect(
+      resolveJellyfinServerConfig({
+        envUrl: undefined,
+        envApiKey: undefined,
+        settings: settings({
+          jellyfinEnabled: true,
+          jellyfinServerUrl: "not a url",
+        }),
+      }),
+    ).toBeNull();
+  });
+
+  it("lets the env URL win and turn the method on even with the toggle off", () => {
+    expect(
+      resolveJellyfinServerConfig({
+        envUrl: "https://jf.example.com/",
+        envApiKey: "env-key",
+        settings: settings({
+          jellyfinEnabled: false,
+          jellyfinServerUrl: "http://db:8096",
+          jellyfinApiKey: "db-key",
+        }),
+      }),
+    ).toEqual({ serverUrl: "https://jf.example.com", apiKey: "env-key" });
+  });
+
+  it("treats an empty env URL as unset", () => {
+    expect(
+      resolveJellyfinServerConfig({
+        envUrl: "  ",
+        envApiKey: undefined,
+        settings: settings({
+          jellyfinEnabled: true,
+          jellyfinServerUrl: "http://db:8096",
+        }),
+      }),
+    ).toEqual({ serverUrl: "http://db:8096", apiKey: null });
+  });
+
+  it("an invalid env URL disables the method rather than falling back to the DB", () => {
+    expect(
+      resolveJellyfinServerConfig({
+        envUrl: "not a url",
+        envApiKey: undefined,
+        settings: settings({
+          jellyfinEnabled: true,
+          jellyfinServerUrl: "http://db:8096",
+        }),
+      }),
+    ).toBeNull();
   });
 });

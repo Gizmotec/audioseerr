@@ -52,6 +52,11 @@ type Initial = {
   oidcClientId: string;
   oidcClientSecretMasked: string;
   oidcButtonLabel: string;
+  plexEnabled: boolean;
+  plexClientIdentifier: string;
+  jellyfinEnabled: boolean;
+  jellyfinServerUrl: string;
+  jellyfinApiKeyMasked: string;
 };
 
 type EnvFlags = {
@@ -60,14 +65,14 @@ type EnvFlags = {
   audioseerrSecret: boolean;
 };
 
-// Read-only status for the env-configured external login methods (Plex PIN
-// flow, Jellyfin username/password). Computed on the server from the same
-// helpers that built the Auth.js providers at boot.
-export type ExternalLoginStatus = {
+// One flag per external-login environment variable: when set, the env value
+// overrides the database setting at boot, so the UI notes that next to the
+// field instead of letting the admin edit a value that would be ignored.
+export type ExternalLoginEnvFlags = {
   plexEnabled: boolean;
-  plexClientIdSet: boolean;
-  jellyfinServerUrl: string | null;
-  jellyfinApiKeySet: boolean;
+  plexClientIdentifier: boolean;
+  jellyfinServerUrl: boolean;
+  jellyfinApiKey: boolean;
 };
 
 export type StorageStats = {
@@ -157,7 +162,7 @@ const SECTIONS: SectionDef[] = [
     tab: "general",
     title: "External login (Plex, Jellyfin)",
     keywords:
-      "plex jellyfin emby external login pin oauth media server sign-in environment variables read-only",
+      "plex jellyfin emby external login pin oauth media server sign-in toggle",
   },
   {
     id: "storage",
@@ -172,7 +177,7 @@ const normalize = (s: string) => s.toLowerCase().trim();
 export function SettingsForm({
   initial,
   env,
-  externalLogin,
+  externalLoginEnv,
   storage,
   spotify,
   isAdmin,
@@ -181,7 +186,7 @@ export function SettingsForm({
 }: {
   initial: Initial;
   env: EnvFlags;
-  externalLogin: ExternalLoginStatus;
+  externalLoginEnv: ExternalLoginEnvFlags;
   storage: StorageStats;
   spotify: SpotifyIntegration;
   isAdmin: boolean;
@@ -235,6 +240,21 @@ export function SettingsForm({
   const [oidcButtonLabel, setOidcButtonLabel] = useState(
     initial.oidcButtonLabel,
   );
+
+  const [plexEnabled, setPlexEnabled] = useState(initial.plexEnabled);
+  const [plexClientIdentifier, setPlexClientIdentifier] = useState(
+    initial.plexClientIdentifier,
+  );
+  const [jellyfinEnabled, setJellyfinEnabled] = useState(
+    initial.jellyfinEnabled,
+  );
+  const [jellyfinServerUrl, setJellyfinServerUrl] = useState(
+    initial.jellyfinServerUrl,
+  );
+  const [jellyfinApiKey, setJellyfinApiKey] = useState(
+    initial.jellyfinApiKeyMasked,
+  );
+  const [jellyfinApiKeyEdited, setJellyfinApiKeyEdited] = useState(false);
 
   const slskdConfigured = !!slskdUrl.trim() && !!slskdApiKey;
   const lastFmConfigured = !!lastFmApiKey.trim();
@@ -302,6 +322,14 @@ export function SettingsForm({
             ? oidcClientSecret
             : KEY_UNCHANGED_SENTINEL,
         oidcButtonLabel,
+        plexEnabled,
+        plexClientIdentifier,
+        jellyfinEnabled,
+        jellyfinServerUrl,
+        jellyfinApiKey:
+          jellyfinApiKeyEdited || !initial.jellyfinApiKeyMasked
+            ? jellyfinApiKey
+            : KEY_UNCHANGED_SENTINEL,
       });
       if (!res.ok) {
         setError(res.error);
@@ -311,9 +339,11 @@ export function SettingsForm({
       setSlskdKeyEdited(false);
       setLastFmSecretEdited(false);
       setOidcSecretEdited(false);
+      setJellyfinApiKeyEdited(false);
       if (slskdApiKey) setSlskdApiKey("••••••••");
       if (lastFmApiSecret) setLastFmApiSecret("••••••••");
       if (oidcClientSecret) setOidcClientSecret("••••••••");
+      if (jellyfinApiKey) setJellyfinApiKey("••••••••");
       router.refresh();
     });
   }
@@ -684,37 +714,117 @@ export function SettingsForm({
                 Plex&apos;s PIN flow, and username/password accounts on a
                 Jellyfin server. External sign-ins are matched to local
                 accounts by email and created automatically on first login,
-                always as regular users. Both methods are configured with
-                environment variables, so this card is read-only — changes
-                apply on the next server restart.
+                always as regular users. Changes take effect on the{" "}
+                <strong>next server restart</strong>.
               </CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-col gap-2">
-              <EnvRow label="PLEX_ENABLED" set={externalLogin.plexEnabled} />
-              <EnvRow
-                label="PLEX_CLIENT_IDENTIFIER"
-                set={externalLogin.plexClientIdSet}
-              />
-              <EnvValueRow
-                label="JELLYFIN_SERVER_URL"
-                value={externalLogin.jellyfinServerUrl}
-              />
-              <EnvRow
-                label="JELLYFIN_API_KEY"
-                set={externalLogin.jellyfinApiKeySet}
-              />
-              <p className="mt-1 text-xs text-muted-foreground">
-                Set <code className="font-mono">PLEX_ENABLED=1</code> to add a
-                “Sign in with Plex” button. Plex identifies this server with a
-                stable client id derived from AUDIOSEERR_SECRET unless{" "}
-                <code className="font-mono">PLEX_CLIENT_IDENTIFIER</code> is
-                set. Set <code className="font-mono">JELLYFIN_SERVER_URL</code>{" "}
-                (e.g. <code className="font-mono">http://jellyfin:8096</code>)
-                to add the Jellyfin sign-in form;{" "}
-                <code className="font-mono">JELLYFIN_API_KEY</code> is optional.
+            <CardContent className="flex flex-col gap-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <Label htmlFor="plexEnabled">Sign in with Plex</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Adds a “Sign in with Plex” button to the login page. On by
+                    default — Plex sign-in needs no other configuration.
+                  </p>
+                </div>
+                <Switch
+                  id="plexEnabled"
+                  checked={plexEnabled}
+                  onCheckedChange={(checked) => setPlexEnabled(checked)}
+                />
+              </div>
+              {externalLoginEnv.plexEnabled && (
+                <EnvOverrideNote name="PLEX_ENABLED" />
+              )}
+
+              <div className="space-y-1.5">
+                <Label htmlFor="plexClientIdentifier">
+                  Plex client identifier (optional)
+                </Label>
+                <Input
+                  id="plexClientIdentifier"
+                  value={plexClientIdentifier}
+                  onChange={(e) => setPlexClientIdentifier(e.target.value)}
+                  placeholder="Leave empty to derive one automatically"
+                />
+                <p className="text-xs text-muted-foreground">
+                  How Plex identifies this server. A stable id is derived from
+                  AUDIOSEERR_SECRET when this is empty.
+                </p>
+                {externalLoginEnv.plexClientIdentifier && (
+                  <EnvOverrideNote name="PLEX_CLIENT_IDENTIFIER" />
+                )}
+              </div>
+
+              <div className="flex items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <Label htmlFor="jellyfinEnabled">
+                    Sign in with Jellyfin
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Adds a Jellyfin username/password form to the login page.
+                    Off by default — it needs your server&apos;s address first.
+                  </p>
+                </div>
+                <Switch
+                  id="jellyfinEnabled"
+                  checked={jellyfinEnabled}
+                  onCheckedChange={(checked) => setJellyfinEnabled(checked)}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="jellyfinServerUrl">
+                    Jellyfin server URL
+                  </Label>
+                  <Input
+                    id="jellyfinServerUrl"
+                    value={jellyfinServerUrl}
+                    onChange={(e) => setJellyfinServerUrl(e.target.value)}
+                    placeholder="http://jellyfin:8096"
+                  />
+                  {externalLoginEnv.jellyfinServerUrl && (
+                    <EnvOverrideNote name="JELLYFIN_SERVER_URL" />
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="jellyfinApiKey">
+                    Jellyfin API key (optional)
+                  </Label>
+                  <Input
+                    id="jellyfinApiKey"
+                    type="password"
+                    value={jellyfinApiKey}
+                    onChange={(e) => {
+                      setJellyfinApiKey(e.target.value);
+                      setJellyfinApiKeyEdited(true);
+                    }}
+                    onFocus={() => {
+                      if (
+                        !jellyfinApiKeyEdited &&
+                        jellyfinApiKey.startsWith("••")
+                      ) {
+                        setJellyfinApiKey("");
+                      }
+                    }}
+                    placeholder="Stored encrypted, like the slskd key"
+                  />
+                  {externalLoginEnv.jellyfinApiKey && (
+                    <EnvOverrideNote name="JELLYFIN_API_KEY" />
+                  )}
+                </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground">
                 Jellyfin users without an email on their server get a{" "}
-                <code className="font-mono">&lt;username&gt;@jellyfin.local</code>{" "}
-                address for account matching.
+                <code className="font-mono">
+                  &lt;username&gt;@jellyfin.local
+                </code>{" "}
+                address for account matching. Setting a{" "}
+                <code className="font-mono">JELLYFIN_SERVER_URL</code>{" "}
+                environment variable overrides these fields and turns Jellyfin
+                sign-in on by itself.
               </p>
             </CardContent>
           </Card>
@@ -998,19 +1108,14 @@ function EnvRow({ label, set }: { label: string; set: boolean }) {
   );
 }
 
-// Like EnvRow, but for non-secret values worth showing verbatim (e.g. the
-// Jellyfin server URL) rather than as a set/not-set flag.
-function EnvValueRow({ label, value }: { label: string; value: string | null }) {
+// Shown next to an external-login field whose environment variable is set —
+// the env value overrides the database setting at boot, so editing the field
+// would have no effect until the variable is removed.
+function EnvOverrideNote({ name }: { name: string }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-xl bg-surface-2 px-3 py-2.5">
-      <code className="font-mono text-xs">{label}</code>
-      {value ? (
-        <code className="font-mono text-xs break-all text-pastel-mint">
-          {value}
-        </code>
-      ) : (
-        <span className="text-xs text-muted-foreground">not set</span>
-      )}
-    </div>
+    <p className="text-xs text-muted-foreground">
+      <code className="font-mono">{name}</code> is set in the server
+      environment and overrides this setting.
+    </p>
   );
 }
