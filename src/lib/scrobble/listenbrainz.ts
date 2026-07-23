@@ -129,3 +129,75 @@ export async function submitPlayingNow(
 ): Promise<void> {
   await postSubmitListens(token, buildSubmitPayload([track], "playing_now"));
 }
+
+// --- Read API (history import) ------------------------------------------------
+
+// GET /1/user/<name>/listens — a user's listen history, newest first. Auth
+// token is sent so private profiles work too (public profiles would be
+// readable without it). Deliberately uncached, mirroring the Last.fm import:
+// imports are a live user action and caching would fight incremental re-runs.
+//
+// Window params are unix seconds and inclusive at both ends; callers page by
+// moving max_ts below the oldest ts seen. `count` caps at 100 server-side
+// (docs max; higher values are accepted today but undocumented).
+export type ListenBrainzListen = {
+  listened_at: number;
+  track_metadata: {
+    artist_name?: string;
+    track_name?: string;
+    release_name?: string;
+    additional_info?: {
+      recording_mbid?: string;
+      /** Release-GROUP mbid (PlayHistory.albumMbid's convention) — present
+       * when ListenBrainz's mapper matched the listen. */
+      release_group_mbid?: string;
+      duration_ms?: number;
+      /** Both identify who submitted the listen — our own scrobbles carry
+       * media_player "Audioseerr" (see ListenMetadata above), which lets the
+       * importer skip re-importing what the app already recorded. */
+      media_player?: string;
+      submission_client?: string;
+    };
+  };
+};
+
+export type ListenBrainzListensPage = {
+  listens: ListenBrainzListen[];
+  latestListenTs: number | null;
+};
+
+type ListensResponse = {
+  payload?: {
+    count?: number;
+    latest_listen_ts?: number;
+    listens?: ListenBrainzListen[];
+  };
+};
+
+export async function getListens(
+  token: string,
+  userName: string,
+  opts?: { count?: number; minTs?: number; maxTs?: number },
+): Promise<ListenBrainzListensPage> {
+  const params = new URLSearchParams({ count: String(opts?.count ?? 100) });
+  if (opts?.minTs !== undefined) params.set("min_ts", String(opts.minTs));
+  if (opts?.maxTs !== undefined) params.set("max_ts", String(opts.maxTs));
+  const res = await fetch(
+    `${API_BASE}/user/${encodeURIComponent(userName)}/listens?${params.toString()}`,
+    {
+      headers: {
+        Authorization: "Token " + token,
+        "User-Agent": "Audioseerr/0.1.0 ( https://github.com/audioseerr )",
+        Accept: "application/json",
+      },
+    },
+  );
+  if (!res.ok) {
+    throw new Error(`ListenBrainz get-listens failed (${res.status})`);
+  }
+  const body = (await res.json()) as ListensResponse;
+  return {
+    listens: body.payload?.listens ?? [],
+    latestListenTs: body.payload?.latest_listen_ts ?? null,
+  };
+}

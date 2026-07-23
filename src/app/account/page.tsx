@@ -89,12 +89,20 @@ export default async function AccountPage({
         scrobbleError={params.scrobbleError ?? null}
       />
 
-      {/* History import is Last.fm-only (ListenBrainz has no equivalent here);
-          hidden entirely without a Last.fm connection — the Last.fm card above
-          explains how to connect. */}
+      {/* History import: one card per connected scrobble service; hidden
+          without a connection — the service cards above explain how to
+          connect. */}
       {user.lastfmSessionKey && (
         <div className="mt-6">
-          <ImportHistoryCard username={user.lastfmUsername} />
+          <ImportHistoryCard service="lastfm" username={user.lastfmUsername} />
+        </div>
+      )}
+      {user.listenbrainzToken && (
+        <div className="mt-6">
+          <ImportHistoryCard
+            service="listenbrainz"
+            username={user.listenbrainzUsername}
+          />
         </div>
       )}
 

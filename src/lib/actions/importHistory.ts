@@ -1,7 +1,10 @@
 "use server";
 
 import { auth } from "@/auth";
-import { importLastFmHistoryForUser } from "@/lib/importHistory";
+import {
+  importLastFmHistoryForUser,
+  importListenBrainzHistoryForUser,
+} from "@/lib/importHistory";
 
 export type ImportHistoryResult =
   | { ok: true; imported: number; skipped: number }
@@ -28,6 +31,29 @@ export async function importLastFmHistoryAction(): Promise<ImportHistoryResult> 
     return {
       ok: false,
       error: "Couldn't import from Last.fm right now. Try again later.",
+    };
+  }
+}
+
+/** Session-gated wrapper around importListenBrainzHistoryForUser (which see). */
+export async function importListenBrainzHistoryAction(): Promise<ImportHistoryResult> {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) return { ok: false, error: "Not signed in." };
+
+  try {
+    const outcome = await importListenBrainzHistoryForUser(userId);
+    switch (outcome.status) {
+      case "ok":
+        return { ok: true, imported: outcome.imported, skipped: outcome.skipped };
+      case "not_connected":
+        return { ok: false, error: "Connect ListenBrainz first." };
+    }
+  } catch (e) {
+    console.warn("[listenbrainz] history import failed:", e);
+    return {
+      ok: false,
+      error: "Couldn't import from ListenBrainz right now. Try again later.",
     };
   }
 }

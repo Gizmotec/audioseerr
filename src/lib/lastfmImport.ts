@@ -35,6 +35,7 @@ export type ImportRow = {
 function normalizeKeyPart(s: string): string {
   return s.toLowerCase().replace(/\s+/g, " ").trim();
 }
+export { normalizeKeyPart };
 
 export function lastFmTrackKey(
   artistName: string,
@@ -89,13 +90,15 @@ export function mapRecentTracksToRows(
  * count skipped as duplicates. `existingKeys` comes from a bounded read of
  * existing (recordingMbid, playedAt) pairs — sqlite's Prisma adapter has no
  * createMany skipDuplicates, and PlayHistory has no DB-level unique
- * constraint for this tuple, so dedupe is enforced here.
+ * constraint for this tuple, so dedupe is enforced here. Generic over the row
+ * type so the ListenBrainz importer's extended rows keep their extra fields
+ * (albumMbid) through the split.
  */
-export function filterExistingRows(
-  rows: readonly ImportRow[],
+export function filterExistingRows<T extends ImportRow>(
+  rows: readonly T[],
   existingKeys: ReadonlySet<string>,
-): { fresh: ImportRow[]; skipped: number } {
-  const fresh: ImportRow[] = [];
+): { fresh: T[]; skipped: number } {
+  const fresh: T[] = [];
   let skipped = 0;
   for (const row of rows) {
     if (existingKeys.has(rowKey(row.recordingMbid, row.playedAt))) {
