@@ -86,6 +86,18 @@ class SlskdError extends Error {
   }
 }
 
+class TrackSearchPlanIncompleteError extends Error {
+  constructor(
+    public readonly searchCause: unknown,
+    public readonly queriesTried: string[],
+    public readonly budgetRemaining: number | undefined,
+  ) {
+    const detail = searchCause instanceof Error ? `: ${searchCause.message}` : "";
+    super(`Soulseek fallback plan stopped after a failed query${detail}`);
+    this.name = "TrackSearchPlanIncompleteError";
+  }
+}
+
 const AUDIO_EXTENSIONS = new Set([
   "mp3",
   "flac",
@@ -152,11 +164,24 @@ export async function testSlskdConnection(
  * across all peer responses, flattened with peer-quality signals. Cleans up the
  * search record afterwards so slskd's search history doesn't grow unbounded.
  */
+export type SlskdTrackSearchResult = {
+  candidates: SlskdFileCandidate[];
+  responseCount: number;
+};
+
 export async function searchTracks(
   config: SlskdConfig,
   query: string,
   opts: { searchTimeoutMs?: number; maxWaitMs?: number } = {},
 ): Promise<SlskdFileCandidate[]> {
+  return (await searchTracksWithStats(config, query, opts)).candidates;
+}
+
+export async function searchTracksWithStats(
+  config: SlskdConfig,
+  query: string,
+  opts: { searchTimeoutMs?: number; maxWaitMs?: number } = {},
+): Promise<SlskdTrackSearchResult> {
   const searchTimeoutMs = opts.searchTimeoutMs ?? 4000;
   // Bounded so an auto-approve add (which runs the search inline) stays snappy.
   const maxWaitMs = opts.maxWaitMs ?? 8000;
@@ -198,7 +223,7 @@ export async function searchTracks(
     console.log(
       `[slskd] search query=${JSON.stringify(query)} responses=${responses?.length ?? 0} audioFiles=${candidates.length}`,
     );
-    return candidates;
+    return { candidates, responseCount: responses?.length ?? 0 };
   } finally {
     // Best-effort cleanup; never let it break the flow.
     await slskdFetch(config, `/searches/${searchId}`, { method: "DELETE" }).catch(
@@ -272,7 +297,9 @@ export function buildTrackSearchQueries(
     queries.push({ text: cleaned, requireArtistMatch });
   };
 
-  add(`${input.artistName} ${input.trackTitle}`, false);
+  // Search specificity does not make peer results trustworthy: slskd may return
+  // a same-title collaboration or compilation track from another artist.
+  add(`${input.artistName} ${input.trackTitle}`, true);
 
   const compactArtist = input.artistName
     .split(/\s+/)
@@ -293,32 +320,95 @@ export type TrackSearchOutcome = {
   ranked: SlskdFileCandidate[];
   queriesTried: string[];
   candidateCount: number;
+  responseCount: number;
+  budgetExhausted: boolean;
 };
+
+export type TrackSearchQueryBudget = {
+  remaining: number;
+};
+
+export function describeTrackSearchMiss(
+  outcome: Pick<
+    TrackSearchOutcome,
+    "candidateCount" | "queriesTried" | "responseCount"
+  >,
+): string {
+  const searches = outcome.queriesTried.length;
+  const searchLabel = searches === 1 ? "search variation" : "search variations";
+  if (outcome.responseCount === 0) {
+    return `No Soulseek responses to ${searches} ${searchLabel} yet — we'll keep checking.`;
+  }
+  if (outcome.candidateCount === 0) {
+    const responseLabel = outcome.responseCount === 1 ? "response" : "responses";
+    return `Soulseek returned ${outcome.responseCount} peer ${responseLabel} but no unlocked playable audio files across ${searches} ${searchLabel}.`;
+  }
+  const fileLabel = outcome.candidateCount === 1 ? "file" : "files";
+  return `Found ${outcome.candidateCount} usable audio ${fileLabel} across ${searches} ${searchLabel}, but none matched the artist, title, and duration closely enough yet.`;
+}
 
 /** Run the query plan in order and stop at the first safely-ranked match set. */
 export async function findTrackCandidatesWithFallback(
   input: TrackSearchInput,
-  search: (query: string) => Promise<SlskdFileCandidate[]>,
+  search: (
+    query: string,
+  ) => Promise<SlskdFileCandidate[] | SlskdTrackSearchResult>,
+  budget?: TrackSearchQueryBudget,
 ): Promise<TrackSearchOutcome> {
   const queriesTried: string[] = [];
   let candidateCount = 0;
+  let responseCount = 0;
 
   for (const query of buildTrackSearchQueries(input)) {
+    if (budget && budget.remaining <= 0) {
+      return {
+        ranked: [],
+        queriesTried,
+        candidateCount,
+        responseCount,
+        budgetExhausted: true,
+      };
+    }
+    if (budget) budget.remaining -= 1;
     queriesTried.push(query.text);
-    const candidates = await search(query.text);
-    candidateCount += candidates.length;
-    const ranked = rankTrackCandidates(candidates, {
-      artistName: input.artistName,
-      trackTitle: input.trackTitle,
-      durationSec: input.durationSec,
-      requireArtistMatch: query.requireArtistMatch,
-    });
-    if (ranked.length > 0) {
-      return { ranked, queriesTried, candidateCount };
+    try {
+      const searchResult = await search(query.text);
+      const candidates = Array.isArray(searchResult)
+        ? searchResult
+        : searchResult.candidates;
+      responseCount += Array.isArray(searchResult) ? 0 : searchResult.responseCount;
+      candidateCount += candidates.length;
+      const ranked = rankTrackCandidates(candidates, {
+        artistName: input.artistName,
+        trackTitle: input.trackTitle,
+        durationSec: input.durationSec,
+        requireArtistMatch: query.requireArtistMatch,
+      });
+      if (ranked.length > 0) {
+        return {
+          ranked,
+          queriesTried,
+          candidateCount,
+          responseCount,
+          budgetExhausted: false,
+        };
+      }
+    } catch (error) {
+      throw new TrackSearchPlanIncompleteError(
+        error,
+        [...queriesTried],
+        budget?.remaining,
+      );
     }
   }
 
-  return { ranked: [], queriesTried, candidateCount };
+  return {
+    ranked: [],
+    queriesTried,
+    candidateCount,
+    responseCount,
+    budgetExhausted: false,
+  };
 }
 
 /**
@@ -333,8 +423,8 @@ export function rankTrackCandidates(
   candidates: SlskdFileCandidate[],
   input: PickTrackInput,
 ): SlskdFileCandidate[] {
-  const artistTokens = tokenize(input.artistName);
-  const trackTokens = tokenize(input.trackTitle);
+  const artistTokens = tokenizeArtist(input.artistName);
+  const trackTokens = tokenizeTrackTitle(input.trackTitle);
   const wantsLive = /\blive\b/i.test(input.trackTitle);
   const wantsRemix = /\bremix\b/i.test(input.trackTitle);
 
@@ -362,19 +452,35 @@ function scoreCandidate(
   wantsRemix: boolean,
 ): number {
   const base = baseName(c.filename).toLowerCase();
-  const fullPath = c.filename.toLowerCase();
+  const candidateTitleTokens = tokenizeCandidateTitle(
+    base,
+    artistTokens,
+    trackTokens,
+  );
+  const pathParts = c.filename.split(/[\\/]/);
+  pathParts.pop();
 
   // Must match at least one track-title token, else it's almost certainly the
   // wrong file — drop it (a single album folder can return dozens of siblings).
-  const trackHits = trackTokens.filter((t) => base.includes(t)).length;
-  if (trackTokens.length > 0 && trackHits === 0) return -Infinity;
+  const baseTokens = new Set(candidateTitleTokens);
+  const trackHits = trackTokens.filter((token) => baseTokens.has(token)).length;
+  if (input.requireArtistMatch) {
+    if (trackTokens.length === 0) return -Infinity;
+    if (!tokenSequencesEqual(candidateTitleTokens, trackTokens)) return -Infinity;
+  } else if (trackTokens.length > 0 && trackHits === 0) {
+    return -Infinity;
+  }
 
   // Broad title/album-only queries can return another artist's recording with
   // the same title. The remote directory normally carries the artist even when
-  // the basename is just "01 Title.flac", so validate against the full path.
-  const artistHits = artistTokens.filter((t) => fullPath.includes(t)).length;
-  if (input.requireArtistMatch && artistTokens.length > 0 && artistHits === 0) {
-    return -Infinity;
+  // the basename is just "01 Title.flac", so validate against directory tokens.
+  const hasArtistDirectory = pathParts.some((part) =>
+    directoryComponentMatchesArtist(part, input.artistName, artistTokens),
+  );
+  const artistHits = hasArtistDirectory ? artistTokens.length : 0;
+  if (input.requireArtistMatch) {
+    if (artistTokens.length === 0) return -Infinity;
+    if (!hasArtistDirectory) return -Infinity;
   }
 
   // Duration is the strongest correctness signal. Reject files that are far off
@@ -741,16 +847,189 @@ function normalizeExtension(
   return cleaned.length > 0 && cleaned.length <= 5 ? cleaned : null;
 }
 
-function tokenize(value: string): string[] {
+function tokenize(value: string, minLength = 2): string[] {
   return value
+    .normalize("NFKD")
+    // Fold Latin accents for common metadata variants (Beyoncé/Beyonce) while
+    // preserving marks that change letters in other scripts (for example,
+    // Japanese dakuten: が must not collapse to か).
+    .replace(/(?<=\p{Script=Latin})\p{M}+/gu, "")
     .toLowerCase()
-    .replace(/['"]/g, "")
-    .split(/[^a-z0-9]+/)
-    .filter((token) => token.length >= 3);
+    // Treat straight, curly, modifier, and full-width apostrophes alike.
+    .replace(/['’‘ʼ＇"“”]/g, "")
+    .split(/[^\p{L}\p{N}\p{M}]+/u)
+    .filter((token) => token.length >= minLength);
+}
+
+function tokenizeArtist(value: string): string[] {
+  // Collapse explicitly dotted initialisms such as R.E.M. before tokenization.
+  // Do not merge arbitrary one-letter path tokens: "A & B" must not become AB.
+  // Canonicalise ampersands to the literal word "and" so a real group name can
+  // match both forms without discarding identity-bearing connector words.
+  const canonical = value
+    .replace(/&/gu, " and ")
+    .replace(/(?:\p{L}\.){2,}(?:\p{L}\.?)?/gu, (initialism) =>
+      initialism.replace(/[^\p{L}\p{N}]/gu, ""),
+    );
+  return tokenize(canonical, 1);
+}
+
+function splitExplicitArtistCredits(value: string): string[] | null {
+  const parts = value.split(
+    /\s*(?:&|\b(?:feat(?:uring)?|ft)\b\.?)\s*/iu,
+  );
+  if (parts.length <= 1 || parts.some((part) => part.trim().length === 0)) {
+    return null;
+  }
+  return parts;
+}
+
+function directoryComponentMatchesArtist(
+  value: string,
+  artistName: string,
+  artistTokens: string[],
+): boolean {
+  const componentTokens = tokenizeArtist(value);
+  const componentCredits = splitExplicitArtistCredits(value);
+  if (!componentCredits) {
+    return tokenSequencesEqual(componentTokens, artistTokens);
+  }
+
+  // Whole-component equality is valid when the requested credit itself contains
+  // a corresponding connector (for example Earth, Wind & Fire or Simon and
+  // Garfunkel). Otherwise compare each explicit credit independently so P & NK
+  // cannot impersonate P!nk and The & The cannot impersonate The The.
+  const requestedIsCompoundCredit =
+    splitExplicitArtistCredits(artistName) !== null ||
+    /\S\s+and\s+\S/iu.test(artistName);
+  if (
+    requestedIsCompoundCredit &&
+    tokenSequencesEqual(componentTokens, artistTokens)
+  ) {
+    return true;
+  }
+
+  return componentCredits.some((part) =>
+    tokenSequencesEqual(tokenizeArtist(part), artistTokens),
+  );
+}
+
+function tokenizeTrackTitle(value: string): string[] {
+  return tokenize(stripTrailingMetadataSuffixes(value), 1);
+}
+
+const TRAILING_METADATA_TOKENS = new Set([
+  "album",
+  "anniversary",
+  "audio",
+  "bonus",
+  "clean",
+  "deluxe",
+  "digital",
+  "disc",
+  "edit",
+  "edition",
+  "expanded",
+  "explicit",
+  "hd",
+  "hq",
+  "lyric",
+  "lyrics",
+  "mono",
+  "official",
+  "radio",
+  "remaster",
+  "remastered",
+  "single",
+  "stereo",
+  "track",
+  "video",
+  "version",
+]);
+const FEATURE_MARKERS = new Set(["feat", "featuring", "ft"]);
+
+function tokenizeCandidateTitle(
+  value: string,
+  artistTokens: string[],
+  requestedTokens: string[],
+): string[] {
+  const withoutExtension = value.replace(/\.[\p{L}\p{N}]{1,5}$/u, "");
+  let structured = stripTrailingMetadataSuffixes(withoutExtension).replace(
+    /^\s*\d{1,3}(?:[.-]\d{1,3})?\s*(?:[-–—.)]\s*)+/u,
+    "",
+  );
+  if (!tokenSequencesEqual(tokenize(structured, 1), requestedTokens)) {
+    const prefixed = structured.match(/^(.+?)\s+[-–—]\s+(.+)$/u);
+    if (
+      prefixed &&
+      tokenSequencesEqual(tokenizeArtist(prefixed[1] ?? ""), artistTokens)
+    ) {
+      structured = prefixed[2] ?? structured;
+    } else {
+      const suffixed = structured.match(/^(.+)\s+[-–—]\s+(.+?)$/u);
+      if (
+        suffixed &&
+        tokenSequencesEqual(tokenizeArtist(suffixed[2] ?? ""), artistTokens)
+      ) {
+        structured = suffixed[1] ?? structured;
+      }
+    }
+  }
+  let tokens = tokenize(structured, 1);
+  const requested = new Set(requestedTokens);
+  const featureIndex = tokens.findIndex((token) => FEATURE_MARKERS.has(token));
+  if (featureIndex >= 0 && !requested.has(tokens[featureIndex]!)) {
+    tokens = tokens.slice(0, featureIndex);
+  }
+
+  while (
+    tokens.length > requestedTokens.length &&
+    /^\d{1,3}$/.test(tokens[0] ?? "") &&
+    !requested.has(tokens[0]!)
+  ) {
+    tokens = tokens.slice(1);
+  }
+
+  return tokens;
+}
+
+function stripTrailingMetadataSuffixes(value: string): string {
+  let current = value.trim();
+  for (;;) {
+    const bracketed = current.match(/^(.*)\s*[\[(]([^\])]+)[\])]\s*$/u);
+    if (bracketed && isMetadataSuffix(bracketed[2] ?? "")) {
+      current = (bracketed[1] ?? "").trim();
+      continue;
+    }
+    const dashed = current.match(/^(.*)\s[-–—]\s([^\-–—]+)$/u);
+    if (dashed && isMetadataSuffix(dashed[2] ?? "")) {
+      current = (dashed[1] ?? "").trim();
+      continue;
+    }
+    return current;
+  }
+}
+
+function isMetadataSuffix(value: string): boolean {
+  const tokens = tokenize(value, 1);
+  return (
+    tokens.length > 0 &&
+    tokens.every(
+      (token) =>
+        TRAILING_METADATA_TOKENS.has(token) ||
+        AUDIO_EXTENSIONS.has(token) ||
+        /^\d{2,4}$/.test(token) ||
+        /^\d{2,4}(?:kbps|khz|hz)$/.test(token),
+    )
+  );
+}
+
+function tokenSequencesEqual(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((token, index) => token === b[index]);
 }
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export { SlskdError };
+export { SlskdError, TrackSearchPlanIncompleteError };

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isTrackSearchDue,
+  selectDueTrackSearches,
   trackSearchRetryDelayMs,
 } from "@/lib/trackSearchPolicy";
 
@@ -56,5 +57,29 @@ describe("isTrackSearchDue", () => {
         now,
       ),
     ).toBe(true);
+  });
+});
+
+describe("selectDueTrackSearches", () => {
+  it("finds a due recent request behind more than 250 old requests that are not due", () => {
+    const now = new Date("2026-07-22T12:00:00.000Z");
+    const oldNotDue = Array.from({ length: 251 }, (_, index) => ({
+      id: `old-${index}`,
+      requestedAt: new Date(now.getTime() - 8 * DAY),
+      approvedAt: new Date(now.getTime() - 8 * DAY),
+      lastSearchedAt: new Date(now.getTime() - 23 * HOUR),
+    }));
+    const recentDue = {
+      id: "recent-due",
+      requestedAt: new Date(now.getTime() - HOUR),
+      approvedAt: new Date(now.getTime() - HOUR),
+      lastSearchedAt: new Date(now.getTime() - 31 * MINUTE),
+    };
+
+    expect(
+      selectDueTrackSearches([...oldNotDue, recentDue], now, 5).map(
+        (request) => request.id,
+      ),
+    ).toEqual(["recent-due"]);
   });
 });

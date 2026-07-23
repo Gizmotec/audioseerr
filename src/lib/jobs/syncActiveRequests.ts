@@ -8,19 +8,21 @@ import {
 import { getAlbum } from "@/lib/musicbrainz";
 import { getSettings } from "@/lib/settings";
 import { notifyRequestTransition } from "@/lib/notifications";
-import { isTrackSearchDue } from "@/lib/trackSearchPolicy";
+import { selectDueTrackSearches } from "@/lib/trackSearchPolicy";
 import {
   type AlbumFileMatch,
   albumFolderOf,
   baseName,
   classifyTransfer,
+  describeTrackSearchMiss,
   enqueueDownload,
   findTrackCandidatesWithFallback,
   getDownloadTransfer,
   listUserDownloads,
   matchAlbumFiles,
-  searchTracks,
+  searchTracksWithStats,
   type SlskdConfig,
+  TrackSearchPlanIncompleteError,
 } from "@/lib/slskd";
 import { syncDownloadedLibrary } from "./syncDownloadedLibrary";
 
@@ -30,13 +32,13 @@ import { syncDownloadedLibrary } from "./syncDownloadedLibrary";
 // so a long search is fine.
 const SEARCH_TIMEOUT_MS = 15000;
 const SEARCH_MAX_WAIT_MS = 30000;
-// Searches per run, so a big playlist import can't monopolise one cycle and
-// starve transfer/library reconciliation; the rest get searched next tick.
-// ponytail: serial + capped; raise or parallelise if drain latency matters.
-const SEARCH_BUDGET_PER_RUN = 5;
-// Rows inspected before applying the per-request age-based retry policy. This
-// stays bounded while comfortably covering normal request backlogs.
-const SEARCH_SCAN_BUDGET = 250;
+// Individual slskd query calls per run. Fallback variants share this hard cap,
+// so a big backlog cannot turn five requests into twenty 30-second searches.
+const SEARCH_QUERY_BUDGET_PER_RUN = 8;
+// A transport failure leaves the plan incomplete, but retrying every two-minute
+// job tick would create an outage storm. Keep this separate from lastSearchedAt,
+// which records only completed search plans.
+const SEARCH_FAILURE_BACKOFF_MS = 15 * 60 * 1000;
 // Ranked candidates kept for peer failover on transfer errors.
 const CANDIDATE_SHORTLIST = 8;
 
@@ -44,12 +46,13 @@ type TrackCandidate = { username: string; filename: string; size: number };
 
 // A run is allowed this long before the next tick assumes it wedged (a
 // never-settling network call) and starts fresh. Far above any healthy run:
-// 5 searches × ~30s + reconciliation is well under 5 minutes.
+// 8 searches × ~30s + reconciliation is comfortably below 15 minutes.
 const STUCK_RUN_MS = 15 * 60 * 1000;
 
 let running = false;
 let runToken = 0;
 let runningSince = 0;
+let trackSearchRetryAfter = 0;
 
 /**
  * Reconciles APPROVED / DOWNLOADING track + album requests against slskd
@@ -383,9 +386,10 @@ export async function syncActiveRequests(): Promise<{
  * keeping a ranked shortlist for failover. Bounded per run. Returns the number
  * of requests moved out of APPROVED (to DOWNLOADING or FAILED).
  */
-async function runTrackSearches(slskdConfig: SlskdConfig): Promise<number> {
-  // Fresh approvals (lastSearchedAt null) sort first in SQLite ASC, so a backlog
-  // of never-found tracks can't starve a new request out of the per-run budget.
+export async function runTrackSearches(
+  slskdConfig: SlskdConfig,
+): Promise<number> {
+  if (Date.now() < trackSearchRetryAfter) return 0;
   const now = new Date();
   const searchCandidates = await prisma.request.findMany({
     where: {
@@ -394,14 +398,17 @@ async function runTrackSearches(slskdConfig: SlskdConfig): Promise<number> {
       slskdFile: null,
     },
     orderBy: { lastSearchedAt: "asc" },
-    take: SEARCH_SCAN_BUDGET,
   });
-  const pending = searchCandidates
-    .filter((request) => isTrackSearchDue(request, now))
-    .slice(0, SEARCH_BUDGET_PER_RUN);
+  const pending = selectDueTrackSearches(
+    searchCandidates,
+    now,
+    SEARCH_QUERY_BUDGET_PER_RUN,
+  );
+  const queryBudget = { remaining: SEARCH_QUERY_BUDGET_PER_RUN };
 
   let changed = 0;
   for (const req of pending) {
+    if (queryBudget.remaining <= 0) break;
     try {
       // Expected duration: the strongest signal for rejecting the wrong file
       // (remix/live/extended/mislabel) among noisy Soulseek results.
@@ -426,18 +433,28 @@ async function runTrackSearches(slskdConfig: SlskdConfig): Promise<number> {
           durationSec,
         },
         (query) =>
-          searchTracks(slskdConfig, query, {
+          searchTracksWithStats(slskdConfig, query, {
             searchTimeoutMs: SEARCH_TIMEOUT_MS,
             maxWaitMs: SEARCH_MAX_WAIT_MS,
           }),
+        queryBudget,
       );
+      const matchCount = outcome.ranked.length;
       const ranked = outcome.ranked.slice(0, CANDIDATE_SHORTLIST);
 
       console.log(
-        `[sync] track search ${req.id} tried=${outcome.queriesTried.length} queries=${JSON.stringify(outcome.queriesTried)} candidates=${outcome.candidateCount} matches=${ranked.length}`,
+        `[sync] track search ${req.id} tried=${outcome.queriesTried.length} queries=${JSON.stringify(outcome.queriesTried)} responses=${outcome.responseCount} candidates=${outcome.candidateCount} matches=${matchCount} shortlist=${ranked.length} budgetRemaining=${queryBudget.remaining}`,
       );
 
       if (ranked.length === 0) {
+        if (outcome.budgetExhausted) {
+          // Do not stamp lastSearchedAt: this request did not get its full
+          // fallback plan and should resume at the head of the next run.
+          console.log(
+            `[sync] track search budget exhausted while processing ${req.id}; continuing next cycle.`,
+          );
+          break;
+        }
         // Not found (yet). Keep it APPROVED and stamp lastSearchedAt so it
         // retries on the age-based cadence — the track may appear later, or a
         // temporarily-suppressed query may start returning responses again.
@@ -445,10 +462,7 @@ async function runTrackSearches(slskdConfig: SlskdConfig): Promise<number> {
           where: { id: req.id },
           data: {
             lastSearchedAt: new Date(),
-            declineReason:
-              outcome.candidateCount === 0
-                ? `No Soulseek responses to ${outcome.queriesTried.length} search variations yet — we'll keep checking.`
-                : `Found ${outcome.candidateCount} files across ${outcome.queriesTried.length} searches but none matched the artist, title, and duration closely enough yet.`,
+            declineReason: describeTrackSearchMiss(outcome),
           },
         });
         continue;
@@ -475,12 +489,18 @@ async function runTrackSearches(slskdConfig: SlskdConfig): Promise<number> {
       });
       changed++;
     } catch (err) {
-      // Transient (slskd down, Soulseek disconnected, enqueue rejected): leave
-      // it APPROVED with no file so a later tick retries the search — but
-      // stamp the attempt and the reason. Without that, a persistent outage
-      // is invisible (the requests sit "fetching" forever) and the same
-      // never-searched requests sort to the head of the queue every run,
-      // consuming the whole per-run search budget indefinitely.
+      if (err instanceof TrackSearchPlanIncompleteError) {
+        // A failed query aborted the fallback plan. Leave the previous timestamp
+        // untouched so the untried variants are not treated as completed.
+        console.warn(
+          `[sync] incomplete track search for ${req.id}: ${err.message}`,
+        );
+        trackSearchRetryAfter = Date.now() + SEARCH_FAILURE_BACKOFF_MS;
+        break;
+      }
+      // The fallback plan completed, but a later step (such as enqueue or
+      // persistence) failed. Keep it APPROVED and stamp this completed search so
+      // the request retries on the normal age-based cadence.
       const msg = err instanceof Error ? err.message : "Soulseek search failed.";
       console.warn(
         `[sync] track search failed for ${req.id} (${req.artistName} — ${req.title}): ${msg}`,

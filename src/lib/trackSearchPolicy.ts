@@ -38,3 +38,28 @@ export function isTrackSearchDue(
     trackSearchRetryDelayMs(request, now)
   );
 }
+
+/** Filter for eligibility before limiting, ordered by the most-overdue search. */
+export function selectDueTrackSearches<T extends TrackSearchTiming>(
+  requests: readonly T[],
+  now = new Date(),
+  limit = 5,
+): T[] {
+  if (limit <= 0) return [];
+
+  return requests
+    .map((request) => ({
+      request,
+      dueAt: request.lastSearchedAt
+        ? request.lastSearchedAt.getTime() + trackSearchRetryDelayMs(request, now)
+        : Number.NEGATIVE_INFINITY,
+    }))
+    .filter(({ dueAt }) => dueAt <= now.getTime())
+    .sort(
+      (a, b) =>
+        a.dueAt - b.dueAt ||
+        a.request.requestedAt.getTime() - b.request.requestedAt.getTime(),
+    )
+    .slice(0, Math.floor(limit))
+    .map(({ request }) => request);
+}
