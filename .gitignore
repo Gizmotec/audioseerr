@@ -54,3 +54,10 @@ next-env.d.ts
 
 # Claude Code tooling state
 .claude/
+
+# Cloud-sync conflict copies ("slskd 2.ts", "schema 3.prisma"). They are stale
+# duplicates of real sources and tsconfig's **/*.ts glob would compile them.
+* [0-9].ts
+* [0-9].tsx
+* [0-9].prisma
+* [0-9].json
