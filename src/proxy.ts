@@ -14,7 +14,6 @@ export const config = {
   matcher: [
     "/home/:path*",
     "/search/:path*",
-    "/releases/:path*",
     "/album/:path*",
     "/artist/:path*",
     "/genre/:path*",

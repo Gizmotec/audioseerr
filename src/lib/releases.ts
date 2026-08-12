@@ -1,5 +1,6 @@
-// Server-side orchestration for the /releases feed ("new albums from artists
-// in your library"). Pure merge/filter logic lives in releaseFeed.ts.
+// Server-side orchestration for the "new albums from artists in your library"
+// feed, rendered as the New releases shelf on /discover. Pure merge/filter
+// logic lives in releaseFeed.ts.
 //
 // Data path note: the original design called for a per-user `Listen` model
 // carrying artistName + artistMbid, but no such model exists in the schema.

@@ -1,4 +1,4 @@
-// Pure helpers for the /releases "new from your artists" feed. No prisma or
+// Pure helpers for the discover "new from your artists" shelf. No prisma or
 // fetch imports — the orchestration lives in src/lib/releases.ts and hands
 // plain shapes to these functions, so the merge logic stays unit-testable
 // (see tests/releaseFeed.test.ts).

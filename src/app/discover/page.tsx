@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { MostLovedChart, TopArtistsChart } from "@/components/ChartList";
 import { DiscoveryTrackList } from "@/components/DiscoveryTrackList";
 import { MixCards } from "@/app/discover/MixCards";
+import { NewReleasesSection } from "@/app/discover/NewReleases";
 import { enrichArtistArtwork } from "@/lib/chartArtwork";
 import {
   genreCoverUrl,
@@ -138,6 +139,8 @@ export default async function DiscoverPage() {
       </section>
 
       <MixCards viewer={viewer} />
+
+      <NewReleasesSection userId={viewer.id} />
 
       {systemPlaylists.length > 0 && (
         <section className="space-y-3">

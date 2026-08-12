@@ -34,6 +34,7 @@ export default function DiscoverLoading() {
         <div className={`h-11 w-full rounded-full ${SHIMMER}`} />
       </section>
 
+      <DiscoveryRowSkeleton titleWidth="w-48" count={6} />
       <DiscoveryRowSkeleton titleWidth="w-44" count={6} />
       <ChartListSkeleton titleWidth="w-28" rows={10} columns={2} />
       <ChartListSkeleton titleWidth="w-28" rows={9} columns={3} />

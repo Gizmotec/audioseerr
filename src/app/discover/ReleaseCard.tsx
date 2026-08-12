@@ -14,8 +14,9 @@ export type ReleaseCardProps = {
   firstReleaseDate: string | null;
 };
 
-// Cover handling mirrors DiscoveryAlbumCard: plain <img> (external host not
-// in next/image config), hidden on error so the Disc3 fallback shows.
+// A card in the discover "New from your artists" shelf. Cover handling mirrors
+// DiscoveryAlbumCard: plain <img> (external host not in next/image config),
+// hidden on error so the Disc3 fallback shows.
 export function ReleaseCard({
   mbid,
   title,
