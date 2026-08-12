@@ -23,6 +23,9 @@ import { cn } from "@/lib/utils";
  * MusicBrainz on click (server action), so the card owns its idle → resolving →
  * done/error state. Renders nothing when empty.
  */
+/** A discovery track plus whether the viewer already has the file on disk. */
+export type DiscoveryTrackItem = DiscoveryTrack & { owned?: boolean };
+
 export function DiscoveryTrackList({
   title,
   tracks,
@@ -30,7 +33,7 @@ export function DiscoveryTrackList({
   layout = "shelf",
 }: {
   title: string;
-  tracks: DiscoveryTrack[];
+  tracks: DiscoveryTrackItem[];
   /** When set, renders a "See more" link to a full page of this shelf. */
   href?: string;
   /** "shelf" = horizontal scroller (homepage); "grid" = full-page wrapping rows. */
@@ -78,7 +81,7 @@ export function DiscoveryTrackList({
   );
 }
 
-function DiscoveryTrackCard({ track }: { track: DiscoveryTrack }) {
+function DiscoveryTrackCard({ track }: { track: DiscoveryTrackItem }) {
   const player = usePreviewPlayer();
   const { openTrackMenu } = useTrackMenu();
 
@@ -92,7 +95,7 @@ function DiscoveryTrackCard({ track }: { track: DiscoveryTrack }) {
       }),
     [track.title, track.artistName, track.albumTitle, track.coverUrl],
   );
-  const download = useDownloadState({ submit });
+  const download = useDownloadState({ owned: track.owned, submit });
 
   const playable = !!track.previewUrl;
   const isActive = playable && player.isCurrent(track.previewUrl!);

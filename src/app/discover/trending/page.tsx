@@ -3,6 +3,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { DiscoveryTrackList } from "@/components/DiscoveryTrackList";
+import {
+  buildOwnedTrackLookup,
+  markOwnedTracks,
+} from "@/lib/downloadedTracks";
 import { getDeezerChartTracks } from "@/lib/deezer";
 import { isSetupComplete } from "@/lib/settings";
 
@@ -19,7 +23,13 @@ export default async function TrendingPage() {
     redirect("/login");
   }
 
-  const tracks = await getDeezerChartTracks(null, 48).catch(() => []);
+  const [tracks, ownedTracks] = await Promise.all([
+    getDeezerChartTracks(null, 48).catch(() => []),
+    buildOwnedTrackLookup({
+      id: session.user.id,
+      role: (session.user as { role?: string }).role,
+    }),
+  ]);
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 md:px-6">
@@ -46,7 +56,11 @@ export default async function TrendingPage() {
           <p>No trending tracks right now.</p>
         </div>
       ) : (
-        <DiscoveryTrackList title="Trending tracks" tracks={tracks} layout="grid" />
+        <DiscoveryTrackList
+          title="Trending tracks"
+          tracks={markOwnedTracks(tracks, ownedTracks)}
+          layout="grid"
+        />
       )}
     </main>
   );

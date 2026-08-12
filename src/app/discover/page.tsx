@@ -4,6 +4,10 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { MostLovedChart, TopArtistsChart } from "@/components/ChartList";
 import { DiscoveryTrackList } from "@/components/DiscoveryTrackList";
+import {
+  buildOwnedTrackLookup,
+  markOwnedTracks,
+} from "@/lib/downloadedTracks";
 import { MixCards } from "@/app/discover/MixCards";
 import { NewReleasesSection } from "@/app/discover/NewReleases";
 import { enrichArtistArtwork } from "@/lib/chartArtwork";
@@ -85,6 +89,7 @@ export default async function DiscoverPage() {
     topArtists,
     mostLoved,
     systemPlaylists,
+    ownedTracks,
   ] = await Promise.all([
       getDeezerChartTracks(null, 12).catch(() => []),
       getDeezerNewReleaseTracks(12).catch(() => []),
@@ -101,6 +106,9 @@ export default async function DiscoverPage() {
         : Promise.resolve([]),
       getMostLoved(10),
       listSystemPlaylists().catch(() => []),
+      // One pass over the viewer's downloaded tracks, reused by every shelf
+      // below so an owned song shows a check instead of a download button.
+      buildOwnedTrackLookup(viewer),
     ]);
   const genreTrackRows = genreRows.filter((r) => r.tracks.length > 0);
   const genreCards = MAIN_GENRES.map((slug) => ({
@@ -163,17 +171,20 @@ export default async function DiscoverPage() {
 
       <DiscoveryTrackList
         title="Trending now"
-        tracks={trendingNow}
+        tracks={markOwnedTracks(trendingNow, ownedTracks)}
         href="/discover/trending"
       />
 
-      <DiscoveryTrackList title="Fresh tracks" tracks={freshTracks} />
+      <DiscoveryTrackList
+        title="Fresh tracks"
+        tracks={markOwnedTracks(freshTracks, ownedTracks)}
+      />
 
       {genreTrackRows.map((r) => (
         <DiscoveryTrackList
           key={r.tag}
           title={`Trending in ${r.tag}`}
-          tracks={r.tracks}
+          tracks={markOwnedTracks(r.tracks, ownedTracks)}
           href={`/genre/${encodeURIComponent(r.tag)}`}
         />
       ))}

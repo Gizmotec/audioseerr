@@ -4,6 +4,10 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { DiscoveryTrackList } from "@/components/DiscoveryTrackList";
 import {
+  buildOwnedTrackLookup,
+  markOwnedTracks,
+} from "@/lib/downloadedTracks";
+import {
   type DiscoveryTrack,
   genreCoverUrl,
   genreLabel,
@@ -41,6 +45,11 @@ export default async function GenrePage({ params }: { params: RouteParams }) {
   } else {
     tracks = await getGenreFallbackTracks(tag, lastFmKey, 24).catch(() => []);
   }
+  // So a song already on disk shows a check rather than a download button.
+  const ownedTracks = await buildOwnedTrackLookup({
+    id: session.user.id,
+    role: (session.user as { role?: string }).role,
+  });
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 md:px-6">
@@ -84,7 +93,11 @@ export default async function GenrePage({ params }: { params: RouteParams }) {
           )}
         </div>
       ) : (
-        <DiscoveryTrackList title="Trending tracks" tracks={tracks} layout="grid" />
+        <DiscoveryTrackList
+          title="Trending tracks"
+          tracks={markOwnedTracks(tracks, ownedTracks)}
+          layout="grid"
+        />
       )}
     </main>
   );

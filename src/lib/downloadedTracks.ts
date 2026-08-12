@@ -332,6 +332,23 @@ export async function buildOwnedTrackLookup(
   return out;
 }
 
+/**
+ * Tag discovery-shaped tracks (Deezer gives us title + artist and no MBIDs)
+ * with whether the viewer already has the file, so a card can settle to a check
+ * instead of offering a download the request path would only dedupe away.
+ * Pair with buildOwnedTrackLookup — one query, reused across every shelf on a
+ * page.
+ */
+export function markOwnedTracks<T extends { title: string; artistName: string }>(
+  tracks: T[],
+  owned: Map<string, EphemeralTrackMatch>,
+): Array<T & { owned: boolean }> {
+  return tracks.map((t) => ({
+    ...t,
+    owned: owned.has(trackMatchKey(t.artistName, t.title)),
+  }));
+}
+
 /** Fetch a track's file path for the stream route (no auth — caller checks). */
 export async function getDownloadedTrackFile(
   downloadedTrackId: string,
