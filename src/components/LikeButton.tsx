@@ -3,7 +3,7 @@
 import { Heart } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toggleLikeAction } from "@/lib/actions/likes";
-import type { LikePayload } from "@/lib/likes";
+import type { LikePayload, LikeTargetType } from "@/lib/likes";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -15,12 +15,14 @@ type Props = {
 };
 
 const DEFAULT_LABELS: Record<
-  "TRACK" | "ALBUM" | "ARTIST",
+  LikeTargetType,
   { liked: string; unliked: string }
 > = {
   TRACK: { liked: "Liked", unliked: "Like" },
   ALBUM: { liked: "Liked", unliked: "Like album" },
   ARTIST: { liked: "Liked", unliked: "Like artist" },
+  // Playlists get their own control (SavePlaylistButton); here for completeness.
+  PLAYLIST: { liked: "Saved", unliked: "Save playlist" },
 };
 
 export function LikeButton({ payload, initialLiked, variant = "full", label }: Props) {

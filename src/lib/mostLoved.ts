@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import type { LikeTargetType } from "@/lib/likes";
+import { MUSIC_LIKE_TYPES, type LikeTargetType } from "@/lib/likes";
 
 export type MostLovedRow = {
   targetType: LikeTargetType;
@@ -14,6 +14,8 @@ export type MostLovedRow = {
 
 export async function getMostLoved(limit = 12): Promise<MostLovedRow[]> {
   const rows = await prisma.like.findMany({
+    // Saved playlists are likes too, but they aren't loved *music*.
+    where: { targetType: { in: [...MUSIC_LIKE_TYPES] } },
     orderBy: { createdAt: "desc" },
     select: {
       targetType: true,

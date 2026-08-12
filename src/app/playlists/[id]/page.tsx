@@ -10,6 +10,7 @@ import {
 } from "@/lib/downloadedTracks";
 import {
   getLikedSet,
+  isLiked,
   LIKED_SONGS_PLAYLIST_ID,
   trackLikeTargetId,
 } from "@/lib/likes";
@@ -24,7 +25,8 @@ import { isSetupComplete } from "@/lib/settings";
 import { getActiveTrackRequestKeys } from "@/lib/trackRequests";
 import { MixDetail } from "@/app/mix/[kind]/MixDetail";
 import { PlaylistDetail } from "./PlaylistDetail";
-import { SubscribeButton } from "./SubscribeButton";
+import { AutoDownloadToggle } from "./AutoDownloadToggle";
+import { SavePlaylistButton } from "./SavePlaylistButton";
 
 export const dynamic = "force-dynamic";
 
@@ -167,6 +169,7 @@ async function SystemPlaylistPage({
     .filter((x): x is string => !!x);
   const likedTrackIds = [...(await getLikedSet(userId, "TRACK", likeTargetIds))];
   const subscribed = await isSubscribedToPlaylist(userId, playlist.id);
+  const saved = await isLiked(userId, "PLAYLIST", playlist.id);
 
   const gridCovers = playlist.tracks
     .map((t) => t.coverUrl)
@@ -236,7 +239,18 @@ async function SystemPlaylistPage({
             </p>
           </div>
         </div>
-        <SubscribeButton playlistId={playlist.id} initialSubscribed={subscribed} />
+        <div className="flex flex-wrap items-center gap-2">
+          <SavePlaylistButton
+            playlistId={playlist.id}
+            name={playlist.name}
+            coverUrl={playlist.coverUrl}
+            initialSaved={saved}
+          />
+          <AutoDownloadToggle
+            playlistId={playlist.id}
+            initialEnabled={subscribed}
+          />
+        </div>
       </HeroCard>
 
       <section className="mt-8">

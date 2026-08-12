@@ -4,8 +4,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import {
   listPlaylists,
+  listSavedSystemPlaylists,
   listSharedPlaylists,
-  listSystemPlaylists,
 } from "@/lib/playlists";
 import { isSetupComplete } from "@/lib/settings";
 import { listSmartPlaylists } from "@/lib/smartPlaylists";
@@ -26,11 +26,13 @@ export default async function PlaylistsPage() {
     redirect("/login");
   }
 
-  const [playlists, sharedPlaylists, systemPlaylists, smartPlaylists] =
+  const [playlists, sharedPlaylists, savedPlaylists, smartPlaylists] =
     await Promise.all([
       listPlaylists(userId),
       listSharedPlaylists(userId),
-      listSystemPlaylists(),
+      // Featured playlists live on Discover; only the ones this user saved
+      // belong here, alongside their own.
+      listSavedSystemPlaylists(userId),
       listSmartPlaylists(userId),
     ]);
 
@@ -62,19 +64,19 @@ export default async function PlaylistsPage() {
         </div>
       </header>
 
-      {systemPlaylists.length > 0 && (
+      {savedPlaylists.length > 0 && (
         <section className="mb-12 space-y-3">
           <header>
             <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
-              Featured
+              Saved
             </h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              Editorial playlists that refresh weekly. Subscribe to one to have
-              its picks auto-downloaded each week.
+              Featured playlists you&apos;ve saved. They refresh weekly; turn on
+              auto-download on one to keep its picks on disk.
             </p>
           </header>
           <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-            {systemPlaylists.map((p) => (
+            {savedPlaylists.map((p) => (
               <li key={p.id}>
                 <PlaylistTile playlist={p} />
               </li>
@@ -88,7 +90,12 @@ export default async function PlaylistsPage() {
           <ListMusic className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" />
           <p>No playlists yet.</p>
           <p className="mt-1">
-            Create one above, or add tracks from any album you have in Lidarr.
+            Create one above, add tracks from any album you have, or save a
+            featured playlist from{" "}
+            <Link href="/discover" className="underline">
+              Discover
+            </Link>
+            .
           </p>
         </div>
       ) : (

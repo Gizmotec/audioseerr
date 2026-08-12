@@ -38,6 +38,9 @@ enum LikeTargetType {
   TRACK
   ALBUM
   ARTIST
+  // Saving a featured (system) playlist. targetId is the Playlist id; a saved
+  // playlist shows up on /playlists alongside the user's own.
+  PLAYLIST
 }
 
 enum NotificationType {

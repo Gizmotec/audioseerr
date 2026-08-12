@@ -8,7 +8,11 @@ import type { PlaylistSummary } from "@/lib/playlists";
 // client components can use it without dragging better-sqlite3 into the bundle.
 export { trackLikeTargetId } from "@/lib/likeKeys";
 
-export type LikeTargetType = "TRACK" | "ALBUM" | "ARTIST";
+export type LikeTargetType = "TRACK" | "ALBUM" | "ARTIST" | "PLAYLIST";
+
+/** The music targets. PLAYLIST likes are "saved to my playlists" and must stay
+ *  out of anything that treats a like as a song/album/artist. */
+export const MUSIC_LIKE_TYPES = ["TRACK", "ALBUM", "ARTIST"] as const;
 
 export const LIKED_SONGS_PLAYLIST_ID = "liked";
 
@@ -71,7 +75,9 @@ export type LikedRow = {
  */
 export async function getAllLikes(userId: string): Promise<LikedRow[]> {
   return prisma.like.findMany({
-    where: { userId },
+    // Saved playlists share this table but aren't music — they'd otherwise
+    // turn up as tracks in mixes and in the liked inbox.
+    where: { userId, targetType: { in: [...MUSIC_LIKE_TYPES] } },
     orderBy: { createdAt: "desc" },
     select: {
       id: true,

@@ -170,6 +170,35 @@ export async function listSystemPlaylists(): Promise<PlaylistSummary[]> {
   });
 }
 
+/**
+ * The featured playlists this user has saved (liked). These are the only system
+ * playlists that appear on /playlists — the rest live on /discover until saved.
+ */
+export async function listSavedSystemPlaylists(
+  userId: string,
+): Promise<PlaylistSummary[]> {
+  const likes = await prisma.like.findMany({
+    where: { userId, targetType: "PLAYLIST" },
+    select: { targetId: true },
+  });
+  if (likes.length === 0) return [];
+  const ids = likes.map((l) => l.targetId);
+  const all = await listSystemPlaylists();
+  const wanted = new Set(ids);
+  return all.filter((p) => wanted.has(p.id));
+}
+
+/** Which of the given system playlists has this user saved? */
+export async function getSavedPlaylistIds(
+  userId: string,
+): Promise<Set<string>> {
+  const rows = await prisma.like.findMany({
+    where: { userId, targetType: "PLAYLIST" },
+    select: { targetId: true },
+  });
+  return new Set(rows.map((r) => r.targetId));
+}
+
 export type SystemPlaylistDetail = {
   id: string;
   name: string;
