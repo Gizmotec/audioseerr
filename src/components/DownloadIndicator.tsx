@@ -575,6 +575,80 @@ function SearchingGlyph({ className }: { className?: string }) {
   );
 }
 
+/**
+ * The "bytes are moving" glyph: an eighth note squashing on the beat, little
+ * notes drifting off it, and a download arrow dropping in and settling. Same
+ * approach as SearchingGlyph — the supplied Lottie rebuilt as inline SVG, so
+ * the mark inherits currentColor and no animation runtime ships with it.
+ *
+ * The composition sits off-centre in the source artboard; the outer translate
+ * recentres it so the glyph is balanced at icon sizes.
+ */
+function DownloadingGlyph({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 512 512"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={31}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <g transform="translate(-51 -59)">
+        {/* Notes shaking loose, staggered so there's always one in flight. */}
+        {[
+          { cx: 300, cy: 208, delay: "0s" },
+          { cx: 344, cy: 236, delay: "0.6s" },
+          { cx: 268, cy: 246, delay: "1.2s" },
+        ].map((n) => (
+          <circle
+            key={n.delay}
+            cx={n.cx}
+            cy={n.cy}
+            r={15}
+            fill="currentColor"
+            stroke="none"
+            data-dl-anim="loop"
+            style={{
+              transformBox: "view-box",
+              transformOrigin: `${n.cx}px ${n.cy}px`,
+              animation: `dl-note-rise 1.8s ${n.delay} ease-out infinite`,
+            }}
+          />
+        ))}
+
+        {/* The note itself — head plus stem and flag. */}
+        <g
+          data-dl-anim="loop"
+          style={{
+            transformBox: "view-box",
+            transformOrigin: "256px 300px",
+            animation: "dl-note-pulse 1.2s ease-in-out infinite",
+          }}
+        >
+          <circle cx="229" cy="298" r="45" />
+          <path d="M273 303 L290 169 L328 211" />
+        </g>
+
+        {/* Arrow dropping in below it. */}
+        <g
+          data-dl-anim="loop"
+          style={{
+            transformBox: "view-box",
+            transformOrigin: "385px 390px",
+            animation: "dl-arrow-drop 1.8s ease-in-out infinite",
+          }}
+        >
+          <path d="M385 322 L385 437" />
+          <path d="M339 414 L385 460 L431 414" />
+        </g>
+      </g>
+    </svg>
+  );
+}
+
 /* -------------------------------------------------------------------------- */
 /* Artwork overlay                                                             */
 /* -------------------------------------------------------------------------- */
@@ -741,11 +815,7 @@ export function ArtworkDownloadOverlay({
         {searching ? (
           <SearchingGlyph className={glyph} />
         ) : (
-          <Download
-            className={glyph}
-            data-dl-anim="loop"
-            style={{ animation: "dl-breathe 1.8s ease-in-out infinite" }}
-          />
+          <DownloadingGlyph className={glyph} />
         )}
         {size !== "sm" && (
           <span
