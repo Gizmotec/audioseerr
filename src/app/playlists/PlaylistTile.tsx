@@ -1,5 +1,8 @@
+"use client";
+
 import { Heart, ListMusic, Share2 } from "lucide-react";
 import Link from "next/link";
+import { LinkPendingOverlay } from "@/components/LinkPending";
 import type { PlaylistSummary } from "@/lib/playlists";
 
 export function PlaylistTile({ playlist }: { playlist: PlaylistSummary }) {
@@ -24,6 +27,7 @@ export function PlaylistTile({ playlist }: { playlist: PlaylistSummary }) {
       className="group flex flex-col gap-2 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <div className="relative aspect-square overflow-hidden rounded-xl bg-surface-2">
+        <LinkPendingOverlay />
         {showSingleCover ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img

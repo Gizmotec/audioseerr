@@ -2,6 +2,7 @@
 
 import { Disc3 } from "lucide-react";
 import Link from "next/link";
+import { LinkPendingOverlay } from "@/components/LinkPending";
 import { useState } from "react";
 
 export type ReleaseCardProps = {
@@ -32,6 +33,7 @@ export function ReleaseCard({
       className="group flex flex-col gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <div className="relative aspect-square overflow-hidden rounded-md bg-secondary">
+        <LinkPendingOverlay />
         {imgOk && coverUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img

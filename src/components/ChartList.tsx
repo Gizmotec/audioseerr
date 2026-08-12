@@ -2,6 +2,7 @@
 
 import { Disc3, Heart, Music2, UserRound } from "lucide-react";
 import Link from "next/link";
+import { LinkPendingSpinner } from "@/components/LinkPending";
 import { useState } from "react";
 import type { LastFmChartArtist, LastFmChartTrack } from "@/lib/lastfm";
 import type { MostLovedRow } from "@/lib/mostLoved";
@@ -139,6 +140,7 @@ export function TopTracksChart({ tracks }: { tracks: LastFmChartTrack[] }) {
                   {track.artistName} · {compactNumber(track.listeners)} listeners
                 </span>
               </span>
+              <LinkPendingSpinner className="ml-auto text-muted-foreground" />
             </Link>
           </li>
         ))}
@@ -171,6 +173,7 @@ export function TopArtistsChart({ artists }: { artists: LastFmChartArtist[] }) {
                   {compactNumber(artist.listeners)} listeners
                 </span>
               </span>
+              <LinkPendingSpinner className="ml-auto text-muted-foreground" />
             </Link>
           </li>
         ))}
@@ -209,6 +212,7 @@ export function MostLovedChart({ items }: { items: MostLovedRow[] }) {
                   {lovedMeta(item)}
                 </span>
               </span>
+              <LinkPendingSpinner className="ml-auto text-muted-foreground" />
             </Link>
           </li>
         ))}

@@ -2,6 +2,7 @@
 
 import { Disc3 } from "lucide-react";
 import Link from "next/link";
+import { LinkPendingOverlay } from "@/components/LinkPending";
 import { useState } from "react";
 import { LikedBadge } from "@/components/LikedBadge";
 import type { LibraryHit } from "@/lib/library";
@@ -39,6 +40,7 @@ export function AlbumCard({
           </div>
         )}
         <LikedBadge liked={!!liked} />
+        <LinkPendingOverlay />
       </div>
       <div className="space-y-0.5">
         <h3

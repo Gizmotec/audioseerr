@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { LinkPendingSpinner } from "@/components/LinkPending";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
@@ -58,6 +59,7 @@ export function SidebarLink({
         {icon}
       </span>
       <span className="sidebar-label">{children}</span>
+      <LinkPendingSpinner className="sidebar-label ml-auto" />
     </Link>
   );
 }
