@@ -1,4 +1,4 @@
-import { ArrowLeft, BarChart3, Download, KeyRound } from "lucide-react";
+import { ArrowLeft, BarChart3, Download, KeyRound, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
@@ -122,6 +122,27 @@ export default async function AccountPage({
             className={buttonVariants({ variant: "outline" })}
           >
             Open listening stats
+          </Link>
+        </CardContent>
+      </Card>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Sparkles className="h-4 w-4" /> Tidy library
+          </CardTitle>
+          <CardDescription>
+            Find tracks nothing points at any more — picks that rotated out of a
+            featured playlist you auto-download, and that you never liked or
+            added to a playlist. Shows you the list before anything is removed.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link
+            href="/account/cleanup"
+            className={buttonVariants({ variant: "outline" })}
+          >
+            Review library
           </Link>
         </CardContent>
       </Card>

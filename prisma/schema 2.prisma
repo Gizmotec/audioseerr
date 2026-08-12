@@ -34,24 +34,10 @@ enum RequestStatus {
   FAILED
 }
 
-// Why a user has a given download. Release/cleanup only ever considers
-// PLAYLIST_SYNC rows — anything the user asked for directly is structurally out
-// of scope, the same way ephemeral=false keeps real library tracks out of the
-// discovery-mix prune.
-enum DownloadSource {
-  // The user asked for this: a download button, an album request, a like.
-  MANUAL
-  // Fetched on their behalf because they auto-download a featured playlist.
-  PLAYLIST_SYNC
-}
-
 enum LikeTargetType {
   TRACK
   ALBUM
   ARTIST
-  // Saving a featured (system) playlist. targetId is the Playlist id; a saved
-  // playlist shows up on /playlists alongside the user's own.
-  PLAYLIST
 }
 
 enum NotificationType {
@@ -59,19 +45,6 @@ enum NotificationType {
   REQUEST_DECLINED
   REQUEST_AVAILABLE
   REQUEST_FAILED
-}
-
-enum IssueType {
-  WRONG_MATCH
-  METADATA
-  PLAYBACK
-  OTHER
-}
-
-enum IssueStatus {
-  OPEN
-  RESOLVED
-  CLOSED
 }
 
 model User {
@@ -112,15 +85,8 @@ model User {
   recentSearches RecentSearch[]
   playlists      Playlist[]
   plays          PlayHistory[]
-  notifications Notification[]
-  apiKeys     ApiKey[]
-
-  // Issue reports filed by this user (Overseerr-style "report a problem").
-  issues      Issue[]
-  // Resume-playback positions, one row per in-progress track.
-  playPositions PlayPosition[]
-  // Rule-driven playlists that re-evaluate on view (Plex-style smart playlists).
-  smartPlaylists SmartPlaylist[]
+  notifications  Notification[]
+  apiKeys        ApiKey[]
   invitesCreated Invite[] @relation("InvitesCreated")
   invitesUsed    Invite[] @relation("InvitesUsed")
   libraryItems   UserLibraryItem[]
@@ -175,8 +141,6 @@ model Request {
   // request landing on the same track graduates it to permanent.
   ephemeral        Boolean       @default(false)
   expiresAt        DateTime?
-  // How this request came about — see DownloadSource.
-  source           DownloadSource @default(MANUAL)
 
   @@index([status])
   @@index([requestedById])
@@ -250,83 +214,9 @@ model Settings {
   // users can self-wire Discord / ntfy / Gotify without per-service
   // integrations (design doc §8). Secret-free; payload carries no credentials.
   notificationWebhookUrl String?
-  // Last.fm API secret — needed for scrobble auth signatures (the public
-  // lastFmApiKey above isn't enough for write endpoints).
-  lastFmApiSecret String?
-  // OIDC/SSO login (Authentik/Keycloak/Pocket ID). Read at boot by
-  // src/lib/oidc.ts — changing these requires a container restart.
-  oidcEnabled      Boolean @default(false)
-  oidcIssuerUrl    String?
-  oidcClientId     String?
-  oidcClientSecret String? // AES-256-GCM encrypted like the other secrets
-  oidcButtonLabel  String  @default("SSO")
-  // External login (Plex PIN flow, Jellyfin username/password). Read at boot
-  // by src/lib/plex.ts / src/lib/jellyfin.ts — changing these requires a
-  // container restart. The PLEX_*/JELLYFIN_* environment variables override
-  // them when set. plexEnabled defaults on: Plex sign-in needs no further
-  // config. Jellyfin sign-in requires jellyfinEnabled + jellyfinServerUrl.
-  plexEnabled          Boolean @default(true)
-  plexClientIdentifier String?
-  jellyfinEnabled      Boolean @default(false)
-  jellyfinServerUrl    String?
-  jellyfinApiKey       String? // AES-256-GCM encrypted like the other secrets
-}
-
-// Overseerr-style issue report: a user flags a wrong match, bad metadata, or
-// a playback problem on a specific album/track so the admin can fix it.
-model Issue {
-  id          String      @id @default(cuid())
-  reporterId  String
-  reporter    User        @relation(fields: [reporterId], references: [id], onDelete: Cascade)
-  type        IssueType
-  status      IssueStatus @default(OPEN)
-  title       String
-  description String?
-  artistName  String
-  albumTitle  String?
-  albumMbid   String?
-  trackKey    String?
-  resolverNote String?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  resolvedAt  DateTime?
-
-  @@index([status, createdAt])
-}
-
-// Last known playback position for a track the user stopped mid-way
-// (Plex/Spotify "continue where you left off"). One row per user+track,
-// upserted by the player as it plays; cleared when the track finishes.
-model PlayPosition {
-  id         String   @id @default(cuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  trackKey   String // same key scheme as PlayHistory.trackKey
-  title      String
-  artistName String
-  albumTitle String?
-  positionMs Int
-  durationMs Int
-  updatedAt  DateTime @updatedAt
-
-  @@unique([userId, trackKey])
-  @@index([userId, updatedAt])
-}
-
-// Plex-style smart playlist: a stored rule set, evaluated at view time against
-// the user's library/history (not a frozen track list). rulesJson is a
-// stringified JSON array of rule objects, validated in src/lib/smartPlaylist.ts.
-model SmartPlaylist {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name      String
-  rulesJson String
-  limit     Int      @default(50)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([userId])
+  // Last.fm API secret — required (with the public lastFmApiKey) to sign
+  // scrobble-auth requests. Encrypted at rest like the other keys.
+  lastFmApiSecret        String?
 }
 
 // Snapshot of a Spotify playlist's track IDs at the time of the user's last
@@ -588,9 +478,6 @@ model UserDownloadedTrack {
   downloadedTrackId String
   downloadedTrack   DownloadedTrack @relation(fields: [downloadedTrackId], references: [id], onDelete: Cascade)
   addedAt           DateTime        @default(now())
-  // Why this user has it. Rows predating this column default to MANUAL, so the
-  // existing library is never auto-released on provenance alone.
-  source            DownloadSource  @default(MANUAL)
 
   @@unique([userId, downloadedTrackId])
   @@index([userId])

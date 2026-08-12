@@ -111,7 +111,7 @@ async function downloadForSubscribers(
           trackTitle: resolved.title,
           albumPosition: resolved.albumPosition,
         },
-        { forceApproval: true },
+        { forceApproval: true, source: "PLAYLIST_SYNC" },
       );
     }
   }

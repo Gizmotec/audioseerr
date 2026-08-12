@@ -4,6 +4,7 @@
 
 import { executeRequestApproval } from "@/app/admin/requests/actions";
 import { prisma } from "@/lib/db";
+import type { DownloadSource } from "@prisma/client";
 import { attachDownloadedTrackToUser } from "@/lib/downloadedTracks";
 import { getSettings } from "@/lib/settings";
 
@@ -39,13 +40,21 @@ export type EnsureTrackResult = {
 export async function ensureTrackRequested(
   userId: string,
   input: EnsureTrackInput,
-  opts: { ephemeral?: boolean; expiresAt?: Date | null; forceApproval?: boolean } = {},
+  opts: {
+    ephemeral?: boolean;
+    expiresAt?: Date | null;
+    forceApproval?: boolean;
+    /** Why we're fetching it — PLAYLIST_SYNC downloads are the only ones the
+     *  library reconcile is ever allowed to take back. */
+    source?: DownloadSource;
+  } = {},
 ): Promise<EnsureTrackResult> {
   const trackKey =
     input.recordingMbid ?? `${input.albumMbid}:${input.albumPosition}`;
   try {
     const mbid = trackKey;
     const ephemeral = opts.ephemeral ?? false;
+    const source: DownloadSource = opts.source ?? "MANUAL";
 
     const existing = await prisma.request.findFirst({
       where: {
@@ -65,6 +74,22 @@ export async function ensureTrackRequested(
           data: { ephemeral: false, expiresAt: null },
         });
       }
+      // Asking for it yourself takes it out of the playlist's hands for good.
+      if (source === "MANUAL") {
+        await prisma.request
+          .updateMany({ where: { id: existing.id }, data: { source: "MANUAL" } })
+          .catch(() => {});
+        const owned = await prisma.downloadedTrack.findUnique({
+          where: {
+            albumMbid_albumPosition: {
+              albumMbid: input.albumMbid,
+              albumPosition: input.albumPosition,
+            },
+          },
+          select: { id: true },
+        });
+        if (owned) await attachDownloadedTrackToUser(userId, owned.id, "MANUAL");
+      }
       return { trackKey, owned: existing.status === "AVAILABLE" };
     }
 
@@ -80,7 +105,7 @@ export async function ensureTrackRequested(
       select: { id: true },
     });
     if (downloaded) {
-      await attachDownloadedTrackToUser(userId, downloaded.id);
+      await attachDownloadedTrackToUser(userId, downloaded.id, source);
       // A real request keeps an already-downloaded temp track (graduation).
       if (!ephemeral) {
         await prisma.downloadedTrack.updateMany({
@@ -111,6 +136,7 @@ export async function ensureTrackRequested(
         status: "PENDING",
         ephemeral,
         expiresAt: opts.expiresAt ?? null,
+        source,
       },
     });
 

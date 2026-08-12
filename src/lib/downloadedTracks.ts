@@ -11,7 +11,7 @@ import { trackMatchKey } from "@/lib/deezer";
 import { baseName } from "@/lib/slskd";
 import { applyPathMap, parsePathMap } from "@/lib/streaming";
 import { isAdmin, type LibraryViewer } from "@/lib/userLibrary";
-import type { Request } from "@prisma/client";
+import type { DownloadSource, Request } from "@prisma/client";
 
 /**
  * Locate the file slskd downloaded. slskd writes completed downloads under its
@@ -98,7 +98,11 @@ export async function upsertDownloadedTrack(
   fields: DownloadedTrackFields,
   absFilePath: string,
   userId: string,
-  opts: { ephemeral?: boolean; expiresAt?: Date | null } = {},
+  opts: {
+    ephemeral?: boolean;
+    expiresAt?: Date | null;
+    source?: DownloadSource;
+  } = {},
 ): Promise<string | null> {
   let sizeBytes: number | null = null;
   try {
@@ -145,7 +149,7 @@ export async function upsertDownloadedTrack(
     },
   });
 
-  await attachDownloadedTrackToUser(userId, track.id);
+  await attachDownloadedTrackToUser(userId, track.id, opts.source ?? "MANUAL");
   return track.id;
 }
 
@@ -167,8 +171,13 @@ export async function registerDownloadedTrack(
     },
     absFilePath,
     request.requestedById,
-    // A discovery-mix pre-download lands as an ephemeral (temp) track.
-    { ephemeral: request.ephemeral, expiresAt: request.expiresAt },
+    // A discovery-mix pre-download lands as an ephemeral (temp) track, and the
+    // request's provenance rides along so cleanup can tell why the user has it.
+    {
+      ephemeral: request.ephemeral,
+      expiresAt: request.expiresAt,
+      source: request.source,
+    },
   );
 }
 
@@ -176,11 +185,14 @@ export async function registerDownloadedTrack(
 export async function attachDownloadedTrackToUser(
   userId: string,
   downloadedTrackId: string,
+  source: DownloadSource = "MANUAL",
 ): Promise<void> {
   await prisma.userDownloadedTrack.upsert({
     where: { userId_downloadedTrackId: { userId, downloadedTrackId } },
-    create: { userId, downloadedTrackId },
-    update: {},
+    create: { userId, downloadedTrackId, source },
+    // Provenance only ever ratchets towards MANUAL: once the user asks for a
+    // track themselves it stops being the playlist's to take away.
+    update: source === "MANUAL" ? { source: "MANUAL" } : {},
   });
 }
 
