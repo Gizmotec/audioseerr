@@ -1,8 +1,14 @@
 "use client";
 
-import { Check, ChevronRight, Disc3, Download, Heart, Loader2, Pause, Play, X } from "lucide-react";
+import { ChevronRight, Disc3, Heart, Loader2, Pause, Play } from "lucide-react";
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useCallback, useState, useTransition } from "react";
+import {
+  ArtworkDownloadOverlay,
+  DownloadButton,
+  OwnedArtworkBadge,
+  useDownloadState,
+} from "@/components/DownloadIndicator";
 import { usePreviewPlayer } from "@/components/PreviewPlayer";
 import { useTrackMenu } from "@/components/TrackMenu";
 import { requestDiscoveryTrackAction } from "@/app/discover/actions";
@@ -72,14 +78,21 @@ export function DiscoveryTrackList({
   );
 }
 
-type DownloadState = "idle" | "resolving" | "done" | "error";
-
 function DiscoveryTrackCard({ track }: { track: DiscoveryTrack }) {
   const player = usePreviewPlayer();
   const { openTrackMenu } = useTrackMenu();
-  const [state, setState] = useState<DownloadState>("idle");
-  const [error, setError] = useState<string | null>(null);
-  const [, startTransition] = useTransition();
+
+  const submit = useCallback(
+    () =>
+      requestDiscoveryTrackAction({
+        title: track.title,
+        artistName: track.artistName,
+        albumTitle: track.albumTitle,
+        coverUrl: track.coverUrl,
+      }),
+    [track.title, track.artistName, track.albumTitle, track.coverUrl],
+  );
+  const download = useDownloadState({ submit });
 
   const playable = !!track.previewUrl;
   const isActive = playable && player.isCurrent(track.previewUrl!);
@@ -102,26 +115,6 @@ function DiscoveryTrackCard({ track }: { track: DiscoveryTrack }) {
         albumPosition: null,
         albumTitle: track.albumTitle,
       },
-    });
-  };
-
-  const download = () => {
-    if (state === "resolving" || state === "done") return;
-    setState("resolving");
-    setError(null);
-    startTransition(async () => {
-      const res = await requestDiscoveryTrackAction({
-        title: track.title,
-        artistName: track.artistName,
-        albumTitle: track.albumTitle,
-        coverUrl: track.coverUrl,
-      });
-      if (res.ok) {
-        setState("done");
-      } else {
-        setState("error");
-        setError(res.error);
-      }
     });
   };
 
@@ -192,40 +185,27 @@ function DiscoveryTrackCard({ track }: { track: DiscoveryTrack }) {
             into the library on like. */}
         <CardLikeButton track={track} />
 
-        {/* Added badge (bottom-left), mirrors InLibraryBadge. */}
-        {state === "done" && (
-          <span
-            className="absolute bottom-1.5 left-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-pastel-mint text-ink"
-            title="Added to your library"
-            aria-label="Added to your library"
-          >
-            <Check className="h-3 w-3" strokeWidth={3} />
-          </span>
-        )}
+        {/* Transfer progress traced around the cover, then the landing
+            animation — the card only settles to a check once the file is
+            actually on disk. */}
+        <ArtworkDownloadOverlay
+          phase={download.phase}
+          percent={download.percent}
+          rx={9}
+          strokeWidth={3}
+          size="md"
+        />
 
-        {/* Download (not-yet-added) — top-right. */}
-        {state !== "done" && (
-          <button
-            type="button"
-            onClick={download}
-            disabled={state === "resolving"}
-            title={state === "error" ? (error ?? "Try again") : "Download track"}
-            aria-label={
-              state === "error" ? (error ?? "Download failed, retry") : "Download track"
-            }
-            className={cn(
-              "absolute top-1.5 right-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-pastel-yellow text-ink transition-colors hover:bg-pastel-yellow/80 disabled:opacity-70",
-              state === "error" && "bg-pastel-red hover:bg-pastel-red/80",
-            )}
-          >
-            {state === "resolving" ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : state === "error" ? (
-              <X className="h-3.5 w-3.5" />
-            ) : (
-              <Download className="h-3.5 w-3.5" />
-            )}
-          </button>
+        {download.phase === "owned" && <OwnedArtworkBadge />}
+        {/* While a transfer is live the cover overlay is the progress display,
+            so the button steps aside until there's something to click again. */}
+        {(download.phase === "idle" || download.phase === "failed") && (
+          <DownloadButton
+            state={download}
+            size="sm"
+            variant="solid"
+            className="absolute top-1.5 right-1.5"
+          />
         )}
       </div>
 

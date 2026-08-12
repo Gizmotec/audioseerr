@@ -15,7 +15,6 @@ import { Clock, Search } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
 import { AdminRequestRow, type RequestRowData } from "@/app/admin/requests/AdminRequestRow";
-import { DownloadsProgressProvider } from "@/components/DownloadsProgressProvider";
 import { Input } from "@/components/ui/input";
 import { UserRequestRow } from "./UserRequestRow";
 
@@ -142,52 +141,50 @@ export function RequestsClient({
           onChange={setDownloadsQuery}
           placeholder="Search downloads…"
         />
-        <DownloadsProgressProvider enabled={downloading.length > 0}>
-          <section className="mb-10">
-            <h2 className="mb-3 flex items-center gap-2 text-sm font-medium uppercase tracking-wider text-muted-foreground">
-              Downloading
-              {downloading.length > 0 && (
-                <Clock className="h-3.5 w-3.5 animate-pulse" />
-              )}
-            </h2>
-            {filteredDownloading.length === 0 ? (
-              <EmptyHint>
-                {downloadsQuery.trim()
-                  ? "No matches."
-                  : "Nothing downloading right now."}
-              </EmptyHint>
-            ) : (
-              <ul className="divide-y divide-border/50">
-                {filteredDownloading.map((r) => row(r))}
-              </ul>
+        <section className="mb-10">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-medium uppercase tracking-wider text-muted-foreground">
+            Downloading
+            {downloading.length > 0 && (
+              <Clock className="h-3.5 w-3.5 animate-pulse" />
             )}
-          </section>
+          </h2>
+          {filteredDownloading.length === 0 ? (
+            <EmptyHint>
+              {downloadsQuery.trim()
+                ? "No matches."
+                : "Nothing downloading right now."}
+            </EmptyHint>
+          ) : (
+            <ul className="divide-y divide-border/50">
+              {filteredDownloading.map((r) => row(r))}
+            </ul>
+          )}
+        </section>
 
-          <section>
-            <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-muted-foreground">
-              Download history
-            </h2>
-            {filteredHistory.length === 0 ? (
-              <EmptyHint>
-                {downloadsQuery.trim()
-                  ? "No matches."
-                  : variant === "admin"
-                    ? "Nothing downloaded yet. Approved requests land here once a match is found on Soulseek."
-                    : "Nothing downloaded yet. Your requests appear here once a match is found and the download finishes."}
-              </EmptyHint>
-            ) : (
-              <ul className="divide-y divide-border/50">
-                {filteredHistory.map((r) => row(r))}
-              </ul>
-            )}
-            {history.length + downloading.length < downloadsTotal && (
-              <TruncationNote
-                shown={history.length + downloading.length}
-                total={downloadsTotal}
-              />
-            )}
-          </section>
-        </DownloadsProgressProvider>
+        <section>
+          <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-muted-foreground">
+            Download history
+          </h2>
+          {filteredHistory.length === 0 ? (
+            <EmptyHint>
+              {downloadsQuery.trim()
+                ? "No matches."
+                : variant === "admin"
+                  ? "Nothing downloaded yet. Approved requests land here once a match is found on Soulseek."
+                  : "Nothing downloaded yet. Your requests appear here once a match is found and the download finishes."}
+            </EmptyHint>
+          ) : (
+            <ul className="divide-y divide-border/50">
+              {filteredHistory.map((r) => row(r))}
+            </ul>
+          )}
+          {history.length + downloading.length < downloadsTotal && (
+            <TruncationNote
+              shown={history.length + downloading.length}
+              total={downloadsTotal}
+            />
+          )}
+        </section>
       </div>
     </div>
   );

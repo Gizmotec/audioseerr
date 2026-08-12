@@ -1,7 +1,11 @@
 "use client";
 
-import { Check, Download, Loader2, Pause, Play, X } from "lucide-react";
-import { useState, useTransition } from "react";
+import { Loader2, Pause, Play } from "lucide-react";
+import { useCallback } from "react";
+import {
+  DownloadButton,
+  useDownloadState,
+} from "@/components/DownloadIndicator";
 import { usePreviewPlayer } from "@/components/PreviewPlayer";
 import { useTrackMenu } from "@/components/TrackMenu";
 import { YouTubeButton } from "@/components/YouTubeButton";
@@ -11,6 +15,10 @@ import type { DeezerArtistTopTrack } from "@/lib/deezer";
 export type ArtistTopTrack = DeezerArtistTopTrack & {
   listeners: number | null;
   playcount: number | null;
+  /** Already on disk for this viewer (fuzzy artist|title match — Deezer gives
+   *  us no MBIDs here), so the row settles to a check instead of offering a
+   *  download it would only dedupe away. */
+  owned?: boolean;
 };
 
 /**
@@ -118,6 +126,7 @@ export function TopTracksList({
                 artistName={artistName}
                 albumTitle={t.albumTitle}
                 coverUrl={t.albumCover ?? artistImageUrl}
+                owned={t.owned}
               />
               <span className="text-xs text-muted-foreground tabular-nums">
                 {formatDuration(t.durationMs)}
@@ -130,83 +139,29 @@ export function TopTracksList({
   );
 }
 
-type DownloadState = "idle" | "resolving" | "done" | "error";
-
 /** Request a single Deezer top track — resolves title+artist to MusicBrainz on
- *  the server (same path as discover cards), owning its own idle→done state. */
+ *  the server (same path as discover cards), then follows the resulting request
+ *  to completion so the row shows real transfer progress rather than a checkmark
+ *  the moment the request is accepted. */
 function DownloadTrackButton({
   title,
   artistName,
   albumTitle,
   coverUrl,
+  owned,
 }: {
   title: string;
   artistName: string;
   albumTitle: string | null;
   coverUrl: string | null;
+  owned?: boolean;
 }) {
-  const [state, setState] = useState<DownloadState>("idle");
-  const [error, setError] = useState<string | null>(null);
-  const [, startTransition] = useTransition();
-
-  const download = () => {
-    if (state === "resolving" || state === "done") return;
-    setState("resolving");
-    setError(null);
-    startTransition(async () => {
-      const res = await requestDiscoveryTrackAction({
-        title,
-        artistName,
-        albumTitle,
-        coverUrl,
-      });
-      if (res.ok) {
-        setState("done");
-      } else {
-        setState("error");
-        setError(res.error);
-      }
-    });
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={download}
-      disabled={state === "resolving" || state === "done"}
-      title={
-        state === "done"
-          ? "Added to your library"
-          : state === "error"
-            ? (error ?? "Try again")
-            : "Download track"
-      }
-      aria-label={
-        state === "done"
-          ? "Added to your library"
-          : state === "error"
-            ? (error ?? "Download failed, retry")
-            : "Download track"
-      }
-      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground disabled:cursor-default ${
-        state === "done"
-          ? "text-pastel-mint"
-          : state === "error"
-            ? "text-destructive"
-            : ""
-      }`}
-    >
-      {state === "resolving" ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
-      ) : state === "done" ? (
-        <Check className="h-4 w-4" />
-      ) : state === "error" ? (
-        <X className="h-4 w-4" />
-      ) : (
-        <Download className="h-4 w-4" />
-      )}
-    </button>
+  const submit = useCallback(
+    () => requestDiscoveryTrackAction({ title, artistName, albumTitle, coverUrl }),
+    [title, artistName, albumTitle, coverUrl],
   );
+  const state = useDownloadState({ owned, submit });
+  return <DownloadButton state={state} />;
 }
 
 function formatDuration(ms: number | null): string {

@@ -5,8 +5,9 @@ import { auth } from "@/auth";
 import { AlbumCard } from "@/app/search/AlbumCard";
 import { BackLink } from "@/components/BackLink";
 import { buildSevenDigitalUrl } from "@/lib/sevenDigital";
-import { getDeezerArtistBundle } from "@/lib/deezer";
+import { getDeezerArtistBundle, trackMatchKey } from "@/lib/deezer";
 import { getArtistInfo, getArtistTopTracks } from "@/lib/lastfm";
+import { buildOwnedTrackLookup } from "@/lib/downloadedTracks";
 import { buildLibraryIndex } from "@/lib/library";
 import { getLikedSet, isLiked } from "@/lib/likes";
 import { getArtist, type MbReleaseGroupSummary } from "@/lib/musicbrainz";
@@ -60,6 +61,7 @@ export default async function ArtistPage({ params }: { params: RouteParams }) {
     existingRequest,
     artistLiked,
     likedAlbums,
+    ownedTracks,
   ] = await Promise.all([
     getDeezerArtistBundle(artist.name).catch(() => null),
     lastFmKey
@@ -87,6 +89,10 @@ export default async function ArtistPage({ params }: { params: RouteParams }) {
       "ALBUM",
       artist.releaseGroups.map((rg) => rg.mbid),
     ),
+    // So a top track already on disk shows a check rather than another
+    // download button. Deezer gives us no MBIDs here, hence the fuzzy
+    // artist|title match.
+    buildOwnedTrackLookup(viewer),
   ]);
 
   const sevenDigitalUrl = buildSevenDigitalUrl({ artistName: artist.name });
@@ -111,6 +117,7 @@ export default async function ArtistPage({ params }: { params: RouteParams }) {
       ...t,
       listeners: stats?.listeners ?? null,
       playcount: stats?.playcount ?? null,
+      owned: ownedTracks.has(trackMatchKey(artist.name, t.title)),
     };
   });
 

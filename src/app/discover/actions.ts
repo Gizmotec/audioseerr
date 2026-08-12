@@ -5,7 +5,15 @@ import { auth } from "@/auth";
 import { resolveSong } from "@/lib/songResolve";
 import { ensureTrackRequested } from "@/lib/trackRequests";
 
-type Result = { ok: true } | { ok: false; error: string };
+type Result =
+  | {
+      ok: true;
+      /** Request mbid the caller can follow for live download progress. */
+      trackKey: string;
+      /** The file was already on disk — nothing to transfer. */
+      owned: boolean;
+    }
+  | { ok: false; error: string };
 
 // Discovery tracks come from Deezer/Last.fm with only title/artist/album — no
 // MusicBrainz ids — so we resolve them here, on click, rather than for every
@@ -17,7 +25,7 @@ const NOT_FOUND = "Couldn't find this track to download.";
  * Resolve a discovered song to a MusicBrainz album + position, then hand it to
  * the existing slskd request path (auto-approve + dedup live in
  * ensureTrackRequested). Idempotent: re-requesting an owned/in-flight track is a
- * no-op there, so the caller can safely flip the row to "added".
+ * no-op there, so the caller can safely start tracking the row's progress.
  */
 export async function requestDiscoveryTrackAction(input: {
   title: string;
@@ -34,7 +42,7 @@ export async function requestDiscoveryTrackAction(input: {
   const resolved = await resolveSong(input, { includeSingles: true });
   if (!resolved) return { ok: false, error: NOT_FOUND };
 
-  await ensureTrackRequested(userId, {
+  const ensured = await ensureTrackRequested(userId, {
     albumMbid: resolved.albumMbid,
     albumTitle: resolved.albumTitle,
     artistName: resolved.artistName,
@@ -45,5 +53,5 @@ export async function requestDiscoveryTrackAction(input: {
   });
 
   revalidatePath("/requests");
-  return { ok: true };
+  return { ok: true, trackKey: ensured.trackKey, owned: ensured.owned };
 }

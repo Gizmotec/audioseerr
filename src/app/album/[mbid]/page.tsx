@@ -1,7 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { BackLink } from "@/components/BackLink";
-import { DownloadWatcher } from "@/components/DownloadsProgressProvider";
 import { buildSevenDigitalUrl } from "@/lib/sevenDigital";
 import { prisma } from "@/lib/db";
 import { findAlbumPreviews, normalizeTrackTitle } from "@/lib/deezer";
@@ -140,19 +139,12 @@ export default async function AlbumPage({
     trackCount: p.trackCount,
   }));
 
-  // While any request touching this album is still in flight, poll for
-  // completion and refresh — so a finished download populates each track's
-  // local streamUrl (full file) without the user having to reload.
-  const isActiveStatus = (s: ExistingRequestStatus | null) =>
-    s === "PENDING" || s === "APPROVED" || s === "DOWNLOADING";
-  const hasActiveDownloads =
-    isActiveStatus(existingStatus) ||
-    Object.values(existingTrackStatuses).some(isActiveStatus);
+  // In-flight requests are picked up by the app-wide DownloadsProvider, which
+  // polls slskd and refreshes this page on completion so each track's local
+  // streamUrl (full file) appears without a manual reload.
 
   return (
     <main className="relative isolate mx-auto w-full max-w-5xl flex-1 px-4 py-6 md:px-6">
-      <DownloadWatcher enabled={hasActiveDownloads} />
-
       <BackLink fallbackHref="/home" />
 
       <AlbumDetail

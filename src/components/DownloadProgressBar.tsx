@@ -13,10 +13,14 @@ export function DownloadProgressBar({ requestId }: { requestId: string }) {
   if (progress?.state === "failed") return null;
 
   const done = progress?.state === "done";
-  const percent = progress?.percent ?? null;
+  const percent = progress?.state === "active" ? progress.percent : null;
   const indeterminate = percent == null && !done;
   const value = done ? 100 : (percent ?? 0);
-  const label = done ? "Finishing…" : percent == null ? "Starting…" : `${percent}%`;
+  const label = done
+    ? "Finishing…"
+    : percent == null
+      ? "Searching…"
+      : `${percent}%`;
 
   return (
     <div className="flex w-32 flex-col items-end gap-1">

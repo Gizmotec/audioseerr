@@ -1,16 +1,27 @@
 "use client";
 
-// Polls live slskd download progress on an interval. Two consumers share one
-// poll loop (`useDownloadProgressMap`):
-//   • DownloadsProgressProvider — exposes the map via context so request rows
-//     render progress bars (used on /requests).
-//   • DownloadWatcher — renders nothing; just runs the loop so a page re-fetches
-//     when a download finishes (used on the album page, where completion needs
-//     to populate each track's local streamUrl without a manual reload).
-// `enabled` gates polling to pages that actually have an in-flight download
-// (recomputed server-side on every revalidate/refresh).
+// One poll loop for the whole app, mounted once in the root layout.
+//
+// slskd is the source of truth for in-flight transfers, so every surface that
+// wants to show download progress (request rows, album tracklists, playlist
+// rows, discover cards) reads from this one context rather than starting its
+// own timer. Items are indexed twice — by request id, which the /requests rows
+// know, and by request mbid, which track rows can compute from the track alone.
+//
+// Polling is adaptive: the loop runs while something is actually in flight or
+// while a component has registered interest (it just clicked download and the
+// request hasn't reached slskd yet), and stops otherwise. That keeps an idle
+// page at a single request on mount instead of a timer that never sleeps.
 
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 import { syncNowAction } from "@/app/admin/requests/actions";
 import {
@@ -18,93 +29,185 @@ import {
   type DownloadProgressItem,
 } from "@/lib/actions/downloadProgress";
 
-type ProgressMap = Map<string, DownloadProgressItem>;
+type Snapshot = {
+  /** Keyed by request id and (for the caller's own requests) by request mbid. */
+  byKey: Map<string, DownloadProgressItem>;
+  /** Increments on every successful poll. A key missing from a fresh snapshot
+   *  means "gone", but only if the snapshot is newer than when it was seen. */
+  tick: number;
+};
 
-const ProgressContext = createContext<ProgressMap>(new Map());
+type DownloadsContext = {
+  snapshot: Snapshot;
+  /** Register interest in a key so the loop keeps polling. Returns an unwatch. */
+  watch: (key: string) => () => void;
+};
 
+const EMPTY: Snapshot = { byKey: new Map(), tick: 0 };
+
+const Context = createContext<DownloadsContext>({
+  snapshot: EMPTY,
+  watch: () => () => {},
+});
+
+/** Live progress for a request id or request mbid; undefined when not in flight. */
 export function useDownloadProgress(
-  id: string,
+  key: string | null | undefined,
 ): DownloadProgressItem | undefined {
-  return useContext(ProgressContext).get(id);
+  const { snapshot } = useContext(Context);
+  return key ? snapshot.byKey.get(key) : undefined;
+}
+
+/** Successful-poll counter — lets a consumer tell "gone" from "never polled". */
+export function useDownloadsTick(): number {
+  return useContext(Context).snapshot.tick;
+}
+
+/** Keeps the poll loop awake while `key` is set (e.g. a just-submitted request). */
+export function useWatchDownload(key: string | null | undefined): void {
+  const { watch } = useContext(Context);
+  useEffect(() => {
+    if (!key) return;
+    return watch(key);
+  }, [key, watch]);
 }
 
 const POLL_MS = 4000;
+/** A watcher can't hold the loop open forever if its request never lands. */
+const WATCH_TTL_MS = 20 * 60 * 1000;
 
-function useDownloadProgressMap(enabled: boolean): ProgressMap {
-  const [map, setMap] = useState<ProgressMap>(new Map());
+export function DownloadsProvider({ children }: { children: React.ReactNode }) {
+  const [snapshot, setSnapshot] = useState<Snapshot>(EMPTY);
   const router = useRouter();
-  // Refresh the server-rendered page at most once per transfer that finishes,
-  // so a completed download flips to Available/Finishing promptly without looping.
-  const refreshedRef = useRef<Set<string>>(new Set());
+
+  // Bumped to wake a sleeping loop when a watcher appears.
+  const [wakeups, setWakeups] = useState(0);
+  const awake = useRef(false);
+  const watchers = useRef<Map<string, number>>(new Map());
+  // Requests seen in flight during this mount. Only those are worth syncing and
+  // refreshing on completion — a request that was already finished when the page
+  // loaded must not trigger a refresh on every navigation.
+  const seenActive = useRef<Set<string>>(new Set());
+  const refreshed = useRef<Set<string>>(new Set());
+  /** Non-settled items in the last snapshot — read when the tab is hidden. */
+  const inFlightRef = useRef(0);
+
+  const watch = useCallback((key: string) => {
+    watchers.current.set(key, Date.now() + WATCH_TTL_MS);
+    // Only nudge the effect when the loop has actually gone to sleep; otherwise
+    // a screenful of rows registering at once would each force a fresh poll.
+    if (!awake.current) setWakeups((n) => n + 1);
+    return () => {
+      watchers.current.delete(key);
+    };
+  }, []);
 
   useEffect(() => {
-    if (!enabled) return;
     let cancelled = false;
-    let timer: ReturnType<typeof setTimeout>;
-
-    const schedule = () => {
-      timer = setTimeout(run, POLL_MS);
-    };
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    awake.current = true;
 
     const run = async () => {
       if (cancelled) return;
-      // Don't hammer slskd while the tab is hidden; resume on the next tick.
+      // Don't hammer slskd while the tab is hidden — but only keep the timer
+      // alive if there's actually something to come back to.
       if (typeof document !== "undefined" && document.hidden) {
-        schedule();
+        if (inFlightRef.current > 0 || hasLiveWatcher(watchers.current)) {
+          timer = setTimeout(run, POLL_MS);
+        } else {
+          awake.current = false;
+        }
         return;
       }
+
+      let keepGoing = false;
       try {
         const res = await getDownloadProgressAction();
         if (cancelled) return;
-        const next: ProgressMap = new Map();
-        let sawTerminal = false;
-        for (const item of res.items) {
-          next.set(item.id, item);
-          if (item.state !== "active" && !refreshedRef.current.has(item.id)) {
-            refreshedRef.current.add(item.id);
-            sawTerminal = true;
+        if (res.ok) {
+          const byKey = new Map<string, DownloadProgressItem>();
+          // Items arrive newest-first, and a retry reuses the mbid of the
+          // request that failed — so the first claim on an mbid wins.
+          const claimed = new Set<string>();
+          let inFlight = 0;
+          const finished: string[] = [];
+          for (const item of res.items) {
+            byKey.set(item.id, item);
+            // Another user's request (admins see everyone's) must not claim a
+            // track row on this user's page.
+            if (item.mine && !claimed.has(item.mbid)) {
+              claimed.add(item.mbid);
+              byKey.set(item.mbid, item);
+            }
+            const moving =
+              !item.settled && (item.state === "queued" || item.state === "active");
+            if (moving) {
+              inFlight++;
+              seenActive.current.add(item.id);
+              continue;
+            }
+            if (
+              seenActive.current.has(item.id) &&
+              !refreshed.current.has(item.id) &&
+              item.state !== "failed"
+            ) {
+              refreshed.current.add(item.id);
+              finished.push(item.id);
+            }
+            // A finished-but-unsettled transfer is still being registered into
+            // the library, so the loop has to stay awake for the status flip.
+            if (!item.settled) inFlight++;
           }
-        }
-        setMap(next);
-        if (sawTerminal) {
-          // A transfer just finished — run the sync (admin-only; a no-op for
-          // regular users, who get finalized by the cron within ~2 min) so the
-          // file is registered into the library, then re-render so it picks up
-          // the new local streamUrl / Available status.
-          await syncNowAction().catch(() => {});
-          router.refresh();
+          inFlightRef.current = inFlight;
+          setSnapshot((prev) => ({ byKey, tick: prev.tick + 1 }));
+
+          if (finished.length > 0) {
+            // A transfer just finished — run the sync (admin-only; a no-op for
+            // regular users, who get finalized by the cron within ~2 min) so the
+            // file is registered into the library, then re-render so pages pick
+            // up the new local streamUrl / Available status.
+            await syncNowAction().catch(() => {});
+            if (!cancelled) router.refresh();
+          }
+          // Keep polling while anything is genuinely moving, or while a
+          // component is still waiting on a request it just created.
+          keepGoing = inFlight > 0 || hasLiveWatcher(watchers.current);
+        } else {
+          // Lookup failed — hold the last-known snapshot and try again if
+          // someone is still waiting on an answer.
+          keepGoing = hasLiveWatcher(watchers.current);
         }
       } catch {
-        // Keep the last-known values; try again next tick.
+        keepGoing = hasLiveWatcher(watchers.current);
       }
-      if (!cancelled) schedule();
+
+      if (cancelled) return;
+      if (keepGoing) timer = setTimeout(run, POLL_MS);
+      else awake.current = false;
     };
 
     void run();
     return () => {
       cancelled = true;
-      clearTimeout(timer);
+      awake.current = false;
+      if (timer) clearTimeout(timer);
     };
-  }, [enabled, router]);
+    // `wakeups` restarts a loop that went to sleep when a new watcher appears.
+  }, [router, wakeups]);
 
-  return map;
-}
-
-export function DownloadsProgressProvider({
-  enabled,
-  children,
-}: {
-  enabled: boolean;
-  children: React.ReactNode;
-}) {
-  const map = useDownloadProgressMap(enabled);
-  return (
-    <ProgressContext.Provider value={map}>{children}</ProgressContext.Provider>
+  const value = useMemo<DownloadsContext>(
+    () => ({ snapshot, watch }),
+    [snapshot, watch],
   );
+
+  return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 
-/** Headless: runs the poll/refresh loop so a page re-fetches on completion. */
-export function DownloadWatcher({ enabled }: { enabled: boolean }) {
-  useDownloadProgressMap(enabled);
-  return null;
+function hasLiveWatcher(map: Map<string, number>): boolean {
+  const now = Date.now();
+  for (const [key, until] of map) {
+    if (until > now) return true;
+    map.delete(key);
+  }
+  return false;
 }

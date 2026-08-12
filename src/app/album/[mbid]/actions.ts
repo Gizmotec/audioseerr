@@ -8,7 +8,15 @@ import { attachDownloadedTrackToUser } from "@/lib/downloadedTracks";
 import { getAlbum } from "@/lib/musicbrainz";
 import { getSettings } from "@/lib/settings";
 
-type ActionResult = { ok: true } | { ok: false; error: string };
+type ActionResult =
+  | {
+      ok: true;
+      /** Request mbid the caller can follow for live download progress. */
+      trackKey: string;
+      /** Already on disk — the UI can settle straight to "in your library". */
+      owned: boolean;
+    }
+  | { ok: false; error: string };
 
 async function loadRequester(userId: string) {
   return prisma.user.findUnique({
@@ -74,7 +82,7 @@ export async function requestAlbumAction(input: {
       await attachDownloadedTrackToUser(userId, t.id);
     }
     revalidateAlbumPaths(input.mbid);
-    return { ok: true };
+    return { ok: true, trackKey: input.mbid, owned: true };
   }
 
   const requester = await loadRequester(userId);
@@ -103,7 +111,7 @@ export async function requestAlbumAction(input: {
   }
 
   revalidateAlbumPaths(input.mbid);
-  return { ok: true };
+  return { ok: true, trackKey: input.mbid, owned: false };
 }
 
 export async function requestTrackAction(input: {
@@ -164,7 +172,7 @@ export async function requestTrackAction(input: {
     await attachDownloadedTrackToUser(userId, owned.id);
     revalidatePath(`/album/${input.albumMbid}`);
     revalidatePath("/requests");
-    return { ok: true };
+    return { ok: true, trackKey: mbid, owned: true };
   }
 
   const created = await prisma.request.create({
@@ -196,7 +204,7 @@ export async function requestTrackAction(input: {
   revalidatePath(`/album/${input.albumMbid}`);
   revalidatePath("/requests");
   revalidatePath("/admin/requests");
-  return { ok: true };
+  return { ok: true, trackKey: mbid, owned: false };
 }
 
 function revalidateAlbumPaths(mbid: string) {

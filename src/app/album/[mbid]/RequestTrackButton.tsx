@@ -1,8 +1,10 @@
 "use client";
 
-import { CheckCircle2, Download, Loader2, X } from "lucide-react";
-import { useState, useTransition } from "react";
-import { Button } from "@/components/ui/button";
+import { useCallback, useState, useTransition } from "react";
+import {
+  DownloadButton,
+  useDownloadState,
+} from "@/components/DownloadIndicator";
 import { unrequestAction } from "@/lib/actions/requests";
 import { requestTrackAction } from "./actions";
 import type { ExistingRequestStatus } from "./RequestButton";
@@ -21,115 +23,53 @@ type Props = {
   inLibrary: boolean;
 };
 
-const ACTIVE_LABEL: Record<ExistingRequestStatus, string> = {
-  PENDING: "Track request pending",
-  APPROVED: "Track request approved",
-  DOWNLOADING: "Track downloading",
-  AVAILABLE: "Track available",
-  DECLINED: "Track declined",
-  FAILED: "Track failed",
-};
-
 export function RequestTrackButton({
   track,
   existingStatus,
   inLibrary,
 }: Props) {
-  const [pending, startTransition] = useTransition();
-  const [status, setStatus] = useState(existingStatus);
-  const [error, setError] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
+  const [unrequested, setUnrequested] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
-  const blocking =
-    status === "PENDING" ||
-    status === "APPROVED" ||
-    status === "DOWNLOADING" ||
-    status === "AVAILABLE";
+  // The same key the request row is stored under, so live progress from slskd
+  // finds this row without the request id ever reaching the client.
+  const trackKey =
+    track.recordingMbid ?? `${track.albumMbid}:${track.albumPosition}`;
 
-  if (inLibrary) {
-    return (
-      <span
-        className="inline-flex h-8 w-8 items-center justify-center text-pastel-mint"
-        title="Track in your library"
-        aria-label="Track in your library"
-      >
-        <CheckCircle2 className="h-4 w-4" />
-      </span>
-    );
-  }
+  const status = unrequested ? null : existingStatus;
+  const owned = inLibrary || status === "AVAILABLE";
+  const active =
+    status === "PENDING" || status === "APPROVED" || status === "DOWNLOADING";
+  // The request completed but there's no file to stream — the copy on disk was
+  // pruned or never registered. Keep the unrequest reachable so the user can
+  // clear it and ask again; otherwise the row is a check that plays nothing.
+  const strandedAvailable = status === "AVAILABLE" && !inLibrary;
 
-  if (blocking) {
-    return (
-      <span className="relative inline-flex h-8 w-8 items-center justify-center">
-        <Button
-          type="button"
-          size="icon-sm"
-          variant="ghost"
-          disabled={pending}
-          title="Unrequest track"
-          aria-label={`Unrequest track: ${ACTIVE_LABEL[status!]}`}
-          onClick={() => {
-            setError(null);
-            startTransition(async () => {
-              const result = await unrequestAction({
-                type: "TRACK",
-                mbid: track.recordingMbid ?? `${track.albumMbid}:${track.albumPosition}`,
-                albumMbid: track.albumMbid,
-              });
-              if (result.ok) setStatus(null);
-              else setError(result.error);
-            });
-          }}
-        >
-          {pending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <X className="h-4 w-4" />
-          )}
-        </Button>
-        {error && (
-          <span
-            role="alert"
-            className="absolute right-0 top-full z-10 mt-1 w-48 rounded-xl border border-foreground/10 bg-popover p-2 text-xs text-destructive"
-          >
-            {error}
-          </span>
-        )}
-      </span>
-    );
-  }
+  const submit = useCallback(() => requestTrackAction(track), [track]);
+  const state = useDownloadState({ trackKey, owned, active, submit });
 
+  const { reset } = state;
+  const cancel = useCallback(() => {
+    setCancelError(null);
+    reset();
+    startTransition(async () => {
+      const result = await unrequestAction({
+        type: "TRACK",
+        mbid: trackKey,
+        albumMbid: track.albumMbid,
+      });
+      if (result.ok) setUnrequested(true);
+      else setCancelError(result.error);
+    });
+  }, [reset, trackKey, track.albumMbid]);
+
+  const offerCancel = state.busy || strandedAvailable;
   return (
-    <span className="relative inline-flex h-8 w-8 items-center justify-center">
-      <Button
-        type="button"
-        size="icon-sm"
-        variant="ghost"
-        disabled={pending}
-        title="Download track"
-        aria-label="Download track"
-        onClick={() => {
-          setError(null);
-          startTransition(async () => {
-            const result = await requestTrackAction(track);
-            if (result.ok) setStatus("PENDING");
-            else setError(result.error);
-          });
-        }}
-      >
-        {pending ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <Download className="h-4 w-4" />
-        )}
-      </Button>
-      {error && (
-        <span
-          role="alert"
-          className="absolute right-0 top-full z-10 mt-1 w-48 rounded-md border bg-background p-2 text-xs text-destructive shadow"
-        >
-          {error}
-        </span>
-      )}
-    </span>
+    <DownloadButton
+      state={state}
+      onCancel={offerCancel ? cancel : undefined}
+      error={cancelError}
+    />
   );
 }

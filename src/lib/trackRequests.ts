@@ -18,6 +18,16 @@ export type EnsureTrackInput = {
 };
 
 /**
+ * What the caller needs to show progress: the request key to follow (the same
+ * mbid the progress poll reports) and whether the file was already on disk, in
+ * which case there's nothing to transfer and the UI can settle immediately.
+ */
+export type EnsureTrackResult = {
+  trackKey: string;
+  owned: boolean;
+};
+
+/**
  * Ensure a single track is on its way to the user's library.
  *   1. Already requested (pending/in-flight/done) → nothing to do.
  *   2. Already downloaded by anyone → just grant this user visibility.
@@ -30,10 +40,11 @@ export async function ensureTrackRequested(
   userId: string,
   input: EnsureTrackInput,
   opts: { ephemeral?: boolean; expiresAt?: Date | null; forceApproval?: boolean } = {},
-): Promise<void> {
+): Promise<EnsureTrackResult> {
+  const trackKey =
+    input.recordingMbid ?? `${input.albumMbid}:${input.albumPosition}`;
   try {
-    const mbid =
-      input.recordingMbid ?? `${input.albumMbid}:${input.albumPosition}`;
+    const mbid = trackKey;
     const ephemeral = opts.ephemeral ?? false;
 
     const existing = await prisma.request.findFirst({
@@ -43,7 +54,7 @@ export async function ensureTrackRequested(
         mbid,
         status: { in: ["PENDING", "APPROVED", "DOWNLOADING", "AVAILABLE"] },
       },
-      select: { id: true, ephemeral: true },
+      select: { id: true, ephemeral: true, status: true },
     });
     if (existing) {
       // A real (non-ephemeral) request for a track that's currently being
@@ -54,7 +65,7 @@ export async function ensureTrackRequested(
           data: { ephemeral: false, expiresAt: null },
         });
       }
-      return;
+      return { trackKey, owned: existing.status === "AVAILABLE" };
     }
 
     // Cross-user dedup: the file may already be on disk from someone else's
@@ -77,7 +88,7 @@ export async function ensureTrackRequested(
           data: { ephemeral: false, expiresAt: null },
         });
       }
-      return;
+      return { trackKey, owned: true };
     }
 
     const requester = await prisma.user.findUnique({
@@ -115,8 +126,10 @@ export async function ensureTrackRequested(
         console.error("[trackRequests] background approval failed:", err);
       });
     }
+    return { trackKey, owned: false };
   } catch (err) {
     console.error("[trackRequests] ensureTrackRequested failed:", err);
+    return { trackKey, owned: false };
   }
 }
 

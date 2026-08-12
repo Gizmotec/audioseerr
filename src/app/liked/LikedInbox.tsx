@@ -15,6 +15,10 @@ import {
   AddToPlaylistButton,
   type PlaylistOption,
 } from "@/components/AddToPlaylistButton";
+import {
+  ArtworkDownloadOverlay,
+  useDownloadState,
+} from "@/components/DownloadIndicator";
 import { type QueueItem, usePreviewPlayer } from "@/components/PreviewPlayer";
 import { HeroCard } from "@/components/HeroCard";
 import { TrackLikeButton } from "@/components/TrackLikeButton";
@@ -243,27 +247,11 @@ export function LikedInbox({ tracks, totalLiked, playlists }: Props) {
                   )}
                 </button>
 
-                <div
-                  className={cn(
-                    "relative h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-surface-2",
-                    !playable && "opacity-50",
-                  )}
-                >
-                  {t.coverUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={t.coverUrl}
-                      alt=""
-                      loading="lazy"
-                      referrerPolicy="no-referrer"
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-muted-foreground/40">
-                      <Disc3 className="h-1/2 w-1/2" />
-                    </div>
-                  )}
-                </div>
+                <InboxTrackArtwork
+                  track={t}
+                  fetching={fetching}
+                  dimmed={!playable}
+                />
 
                 <div className={cn("min-w-0 flex-1", !playable && "opacity-50")}>
                   <p className="truncate text-sm" title={t.title}>
@@ -288,16 +276,6 @@ export function LikedInbox({ tracks, totalLiked, playlists }: Props) {
                     )}
                   </p>
                 </div>
-
-                {fetching && (
-                  <span
-                    className="hidden shrink-0 items-center gap-1 rounded-full bg-pastel-sky px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-ink sm:inline-flex"
-                    title="Downloading from Soulseek…"
-                  >
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    Downloading
-                  </span>
-                )}
 
                 {unavailableReason && (
                   <span
@@ -380,4 +358,56 @@ function formatDuration(ms: number | null): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+/**
+ * Cover art that doubles as the row's download indicator — the outline fills as
+ * the Soulseek transfer progresses, then plays a short landing animation once
+ * the file is on disk. Separate component so each row owns one tracker.
+ */
+function InboxTrackArtwork({
+  track,
+  fetching,
+  dimmed,
+}: {
+  track: InboxTrack;
+  fetching: boolean;
+  dimmed: boolean;
+}) {
+  const download = useDownloadState({
+    trackKey: track.targetId,
+    owned: !!track.streamUrl,
+    active: fetching,
+  });
+
+  return (
+    <div
+      className={cn(
+        "relative h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-surface-2",
+        dimmed && "opacity-50",
+      )}
+      title={download.busy ? download.label : undefined}
+    >
+      {track.coverUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={track.coverUrl}
+          alt=""
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center text-muted-foreground/40">
+          <Disc3 className="h-1/2 w-1/2" />
+        </div>
+      )}
+      <ArtworkDownloadOverlay
+        phase={download.phase}
+        percent={download.percent}
+        rx={50}
+        strokeWidth={8}
+      />
+    </div>
+  );
 }

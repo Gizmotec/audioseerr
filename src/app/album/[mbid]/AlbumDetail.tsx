@@ -7,6 +7,10 @@ import {
   AddToPlaylistButton,
   type PlaylistOption,
 } from "@/components/AddToPlaylistButton";
+import {
+  ArtworkDownloadOverlay,
+  useDownloadState,
+} from "@/components/DownloadIndicator";
 import { HeroCard } from "@/components/HeroCard";
 import { SevenDigitalButton } from "@/components/SevenDigitalButton";
 import { LikeButton } from "@/components/LikeButton";
@@ -148,6 +152,11 @@ export function AlbumDetail({
               <Disc3 className="h-1/3 w-1/3" />
             </div>
           )}
+          <AlbumCoverProgress
+            albumMbid={album.mbid}
+            existingStatus={existingStatus}
+            libraryStatus={libraryStatus}
+          />
         </div>
 
         <div className="flex flex-col gap-3">
@@ -375,6 +384,42 @@ export function AlbumDetail({
       </section>
 
     </div>
+  );
+}
+
+/**
+ * Mirrors the album request's live state onto the hero cover — the outline
+ * fills as the folder downloads, then the cover plays the landing animation.
+ * Reads the same shared progress snapshot as the Download album button, so the
+ * two never disagree.
+ */
+function AlbumCoverProgress({
+  albumMbid,
+  existingStatus,
+  libraryStatus,
+}: {
+  albumMbid: string;
+  existingStatus: ExistingRequestStatus | null;
+  libraryStatus: LibraryStatus | null;
+}) {
+  const download = useDownloadState({
+    trackKey: albumMbid,
+    owned: existingStatus === "AVAILABLE" || libraryStatus === "downloaded",
+    active:
+      existingStatus === "PENDING" ||
+      existingStatus === "APPROVED" ||
+      existingStatus === "DOWNLOADING",
+    noun: "album",
+  });
+
+  return (
+    <ArtworkDownloadOverlay
+      phase={download.phase}
+      percent={download.percent}
+      rx={10}
+      strokeWidth={2.5}
+      size="lg"
+    />
   );
 }
 

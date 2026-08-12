@@ -33,6 +33,10 @@ import {
   useTransition,
 } from "react";
 import { PlaylistRecommendations } from "@/components/PlaylistRecommendations";
+import {
+  ArtworkDownloadOverlay,
+  useDownloadState,
+} from "@/components/DownloadIndicator";
 import { HeroCard } from "@/components/HeroCard";
 import { type QueueItem, usePreviewPlayer } from "@/components/PreviewPlayer";
 import { TrackLikeButton } from "@/components/TrackLikeButton";
@@ -345,22 +349,7 @@ export function PlaylistDetail({
                   )}
                 </button>
 
-                <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-surface-2">
-                  {t.coverUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={t.coverUrl}
-                      alt=""
-                      loading="lazy"
-                      referrerPolicy="no-referrer"
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-muted-foreground/40">
-                      <Disc3 className="h-1/2 w-1/2" />
-                    </div>
-                  )}
-                </div>
+                <PlaylistTrackArtwork track={t} fetching={fetching} />
 
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm" title={t.title}>
@@ -385,16 +374,6 @@ export function PlaylistDetail({
                     )}
                   </p>
                 </div>
-
-                {fetching && (
-                  <span
-                    className="hidden shrink-0 items-center gap-1 rounded-full bg-pastel-sky px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-ink sm:inline-flex"
-                    title="Downloading from Soulseek…"
-                  >
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    Downloading
-                  </span>
-                )}
 
                 {unavailableReason && (
                   <span
@@ -493,6 +472,56 @@ export function PlaylistDetail({
       {!readOnly && tracks.length >= 3 && (
         <PlaylistRecommendations playlistId={playlistId} />
       )}
+    </div>
+  );
+}
+
+/**
+ * The row's cover art, doubling as its download indicator: an outline that
+ * fills as the Soulseek transfer progresses, then a short landing animation
+ * once the file is on disk. Its own component so each row owns one tracker
+ * (hooks can't run inside the row .map()).
+ */
+function PlaylistTrackArtwork({
+  track,
+  fetching,
+}: {
+  track: DetailTrack;
+  fetching: boolean;
+}) {
+  const trackKey =
+    track.recordingMbid ?? `${track.albumMbid}:${track.albumPosition}`;
+  const download = useDownloadState({
+    trackKey,
+    owned: !!track.streamUrl,
+    active: fetching,
+  });
+
+  return (
+    <div
+      className="relative h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-surface-2"
+      title={download.busy ? download.label : undefined}
+    >
+      {track.coverUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={track.coverUrl}
+          alt=""
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center text-muted-foreground/40">
+          <Disc3 className="h-1/2 w-1/2" />
+        </div>
+      )}
+      <ArtworkDownloadOverlay
+        phase={download.phase}
+        percent={download.percent}
+        rx={50}
+        strokeWidth={8}
+      />
     </div>
   );
 }

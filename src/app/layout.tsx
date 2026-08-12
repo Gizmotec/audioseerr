@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Outfit, Geist_Mono } from "next/font/google";
+import { DownloadsProvider } from "@/components/DownloadsProgressProvider";
 import { PreviewPlayerProvider } from "@/components/PreviewPlayer";
 import { Sidebar } from "@/components/Sidebar";
 import { TrackMenuProvider } from "@/components/TrackMenu";
@@ -41,20 +42,25 @@ export default function RootLayout({
             __html: `try{if(localStorage.getItem("audioseerr.sidebar.collapsed")==="true")document.documentElement.classList.add("sidebar-collapsed")}catch(e){}`,
           }}
         />
-        <PreviewPlayerProvider>
-          <TrackMenuProvider>
-            <Sidebar />
-            <div
-              className="flex min-h-screen flex-1 flex-col transition-[padding-bottom] duration-200"
-              style={{
-                paddingBottom: "var(--preview-player-bottom-offset, 0px)",
-              }}
-            >
-              <VersionUpdateBanner />
-              {children}
-            </div>
-          </TrackMenuProvider>
-        </PreviewPlayerProvider>
+        {/* One download-progress poll loop for the app — every track row,
+            cover overlay and request bar reads from it. It sleeps whenever
+            nothing is in flight. */}
+        <DownloadsProvider>
+          <PreviewPlayerProvider>
+            <TrackMenuProvider>
+              <Sidebar />
+              <div
+                className="flex min-h-screen flex-1 flex-col transition-[padding-bottom] duration-200"
+                style={{
+                  paddingBottom: "var(--preview-player-bottom-offset, 0px)",
+                }}
+              >
+                <VersionUpdateBanner />
+                {children}
+              </div>
+            </TrackMenuProvider>
+          </PreviewPlayerProvider>
+        </DownloadsProvider>
       </body>
     </html>
   );

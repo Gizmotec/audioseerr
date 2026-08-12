@@ -1,17 +1,12 @@
 "use client";
 
+import { Clock, Disc3, Library, Loader2, Pause, Play } from "lucide-react";
+import { useCallback, useMemo } from "react";
 import {
-  CheckCircle2,
-  Clock,
-  Disc3,
-  Download,
-  Library,
-  Loader2,
-  Pause,
-  Play,
-  X,
-} from "lucide-react";
-import { useMemo, useState, useTransition } from "react";
+  ArtworkDownloadOverlay,
+  DownloadButton,
+  useDownloadState,
+} from "@/components/DownloadIndicator";
 import { usePreviewPlayer, type QueueItem } from "@/components/PreviewPlayer";
 import { TrackLikeButton } from "@/components/TrackLikeButton";
 import { useTrackMenu } from "@/components/TrackMenu";
@@ -139,8 +134,6 @@ export function MixDetail({
   );
 }
 
-type DownloadState = "idle" | "resolving" | "done" | "error";
-
 function MixRow({
   track,
   queueId,
@@ -159,6 +152,8 @@ function MixRow({
   const player = usePreviewPlayer();
   const { openTrackMenu } = useTrackMenu();
   const isActive = player.isCurrent(queueId);
+  const download = useMixTrackDownload(track);
+  const downloadable = track.kind === "new" && !isPreloaded;
 
   return (
     <li
@@ -215,6 +210,14 @@ function MixRow({
           <div className="flex h-full w-full items-center justify-center text-muted-foreground/40">
             <Disc3 className="h-1/2 w-1/2" />
           </div>
+        )}
+        {downloadable && (
+          <ArtworkDownloadOverlay
+            phase={download.phase}
+            percent={download.percent}
+            rx={40}
+            strokeWidth={7}
+          />
         )}
       </div>
 
@@ -274,78 +277,27 @@ function MixRow({
           <Clock className="h-4 w-4" />
         </span>
       ) : (
-        <NewTrackDownload track={track} />
+        <DownloadButton state={download} />
       )}
     </li>
   );
 }
 
-function NewTrackDownload({
-  track,
-}: {
-  track: Extract<MixTrack, { kind: "new" }>;
-}) {
-  const [state, setState] = useState<DownloadState>("idle");
-  const [error, setError] = useState<string | null>(null);
-  const [, startTransition] = useTransition();
-
-  const download = () => {
-    if (state === "resolving" || state === "done") return;
-    setState("resolving");
-    setError(null);
-    startTransition(async () => {
-      const res = await requestDiscoveryTrackAction({
+/** Resolves a mix pick to MusicBrainz and then follows the transfer, so the
+ *  row's cover shows real progress instead of an instant checkmark. Called for
+ *  every row (hooks can't be conditional); only "new" rows act on it. */
+function useMixTrackDownload(track: MixTrack) {
+  const submit = useCallback(
+    () =>
+      requestDiscoveryTrackAction({
         title: track.title,
         artistName: track.artistName,
         albumTitle: track.albumTitle,
         coverUrl: track.coverUrl,
-      });
-      if (res.ok) {
-        setState("done");
-      } else {
-        setState("error");
-        setError(res.error);
-      }
-    });
-  };
-
-  if (state === "done") {
-    return (
-      <span
-        className="inline-flex h-8 w-8 shrink-0 items-center justify-center text-pastel-mint"
-        title="Added to your library"
-        aria-label="Added to your library"
-      >
-        <CheckCircle2 className="h-4 w-4" />
-      </span>
-    );
-  }
-
-  return (
-    <span className="relative inline-flex h-8 w-8 shrink-0 items-center justify-center">
-      <button
-        type="button"
-        onClick={download}
-        disabled={state === "resolving"}
-        title={state === "error" ? (error ?? "Try again") : "Download track"}
-        aria-label={
-          state === "error" ? (error ?? "Download failed, retry") : "Download track"
-        }
-        className={cn(
-          "flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-60",
-          state === "error" && "text-pastel-red hover:text-pastel-red",
-        )}
-      >
-        {state === "resolving" ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : state === "error" ? (
-          <X className="h-4 w-4" />
-        ) : (
-          <Download className="h-4 w-4" />
-        )}
-      </button>
-    </span>
+      }),
+    [track.title, track.artistName, track.albumTitle, track.coverUrl],
   );
+  return useDownloadState({ submit });
 }
 
 function formatDuration(ms: number | null): string {

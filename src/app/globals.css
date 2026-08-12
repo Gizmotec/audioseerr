@@ -177,6 +177,104 @@
   }
 }
 
+/* Download indicator (see components/DownloadIndicator.tsx). A request goes
+   queued → downloading → finishing → a short "it landed" celebration on the
+   artwork → a settled check. Everything here is decorative; each animated
+   element carries data-dl-anim so reduced-motion users get the end state
+   immediately instead of the show. */
+@keyframes dl-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* Indeterminate outline: dashes crawl around the artwork while we're waiting
+   on Soulseek and have no byte count to show yet. */
+@keyframes dl-march {
+  to {
+    stroke-dashoffset: -12;
+  }
+}
+@keyframes dl-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+/* A light sweeping across the cover the moment the file lands. */
+@keyframes dl-sheen {
+  0% {
+    opacity: 0;
+    transform: translateX(-160%) skewX(-18deg);
+  }
+  12% {
+    opacity: 1;
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: translateX(160%) skewX(-18deg);
+  }
+}
+/* The completed outline pushing outward and dissolving. */
+@keyframes dl-burst {
+  0% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.18);
+  }
+}
+@keyframes dl-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+/* Holds the finished state briefly, then clears back to plain artwork. */
+@keyframes dl-settle {
+  0%,
+  62% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes dl-glow {
+  0% {
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-dl-anim] {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+  }
+  [data-dl-anim="loop"] {
+    animation: none !important;
+  }
+}
+
 /* Collapsible sidebar. `html.sidebar-collapsed` is applied before first paint
    by the inline script in layout.tsx and toggled by SidebarToggle. */
 :root {
