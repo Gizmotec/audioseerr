@@ -443,14 +443,19 @@ export function DownloadButton({
     );
   }
 
-  const solid =
+  // Ringed and lifted: a pastel pill sitting on a cover that happens to be the
+  // same pastel (a yellow button on a yellow sleeve) is otherwise invisible.
+  // Dark ring on the light fills, light ring on the dark one.
+  const solid = cn(
+    "shadow-sm ring-2",
     phase === "failed"
-      ? "bg-pastel-red text-ink hover:bg-pastel-red/80"
+      ? "bg-pastel-red text-ink ring-ink/40 hover:bg-pastel-red/80"
       : phase === "complete"
-        ? "bg-pastel-mint text-ink"
+        ? "bg-pastel-mint text-ink ring-ink/40"
         : state.busy
-          ? "bg-ink/75 text-pastel-sky"
-          : "bg-pastel-yellow text-ink hover:bg-pastel-yellow/80";
+          ? "bg-ink/75 text-pastel-sky ring-white/25"
+          : "bg-pastel-yellow text-ink ring-ink/40 hover:bg-pastel-yellow/80",
+  );
   const ghost =
     phase === "failed"
       ? "text-pastel-red hover:bg-surface-2"
@@ -640,7 +645,7 @@ export function ArtworkDownloadOverlay({
         <span className="absolute inset-0 flex items-center justify-center">
           <span
             className={cn(
-              "inline-flex items-center justify-center rounded-full bg-pastel-mint text-ink shadow-lg",
+              "inline-flex items-center justify-center rounded-full bg-pastel-mint text-ink shadow-lg ring-2 ring-ink/30",
               size === "lg" ? "h-14 w-14" : size === "md" ? "h-9 w-9" : "h-6 w-6",
             )}
             data-dl-anim=""

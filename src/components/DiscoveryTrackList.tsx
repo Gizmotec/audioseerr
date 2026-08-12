@@ -263,10 +263,10 @@ function CardLikeButton({ track }: { track: DiscoveryTrack }) {
       aria-pressed={liked}
       aria-label={liked ? `Unlike ${track.title}` : `Like ${track.title}`}
       className={cn(
-        "absolute top-1.5 left-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors disabled:opacity-70",
+        "absolute top-1.5 left-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full shadow-sm ring-2 transition-colors disabled:opacity-70",
         liked
-          ? "bg-pastel-pink text-ink hover:bg-pastel-pink/80"
-          : "bg-surface text-foreground hover:bg-surface-2",
+          ? "bg-pastel-pink text-ink ring-ink/40 hover:bg-pastel-pink/80"
+          : "bg-surface text-foreground ring-white/20 hover:bg-surface-2",
       )}
     >
       {pending ? (
