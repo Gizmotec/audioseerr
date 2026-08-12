@@ -213,7 +213,9 @@ export function useDownloadState({
   else if (live?.state === "active") {
     phase = "downloading";
     percent = live.percent;
-  } else if (live?.state === "queued") phase = "queued";
+  } else if (live?.state === "queued")
+    // Nothing is searching yet when the request still needs an admin's nod.
+    phase = live.awaitingApproval ? "pending" : "queued";
   else if (awaiting) phase = "queued";
   else if (owned || landed) phase = "owned";
   else phase = "idle";
