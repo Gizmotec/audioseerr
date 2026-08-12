@@ -24,6 +24,7 @@ import {
   useDownloadsTick,
   useWatchDownload,
 } from "@/components/DownloadsProgressProvider";
+import { useToast } from "@/components/Toaster";
 import { cn } from "@/lib/utils";
 
 export type DownloadPhase =
@@ -71,6 +72,7 @@ export function useDownloadState({
   owned = false,
   active = false,
   noun = "track",
+  subject = null,
   submit,
 }: {
   /** Request mbid, when the caller knows it up front (album/playlist rows). */
@@ -81,6 +83,8 @@ export function useDownloadState({
   active?: boolean;
   /** Used to build labels — "track", "album", … */
   noun?: string;
+  /** Track/album title, so a corner toast can say what actually failed. */
+  subject?: string | null;
   /** Omit for a display-only tracker (a row that reports a download someone
    *  else's click started, e.g. auto-fetch on adding to a playlist). */
   submit?: () => Promise<DownloadSubmitResult>;
@@ -200,6 +204,13 @@ export function useDownloadState({
       }
     })();
   }, [submitting, awaiting, owned, landed, submit, celebrate]);
+
+  // Errors surface as a corner toast, not a bubble pinned to the button —
+  // anchored to a cover tile the text just ran off the edge of the card.
+  const toast = useToast();
+  useEffect(() => {
+    if (error) toast.error(error, subject);
+  }, [error, subject, toast]);
 
   const failedItem =
     item?.state === "failed" ? item : undefined;
@@ -358,26 +369,18 @@ export function DownloadButton({
   state,
   onCancel,
   className,
-  align = "right",
   size = "md",
   variant = "ghost",
-  error: errorOverride,
 }: {
   state: DownloadState;
   /** Offered on hover while the download is in flight. */
   onCancel?: () => void;
-  /** Surfaced in place of the state's own error — for failures the caller owns,
-   *  such as an unrequest that didn't go through. */
-  error?: string | null;
   className?: string;
-  /** Which edge the error bubble hangs off. */
-  align?: "left" | "right";
   size?: "sm" | "md";
   /** "solid" is the filled pill used over artwork; "ghost" suits list rows. */
   variant?: "ghost" | "solid";
 }) {
   const { phase, percent, label } = state;
-  const error = errorOverride ?? state.error;
   const cancellable = state.busy && !!onCancel;
   const box = size === "sm" ? "h-7 w-7" : "h-8 w-8";
   const icon = size === "sm" ? "h-3.5 w-3.5" : "h-4 w-4";
@@ -418,17 +421,6 @@ export function DownloadButton({
             className={cn(icon, "hidden group-hover:block group-focus-visible:block")}
           />
         </button>
-        {errorOverride && (
-          <span
-            role="alert"
-            className={cn(
-              "absolute top-full z-10 mt-1 w-48 rounded-xl border border-foreground/10 bg-popover p-2 text-xs text-destructive shadow",
-              align === "right" ? "right-0" : "left-0",
-            )}
-          >
-            {errorOverride}
-          </span>
-        )}
       </span>
     );
   }
@@ -533,18 +525,6 @@ export function DownloadButton({
           <Download className={icon} />
         )}
       </button>
-
-      {error && (
-        <span
-          role="alert"
-          className={cn(
-            "absolute top-full z-10 mt-1 w-48 rounded-xl border border-foreground/10 bg-popover p-2 text-xs text-destructive shadow",
-            align === "right" ? "right-0" : "left-0",
-          )}
-        >
-          {error}
-        </span>
-      )}
     </span>
   );
 }

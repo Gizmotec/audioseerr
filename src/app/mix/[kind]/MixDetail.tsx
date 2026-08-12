@@ -297,7 +297,7 @@ function useMixTrackDownload(track: MixTrack) {
       }),
     [track.title, track.artistName, track.albumTitle, track.coverUrl],
   );
-  return useDownloadState({ submit });
+  return useDownloadState({ subject: track.title, submit });
 }
 
 function formatDuration(ms: number | null): string {

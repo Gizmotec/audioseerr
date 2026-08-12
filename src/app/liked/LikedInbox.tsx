@@ -378,6 +378,7 @@ function InboxTrackArtwork({
     trackKey: track.targetId,
     owned: !!track.streamUrl,
     active: fetching,
+    subject: track.title,
   });
 
   return (

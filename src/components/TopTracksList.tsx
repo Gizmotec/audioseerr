@@ -160,7 +160,7 @@ function DownloadTrackButton({
     () => requestDiscoveryTrackAction({ title, artistName, albumTitle, coverUrl }),
     [title, artistName, albumTitle, coverUrl],
   );
-  const state = useDownloadState({ owned, submit });
+  const state = useDownloadState({ owned, subject: title, submit });
   return <DownloadButton state={state} />;
 }
 

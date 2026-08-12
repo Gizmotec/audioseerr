@@ -94,7 +94,11 @@ function DiscoveryTrackCard({ track }: { track: DiscoveryTrackItem }) {
       }),
     [track.title, track.artistName, track.albumTitle, track.coverUrl],
   );
-  const download = useDownloadState({ owned: track.owned, submit });
+  const download = useDownloadState({
+    owned: track.owned,
+    subject: track.title,
+    submit,
+  });
 
   const playable = !!track.previewUrl;
   const isActive = playable && player.isCurrent(track.previewUrl!);

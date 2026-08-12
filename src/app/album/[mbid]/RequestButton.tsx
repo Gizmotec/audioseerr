@@ -3,6 +3,7 @@
 import { Check, Disc3, Loader2, PlusCircle, X } from "lucide-react";
 import { useCallback, useState, useTransition } from "react";
 import { DownloadRing, useDownloadState } from "@/components/DownloadIndicator";
+import { useToast } from "@/components/Toaster";
 import { Button } from "@/components/ui/button";
 import { unrequestAction } from "@/lib/actions/requests";
 import type { LibraryStatus } from "@/lib/library";
@@ -30,7 +31,7 @@ type Props = {
 export function RequestButton({ album, existingStatus, libraryStatus }: Props) {
   const [pending, startTransition] = useTransition();
   const [unrequested, setUnrequested] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   const status = unrequested ? null : existingStatus;
   const owned = status === "AVAILABLE" || libraryStatus === "downloaded";
@@ -43,17 +44,17 @@ export function RequestButton({ album, existingStatus, libraryStatus }: Props) {
     owned,
     active,
     noun: "album",
+    subject: album.title,
     submit,
   });
 
   const { reset } = download;
   const unrequest = () => {
-    setError(null);
     reset();
     startTransition(async () => {
       const result = await unrequestAction({ type: "ALBUM", mbid: album.mbid });
       if (result.ok) setUnrequested(true);
-      else setError(result.error);
+      else toast.error(result.error, album.title);
     });
   };
 
@@ -106,11 +107,6 @@ export function RequestButton({ album, existingStatus, libraryStatus }: Props) {
             </Button>
           )}
         </div>
-        {error && (
-          <p className="text-xs text-destructive" role="alert">
-            {error}
-          </p>
-        )}
       </div>
     );
   }
@@ -137,11 +133,6 @@ export function RequestButton({ album, existingStatus, libraryStatus }: Props) {
             Unrequest
           </Button>
         </div>
-        {error && (
-          <p className="text-xs text-destructive" role="alert">
-            {error}
-          </p>
-        )}
       </div>
     );
   }
@@ -180,11 +171,6 @@ export function RequestButton({ album, existingStatus, libraryStatus }: Props) {
           </span>
         )}
       </div>
-      {(error || download.error) && (
-        <p className="text-xs text-destructive" role="alert">
-          {error ?? download.error}
-        </p>
-      )}
     </div>
   );
 }

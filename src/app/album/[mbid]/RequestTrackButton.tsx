@@ -5,6 +5,7 @@ import {
   DownloadButton,
   useDownloadState,
 } from "@/components/DownloadIndicator";
+import { useToast } from "@/components/Toaster";
 import { unrequestAction } from "@/lib/actions/requests";
 import { requestTrackAction } from "./actions";
 import type { ExistingRequestStatus } from "./RequestButton";
@@ -30,7 +31,7 @@ export function RequestTrackButton({
 }: Props) {
   const [, startTransition] = useTransition();
   const [unrequested, setUnrequested] = useState(false);
-  const [cancelError, setCancelError] = useState<string | null>(null);
+  const toast = useToast();
 
   // The same key the request row is stored under, so live progress from slskd
   // finds this row without the request id ever reaching the client.
@@ -47,11 +48,16 @@ export function RequestTrackButton({
   const strandedAvailable = status === "AVAILABLE" && !inLibrary;
 
   const submit = useCallback(() => requestTrackAction(track), [track]);
-  const state = useDownloadState({ trackKey, owned, active, submit });
+  const state = useDownloadState({
+    trackKey,
+    owned,
+    active,
+    subject: track.trackTitle,
+    submit,
+  });
 
   const { reset } = state;
   const cancel = useCallback(() => {
-    setCancelError(null);
     reset();
     startTransition(async () => {
       const result = await unrequestAction({
@@ -60,16 +66,12 @@ export function RequestTrackButton({
         albumMbid: track.albumMbid,
       });
       if (result.ok) setUnrequested(true);
-      else setCancelError(result.error);
+      else toast.error(result.error, track.trackTitle);
     });
-  }, [reset, trackKey, track.albumMbid]);
+  }, [reset, trackKey, track.albumMbid, track.trackTitle, toast]);
 
   const offerCancel = state.busy || strandedAvailable;
   return (
-    <DownloadButton
-      state={state}
-      onCancel={offerCancel ? cancel : undefined}
-      error={cancelError}
-    />
+    <DownloadButton state={state} onCancel={offerCancel ? cancel : undefined} />
   );
 }

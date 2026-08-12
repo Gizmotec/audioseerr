@@ -495,6 +495,7 @@ function PlaylistTrackArtwork({
     trackKey,
     owned: !!track.streamUrl,
     active: fetching,
+    subject: track.title,
   });
 
   return (
