@@ -81,9 +81,9 @@ export function RequestButton({ album, existingStatus, libraryStatus }: Props) {
               <>
                 <DownloadRing
                   percent={download.phase === "downloading" ? download.percent : null}
-                  tone="sky"
+                  tone="pink"
                 />
-                <Disc3 className="h-3.5 w-3.5 text-pastel-sky" />
+                <Disc3 className="h-3.5 w-3.5 text-pastel-pink" />
               </>
             )}
           </span>

@@ -6,7 +6,6 @@ import { useCallback, useState, useTransition } from "react";
 import {
   ArtworkDownloadOverlay,
   DownloadButton,
-  OwnedArtworkBadge,
   useDownloadState,
 } from "@/components/DownloadIndicator";
 import { usePreviewPlayer } from "@/components/PreviewPlayer";
@@ -166,11 +165,13 @@ function DiscoveryTrackCard({ track }: { track: DiscoveryTrackItem }) {
           }
           className={cn(
             "absolute inset-0 flex items-center justify-center bg-black/30 text-white transition-opacity",
-            playable
-              ? isActive
-                ? "opacity-100"
-                : "opacity-0 group-hover:opacity-100"
-              : "pointer-events-none opacity-0",
+            download.busy
+              ? "pointer-events-none opacity-0"
+              : playable
+                ? isActive
+                  ? "opacity-100"
+                  : "opacity-0 group-hover:opacity-100"
+                : "pointer-events-none opacity-0",
           )}
         >
           <span className="flex h-11 w-11 items-center justify-center rounded-full bg-pastel-pink text-ink">
@@ -195,13 +196,14 @@ function DiscoveryTrackCard({ track }: { track: DiscoveryTrackItem }) {
           phase={download.phase}
           percent={download.percent}
           rx={9}
-          strokeWidth={3}
+          strokeWidth={2}
           size="md"
         />
 
-        {download.phase === "owned" && <OwnedArtworkBadge />}
         {/* While a transfer is live the cover overlay is the progress display,
-            so the button steps aside until there's something to click again. */}
+            so the button steps aside until there's something to click again.
+            An owned track shows nothing at all — no download button is the
+            signal that it's already yours. */}
         {(download.phase === "idle" || download.phase === "failed") && (
           <DownloadButton
             state={download}

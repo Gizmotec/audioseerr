@@ -417,7 +417,7 @@ function AlbumCoverProgress({
       phase={download.phase}
       percent={download.percent}
       rx={10}
-      strokeWidth={2.5}
+      strokeWidth={1.6}
       size="lg"
     />
   );

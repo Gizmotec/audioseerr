@@ -187,11 +187,21 @@
     transform: rotate(360deg);
   }
 }
-/* Indeterminate outline: dashes crawl around the artwork while we're waiting
+/* Indeterminate outline: a single segment laps the artwork while we're waiting
    on Soulseek and have no byte count to show yet. */
-@keyframes dl-march {
+@keyframes dl-orbit {
   to {
-    stroke-dashoffset: -12;
+    stroke-dashoffset: -100;
+  }
+}
+/* The magnifier in the searching glyph, mirroring the source Lottie's flip. */
+@keyframes dl-flip {
+  0%,
+  100% {
+    transform: scaleX(1);
+  }
+  50% {
+    transform: scaleX(-1);
   }
 }
 @keyframes dl-breathe {

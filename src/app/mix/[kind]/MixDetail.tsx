@@ -216,7 +216,7 @@ function MixRow({
             phase={download.phase}
             percent={download.percent}
             rx={40}
-            strokeWidth={7}
+            strokeWidth={5}
           />
         )}
       </div>

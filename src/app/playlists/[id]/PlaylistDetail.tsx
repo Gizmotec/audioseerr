@@ -520,7 +520,7 @@ function PlaylistTrackArtwork({
         phase={download.phase}
         percent={download.percent}
         rx={50}
-        strokeWidth={8}
+        strokeWidth={5}
       />
     </div>
   );

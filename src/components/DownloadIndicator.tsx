@@ -268,8 +268,8 @@ function labelFor(
 /* Ring                                                                        */
 /* -------------------------------------------------------------------------- */
 
-const TONE: Record<"sky" | "mint" | "red", string> = {
-  sky: "text-pastel-sky",
+const TONE: Record<"pink" | "mint" | "red", string> = {
+  pink: "text-pastel-pink",
   mint: "text-pastel-mint",
   red: "text-pastel-red",
 };
@@ -280,7 +280,7 @@ const TONE: Record<"sky" | "mint" | "red", string> = {
  */
 export function DownloadRing({
   percent,
-  tone = "sky",
+  tone = "pink",
   strokeWidth = 2.5,
   className,
 }: {
@@ -384,23 +384,13 @@ export function DownloadButton({
   const smallIcon = size === "sm" ? "h-3 w-3" : "h-3.5 w-3.5";
 
   if (phase === "owned") {
-    // Normally inert — the check is a status, not a control. A caller only
-    // passes onCancel here for the recovery case (the request says AVAILABLE
-    // but no file is on disk), where clearing it is the way to retry.
+    // Nothing to draw: the absence of a download button is itself the signal
+    // that the track is yours and ready to play. Keep the footprint so rows
+    // don't reflow. A caller only passes onCancel for the recovery case (the
+    // request says AVAILABLE but no file is on disk), where clearing it is the
+    // way to retry — that keeps a control.
     if (!onCancel) {
-      return (
-        <span
-          className={cn(
-            "inline-flex shrink-0 items-center justify-center text-muted-foreground/70",
-            box,
-            className,
-          )}
-          title={errorOverride ?? label}
-          aria-label={label}
-        >
-          <Check className={icon} strokeWidth={2.5} />
-        </span>
-      );
+      return <span className={cn("inline-block shrink-0", box, className)} aria-hidden />;
     }
     return (
       <span
@@ -453,7 +443,7 @@ export function DownloadButton({
       : phase === "complete"
         ? "bg-pastel-mint text-ink ring-ink/40"
         : state.busy
-          ? "bg-ink/75 text-pastel-sky ring-white/25"
+          ? "bg-ink/75 text-pastel-pink ring-white/25"
           : "bg-pastel-yellow text-ink ring-ink/40 hover:bg-pastel-yellow/80",
   );
   const ghost =
@@ -462,7 +452,7 @@ export function DownloadButton({
       : phase === "complete"
         ? "text-pastel-mint"
         : state.busy
-          ? "text-pastel-sky"
+          ? "text-pastel-pink"
           : "text-muted-foreground hover:bg-surface-2 hover:text-foreground";
 
   return (
@@ -491,7 +481,7 @@ export function DownloadButton({
         {state.busy && (
           <DownloadRing
             percent={phase === "downloading" ? percent : null}
-            tone="sky"
+            tone="pink"
           />
         )}
         {phase === "complete" && (
@@ -556,6 +546,52 @@ export function DownloadButton({
         </span>
       )}
     </span>
+  );
+}
+
+/**
+ * The "still looking" glyph: a reload ring sweeping round a magnifier that
+ * flips on its axis. A hand-built SVG recreation of the supplied Lottie —
+ * same motion, no animation runtime pulled into the bundle.
+ */
+function SearchingGlyph({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 512 512"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={31}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      {/* Reload arc + its arrowhead, rotating as one. */}
+      <g
+        data-dl-anim="loop"
+        style={{
+          transformBox: "view-box",
+          transformOrigin: "256px 256px",
+          animation: "dl-spin 1.6s cubic-bezier(.7,0,.3,1) infinite",
+        }}
+      >
+        <circle cx="256" cy="256" r="150" pathLength={100} strokeDasharray="70 30" />
+        {/* Caret parked at the 70% mark, tangent to the arc. */}
+        <path d="M -46 46 L 0 0 L 46 46" transform="translate(210 113) rotate(72)" />
+      </g>
+      {/* Magnifier, flipping the way the source animation does. */}
+      <g
+        data-dl-anim="loop"
+        style={{
+          transformBox: "view-box",
+          transformOrigin: "250px 249px",
+          animation: "dl-flip 1.6s cubic-bezier(.7,0,.3,1) infinite",
+        }}
+      >
+        <circle cx="250" cy="249" r="58" />
+        <path d="M292 293 L322 324" />
+      </g>
+    </svg>
   );
 }
 
@@ -664,6 +700,10 @@ export function ArtworkDownloadOverlay({
   }
 
   const determinate = phase === "downloading" && percent != null;
+  // No byte count yet — we're still finding a source rather than transferring.
+  const searching = !determinate && phase !== "finishing";
+  const glyph =
+    size === "lg" ? "h-9 w-9" : size === "md" ? "h-7 w-7" : "h-4 w-4";
 
   return (
     <span
@@ -674,22 +714,13 @@ export function ArtworkDownloadOverlay({
       style={{ borderRadius: "inherit" }}
       aria-hidden
     >
+      {/* No background track ring — an unfilled outline just reads as an ugly
+          hairline border around the cover. Only the live line is drawn. */}
       <svg
         viewBox="0 0 100 100"
         preserveAspectRatio="none"
-        className="absolute inset-0 h-full w-full text-pastel-sky"
+        className="absolute inset-0 h-full w-full text-pastel-pink"
       >
-        <rect
-          x={inset}
-          y={inset}
-          width={side}
-          height={side}
-          rx={rx}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={strokeWidth}
-          className="opacity-25"
-        />
         {determinate ? (
           <rect
             x={inset}
@@ -705,10 +736,9 @@ export function ArtworkDownloadOverlay({
             strokeDasharray="100"
             strokeDashoffset={100 - Math.max(2, percent!)}
             className="transition-[stroke-dashoffset] duration-700 ease-out"
-            // Start the fill at top-centre and run clockwise.
-            style={{ transformBox: "view-box", transformOrigin: "50px 50px" }}
           />
         ) : (
+          /* One continuous segment lapping the cover while we search. */
           <rect
             x={inset}
             y={inset}
@@ -720,21 +750,23 @@ export function ArtworkDownloadOverlay({
             strokeWidth={strokeWidth}
             strokeLinecap="round"
             pathLength={100}
-            strokeDasharray="6 6"
+            strokeDasharray="24 76"
             data-dl-anim="loop"
-            style={{ animation: "dl-march 900ms linear infinite" }}
+            style={{ animation: "dl-orbit 2.6s linear infinite" }}
           />
         )}
       </svg>
 
       <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-white">
-        <Download
-          className={
-            size === "lg" ? "h-7 w-7" : size === "md" ? "h-5 w-5" : "h-3.5 w-3.5"
-          }
-          data-dl-anim="loop"
-          style={{ animation: "dl-breathe 1.8s ease-in-out infinite" }}
-        />
+        {searching ? (
+          <SearchingGlyph className={glyph} />
+        ) : (
+          <Download
+            className={glyph}
+            data-dl-anim="loop"
+            style={{ animation: "dl-breathe 1.8s ease-in-out infinite" }}
+          />
+        )}
         {size !== "sm" && (
           <span
             className={cn(
@@ -756,15 +788,3 @@ export function ArtworkDownloadOverlay({
   );
 }
 
-/** The quiet, permanent "you have this" marker left behind on a cover. */
-export function OwnedArtworkBadge({ label = "In your library" }: { label?: string }) {
-  return (
-    <span
-      className="pointer-events-none absolute bottom-1 left-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-ink/70 text-pastel-mint"
-      title={label}
-      aria-label={label}
-    >
-      <Check className="h-3 w-3" strokeWidth={3} />
-    </span>
-  );
-}
