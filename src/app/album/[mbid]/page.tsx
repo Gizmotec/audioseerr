@@ -55,44 +55,63 @@ export default async function AlbumPage({
     redirect(`/album/${album.mbid}`);
   }
 
-  // Most-recent request by this user for this album, if any. Drives the
-  // request button's disabled state.
-  const existingRequest = await prisma.request.findFirst({
-    where: { requestedById: userId, type: "ALBUM", mbid: album.mbid },
-    orderBy: { requestedAt: "desc" },
-    select: { status: true },
-  });
-  const existingStatus = (existingRequest?.status as ExistingRequestStatus) ?? null;
-
   const trackRequestIds = album.tracks.map(
     (t) => t.recordingMbid ?? `${album.mbid}:${t.absolutePosition}`,
   );
-  const existingTrackRequests = await prisma.request.findMany({
-    where: {
-      requestedById: userId,
-      type: "TRACK",
-      mbid: { in: trackRequestIds },
-    },
-    orderBy: { requestedAt: "desc" },
-    select: { mbid: true, status: true },
-  });
+  // Recording ids survive the map into `tracks` untouched, so the liked-set
+  // lookup can start now rather than waiting for that map.
+  const recordingMbids = album.tracks
+    .map((t) => t.recordingMbid)
+    .filter((id): id is string => id !== null);
+
+  // Everything below depends only on `album`, never on each other. Run them
+  // together — served serially this was seven round trips deep, one of them a
+  // Deezer call, and it dominated the page's time to first byte.
+  const [
+    existingRequest,
+    existingTrackRequests,
+    previews,
+    downloadedLookup,
+    albumLiked,
+    likedTrackSet,
+    playlists,
+  ] = await Promise.all([
+    // Most-recent request by this user for this album, if any. Drives the
+    // request button's disabled state.
+    prisma.request.findFirst({
+      where: { requestedById: userId, type: "ALBUM", mbid: album.mbid },
+      orderBy: { requestedAt: "desc" },
+      select: { status: true },
+    }),
+    prisma.request.findMany({
+      where: {
+        requestedById: userId,
+        type: "TRACK",
+        mbid: { in: trackRequestIds },
+      },
+      orderBy: { requestedAt: "desc" },
+      select: { mbid: true, status: true },
+    }),
+    // Previews are nice-to-have; a Deezer miss renders the page without them.
+    findAlbumPreviews(album.artistName, album.title).catch(() => null),
+    // Which tracks of this album we have on disk, scoped to what the viewer is
+    // allowed to stream. This is the single source of playability now that
+    // everything is served from our own library.
+    buildDownloadedTrackLookup(viewer, album.mbid),
+    isLiked(userId, "ALBUM", album.mbid),
+    getLikedSet(userId, "TRACK", recordingMbids),
+    // Fetched here so the AddToPlaylistButton dropdown opens instantly with
+    // the user's current set; new playlists created inline are appended in
+    // local state, so a stale list across browser tabs is the only edge case.
+    listPlaylists(userId),
+  ]);
+
+  const existingStatus = (existingRequest?.status as ExistingRequestStatus) ?? null;
   const existingTrackStatuses: Record<string, ExistingRequestStatus> = {};
   for (const request of existingTrackRequests) {
     existingTrackStatuses[request.mbid] ??= request.status as ExistingRequestStatus;
   }
 
-  // Deezer match runs in parallel-ish (MB call already happened), best-effort.
-  let previews: Awaited<ReturnType<typeof findAlbumPreviews>> = null;
-  try {
-    previews = await findAlbumPreviews(album.artistName, album.title);
-  } catch {
-    // Previews are nice-to-have; swallow and render the page without them.
-  }
-
-  // Which tracks of this album we have on disk, scoped to what the viewer is
-  // allowed to stream. This is the single source of playability now that
-  // everything is served from our own library.
-  const downloadedLookup = await buildDownloadedTrackLookup(viewer, album.mbid);
   // Only treat the album as "in your library" when every track is present —
   // otherwise the album-level Request button stays available so the user can
   // fetch the rest (a single downloaded track shouldn't lock the album).
@@ -122,17 +141,8 @@ export default async function AlbumPage({
     albumTitle: album.title,
   });
 
-  const albumLiked = await isLiked(userId, "ALBUM", album.mbid);
-  const recordingMbids = tracks
-    .map((t) => t.recordingMbid)
-    .filter((id): id is string => id !== null);
-  const likedTrackSet = await getLikedSet(userId, "TRACK", recordingMbids);
   const coverUrl = previews?.cover ?? album.coverUrl;
 
-  // Fetched here so the AddToPlaylistButton dropdown opens instantly with
-  // the user's current set; new playlists created inline are appended in
-  // local state, so a stale list across browser tabs is the only edge case.
-  const playlists = await listPlaylists(userId);
   const playlistOptions = playlists.map((p) => ({
     id: p.id,
     name: p.name,

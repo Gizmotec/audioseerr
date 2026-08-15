@@ -10,6 +10,9 @@ type DeezerSearchAlbumsResponse = {
     id: number;
     title: string;
     artist?: { name?: string };
+    cover_medium?: string;
+    cover_big?: string;
+    cover_xl?: string;
   }>;
 };
 
@@ -331,6 +334,42 @@ export async function getDeezerArtistArtwork(
     } catch {
       return null;
     }
+  });
+}
+
+/**
+ * Cover art for an album, for the very common case where the Cover Art Archive
+ * has nothing for a release group. Only the search call — the covers ride along
+ * on the search hit, so this is one request, unlike findAlbumPreviews.
+ */
+export async function getDeezerAlbumArtwork(
+  artistName: string,
+  albumTitle: string,
+): Promise<string | null> {
+  const cacheKey = `deezer:album:artwork:v1:${normalizeTrackTitle(artistName)}:${normalizeTrackTitle(albumTitle)}`;
+  return withCache<string | null>(cacheKey, 7 * 24 * 60 * 60, async () => {
+    let search: DeezerSearchAlbumsResponse;
+    try {
+      search = await deezerFetch<DeezerSearchAlbumsResponse>("/search/album", {
+        q: `${artistName} ${albumTitle}`,
+        limit: "10",
+      });
+    } catch {
+      return null;
+    }
+
+    const wantArtist = normalizeTrackTitle(artistName);
+    const wantTitle = normalizeTrackTitle(albumTitle);
+    const sameArtist = (search.data ?? []).filter(
+      (a) => normalizeTrackTitle(a.artist?.name ?? "") === wantArtist,
+    );
+    // Only accept a same-artist hit: a title-only match pins the wrong cover on
+    // the album, which is worse than the placeholder disc.
+    const hit =
+      sameArtist.find((a) => normalizeTrackTitle(a.title ?? "") === wantTitle) ??
+      sameArtist[0];
+    if (!hit) return null;
+    return hit.cover_big ?? hit.cover_xl ?? hit.cover_medium ?? null;
   });
 }
 

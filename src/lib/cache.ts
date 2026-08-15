@@ -33,6 +33,13 @@ export async function setCached(
   });
 }
 
+// In-flight work, keyed the same way as the persistent cache. Without this, N
+// concurrent misses for one key each run `fn` — N MusicBrainz calls through a
+// 1-req/sec limiter, so the last caller waits N seconds and MusicBrainz is that
+// much more likely to answer 503. One page render can easily fan out that way
+// (an album grid, a mix, and a search all wanting the same artist).
+const inFlight = new Map<string, Promise<unknown>>();
+
 export async function withCache<T>(
   key: string,
   ttlSeconds: number,
@@ -40,7 +47,24 @@ export async function withCache<T>(
 ): Promise<T> {
   const hit = await getCached<T>(key);
   if (hit !== null) return hit;
-  const fresh = await fn();
-  await setCached(key, fresh, ttlSeconds);
-  return fresh;
+
+  const pending = inFlight.get(key);
+  if (pending) return pending as Promise<T>;
+
+  const work = (async () => {
+    const fresh = await fn();
+    // A null result reads back as a miss (getCached can't tell "cached null"
+    // from "absent"), so writing one only costs a row. Skip it.
+    if (fresh !== null && fresh !== undefined) {
+      await setCached(key, fresh, ttlSeconds);
+    }
+    return fresh;
+  })();
+
+  inFlight.set(key, work);
+  try {
+    return await work;
+  } finally {
+    inFlight.delete(key);
+  }
 }

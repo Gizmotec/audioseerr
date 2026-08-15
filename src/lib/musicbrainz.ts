@@ -99,22 +99,70 @@ export type MbArtistSearchHit = {
 };
 
 class MbHttpError extends Error {
+  /** Populated from the Retry-After header when MusicBrainz sends one. */
+  retryAfterMs: number | null = null;
+
   constructor(public status: number, message: string) {
     super(message);
   }
 }
 
-async function mbFetch<T>(path: string, search: Record<string, string>): Promise<T> {
-  const params = new URLSearchParams({ ...search, fmt: "json" });
-  const url = `${MB_BASE}${path}?${params.toString()}`;
+// MusicBrainz answers 503 ("your requests are exceeding the allowable rate
+// limit") whenever its own view of our rate differs from ours — bursts, a
+// shared egress IP, or its own load. Treated as a hard failure that reads as
+// "album not found", which is why an album page could 404 and then work on a
+// retry seconds later. These statuses mean "ask again", never "doesn't exist".
+const TRANSIENT_STATUS = new Set([429, 500, 502, 503, 504]);
+const MB_ATTEMPTS = 3;
+const MB_BACKOFF_MS = 1000;
+
+function isTransient(err: unknown): boolean {
+  // A non-MbHttpError here is a fetch/network failure, which is also worth a retry.
+  return err instanceof MbHttpError ? TRANSIENT_STATUS.has(err.status) : true;
+}
+
+/** Seconds MusicBrainz asked us to wait, when it says so. */
+function retryAfterMs(res: Response): number | null {
+  const header = res.headers.get("retry-after");
+  if (!header) return null;
+  const seconds = Number(header);
+  if (!Number.isFinite(seconds) || seconds < 0) return null;
+  return Math.min(seconds, 10) * 1000;
+}
+
+async function mbFetchOnce<T>(url: string, path: string): Promise<T> {
   await limiter.wait();
   const res = await fetch(url, {
     headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
   });
   if (!res.ok) {
-    throw new MbHttpError(res.status, `MusicBrainz ${path} → HTTP ${res.status}`);
+    const err = new MbHttpError(
+      res.status,
+      `MusicBrainz ${path} → HTTP ${res.status}`,
+    );
+    err.retryAfterMs = retryAfterMs(res);
+    throw err;
   }
   return (await res.json()) as T;
+}
+
+async function mbFetch<T>(path: string, search: Record<string, string>): Promise<T> {
+  const params = new URLSearchParams({ ...search, fmt: "json" });
+  const url = `${MB_BASE}${path}?${params.toString()}`;
+  let lastError: unknown;
+  for (let attempt = 0; attempt < MB_ATTEMPTS; attempt++) {
+    try {
+      return await mbFetchOnce<T>(url, path);
+    } catch (err) {
+      lastError = err;
+      if (!isTransient(err) || attempt === MB_ATTEMPTS - 1) throw err;
+      const asked =
+        err instanceof MbHttpError ? err.retryAfterMs : null;
+      const backoff = asked ?? MB_BACKOFF_MS * 2 ** attempt;
+      await new Promise((r) => setTimeout(r, backoff));
+    }
+  }
+  throw lastError;
 }
 
 // Last.fm's tag.gettopalbums often returns *release* MBIDs in the `mbid` field
