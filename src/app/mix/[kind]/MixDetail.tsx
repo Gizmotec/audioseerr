@@ -196,7 +196,7 @@ function MixRow({
         )}
       </button>
 
-      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-secondary">
+      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md bg-secondary">
         {track.coverUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img

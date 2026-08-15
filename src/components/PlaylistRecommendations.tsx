@@ -237,7 +237,7 @@ function RecommendationRow({
         )}
       </button>
 
-      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-secondary">
+      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md bg-secondary">
         {rec.coverUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -360,7 +360,7 @@ function RecommendationsSkeleton() {
       {Array.from({ length: 5 }).map((_, i) => (
         <li key={i} className="flex items-center gap-3 py-2.5">
           <div className="h-9 w-9 shrink-0 rounded-full bg-secondary" />
-          <div className="h-10 w-10 shrink-0 rounded bg-secondary" />
+          <div className="h-10 w-10 shrink-0 rounded-md bg-secondary" />
           <div className="min-w-0 flex-1 space-y-1.5">
             <div className="h-3.5 w-2/5 rounded bg-secondary" />
             <div className="h-3 w-1/4 rounded bg-secondary/70" />

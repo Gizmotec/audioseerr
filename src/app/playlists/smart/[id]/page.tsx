@@ -72,7 +72,7 @@ export default async function SmartPlaylistPage({
         innerClassName="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"
       >
         <div className="flex items-end gap-5">
-          <div className="relative flex h-36 w-36 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-surface-2 text-ink/40">
+          <div className="relative flex h-36 w-36 shrink-0 items-center justify-center overflow-hidden rounded-md bg-surface-2 text-ink/40">
             <Sparkles className="h-1/3 w-1/3" />
           </div>
           <div className="min-w-0 space-y-1.5">

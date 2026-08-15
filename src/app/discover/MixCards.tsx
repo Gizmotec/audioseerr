@@ -62,7 +62,7 @@ function DailyMixTile({ mix }: { mix: GeneratedMix }) {
       href={`/mix/${mix.kind}`}
       className="group flex flex-col gap-2 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <div className="relative aspect-square overflow-hidden rounded-xl bg-surface-2">
+      <div className="relative aspect-square overflow-hidden rounded-md bg-surface-2">
         <MixMosaic
           coverUrls={mix.coverUrls}
           icon={<Sparkles className="h-1/3 w-1/3" />}
@@ -189,7 +189,7 @@ function DailyMixRowSkeleton() {
     >
       {DAILY_MIX_SLOTS.map((slot) => (
         <li key={slot} className="flex flex-col gap-2">
-          <div className="aspect-square animate-pulse rounded-xl bg-secondary" />
+          <div className="aspect-square animate-pulse rounded-md bg-secondary" />
           <div className="h-3.5 w-3/4 animate-pulse rounded bg-secondary" />
           <div className="h-3 w-1/2 animate-pulse rounded bg-secondary" />
         </li>

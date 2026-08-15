@@ -17,7 +17,7 @@ export function SmartPlaylistTile({
       href={`/playlists/smart/${playlist.id}`}
       className="group flex flex-col gap-2 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-xl bg-surface-2 text-muted-foreground/40">
+      <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-md bg-surface-2 text-muted-foreground/40">
         <Sparkles className="h-1/3 w-1/3 transition-transform duration-200 group-hover:scale-[1.06]" />
         <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-background/70 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-foreground">
           <Sparkles className="h-3 w-3" /> Smart

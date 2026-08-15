@@ -74,7 +74,7 @@ export function AdminRequestRow({
     <li className="flex flex-col gap-3 py-4 md:flex-row md:items-center md:gap-4">
       <Link
         href={href}
-        className="flex h-14 w-14 shrink-0 overflow-hidden rounded bg-secondary"
+        className="flex h-14 w-14 shrink-0 overflow-hidden rounded-md bg-secondary"
       >
         {request.coverUrl ? (
           // eslint-disable-next-line @next/next/no-img-element

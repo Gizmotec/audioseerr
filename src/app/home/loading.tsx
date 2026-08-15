@@ -54,7 +54,7 @@ export default function HomeLoading() {
           </div>
         </div>
         <div className="grid grid-cols-[6rem_1fr] gap-4 rounded-2xl bg-card p-4">
-          <div className={`aspect-square rounded-xl ${SHIMMER}`} />
+          <div className={`aspect-square rounded-md ${SHIMMER}`} />
           <div className="self-center space-y-2">
             <div className={`h-3 w-28 rounded-xl ${SHIMMER}`} />
             <div className={`h-5 w-44 rounded-xl ${SHIMMER}`} />
@@ -71,7 +71,7 @@ export default function HomeLoading() {
         <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {Array.from({ length: 10 }).map((_, index) => (
             <li key={index}>
-              <div className={`aspect-square rounded-xl ${SHIMMER}`} />
+              <div className={`aspect-square rounded-md ${SHIMMER}`} />
               <div className={`mt-2 h-3.5 w-3/4 rounded-xl ${SHIMMER}`} />
               <div className={`mt-1.5 h-3 w-1/2 rounded-xl ${SHIMMER}`} />
             </li>

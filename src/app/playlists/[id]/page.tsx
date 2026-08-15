@@ -186,7 +186,7 @@ async function SystemPlaylistPage({
         innerClassName="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"
       >
         <div className="flex items-end gap-5">
-          <div className="relative h-36 w-36 shrink-0 overflow-hidden rounded-xl bg-surface-2">
+          <div className="relative h-36 w-36 shrink-0 overflow-hidden rounded-md bg-surface-2">
             {playlist.coverUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
