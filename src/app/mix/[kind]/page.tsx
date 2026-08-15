@@ -5,15 +5,11 @@ import { auth } from "@/auth";
 import { trackMatchKey } from "@/lib/deezer";
 import { buildEphemeralTrackLookup } from "@/lib/downloadedTracks";
 import { getLikedSet, trackLikeTargetId } from "@/lib/likes";
-import { getOrGenerateMix, type MixKind } from "@/lib/mixes";
+import { getOrGenerateMix, isDailyMixKind, isMixKind } from "@/lib/mixes";
 import { isSetupComplete } from "@/lib/settings";
 import { MixDetail, type PreloadedMixTracks } from "./MixDetail";
 
 export const dynamic = "force-dynamic";
-
-function isMixKind(value: string): value is MixKind {
-  return value === "daily" || value === "weekly";
-}
 
 export default async function MixPage({
   params,
@@ -21,6 +17,8 @@ export default async function MixPage({
   params: Promise<{ kind: string }>;
 }) {
   const { kind } = await params;
+  // Daily Mix used to be a single mix at /mix/daily; keep old links working.
+  if (kind === "daily") redirect("/mix/daily1");
   if (!isMixKind(kind)) notFound();
 
   if (!(await isSetupComplete())) {
@@ -62,7 +60,8 @@ export default async function MixPage({
   ).filter((x): x is string => !!x);
   const likedTrackIds = [...(await getLikedSet(userId, "TRACK", likeTargetIds))];
 
-  const Icon = kind === "daily" ? Sparkles : Compass;
+  const daily = isDailyMixKind(kind);
+  const Icon = daily ? Sparkles : Compass;
   const gridCovers = mix.coverUrls.slice(0, 4);
 
   return (
@@ -107,7 +106,7 @@ export default async function MixPage({
         <div className="min-w-0 space-y-1.5">
           <p className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
             <Icon className="h-3.5 w-3.5" />
-            {kind === "daily" ? "Daily Mix" : "Discover Weekly"}
+            {daily ? "Daily Mix" : "Discover Weekly"}
           </p>
           <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">
             {mix.title}

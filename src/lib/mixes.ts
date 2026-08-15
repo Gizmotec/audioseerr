@@ -1,10 +1,13 @@
-// Daily Mix & Discover Weekly — taste-based mixes for the discover page.
+// Daily Mixes & Discover Weekly — taste-based mixes for the discover page.
 //
-// Daily Mix is 70% familiar (the viewer's own DownloadedTrack library, weighted
-// by plays/likes) + 30% new (tracks close to taste, not yet owned). Discover
-// Weekly is 100% new, drawn from artists similar to taste that the viewer has
-// never played. Both are *discovery* surfaces — nothing is auto-downloaded; the
-// new rows carry a 30s Deezer preview and a Request button.
+// Each Daily Mix is 70% familiar (the viewer's own DownloadedTrack library,
+// weighted by plays/likes) + 30% new (tracks close to taste, not yet owned).
+// There are up to five, one per taste cluster: the viewer's artists are split by
+// Deezer similarity so Daily Mix 1 and Daily Mix 4 don't sound like the same
+// shuffle. A thin library earns fewer mixes — see dailyMixCount. Discover Weekly
+// is 100% new, drawn from artists similar to taste that the viewer has never
+// played. All are *discovery* surfaces — nothing is auto-downloaded; the new
+// rows carry a 30s Deezer preview and a Request button.
 //
 // A generated mix is cached in ApiCache (via withCache) keyed by user + period,
 // so the first page view of the day/week generates it and the rest read cache.
@@ -24,11 +27,46 @@ import {
 import { getAllLikes } from "@/lib/likes";
 import { isAdmin, type LibraryViewer } from "@/lib/userLibrary";
 
-export type MixKind = "daily" | "weekly";
+/** Daily Mix slots, Spotify-style: up to five, numbered from 1. */
+export const DAILY_MIX_SLOTS = [1, 2, 3, 4, 5] as const;
+export type DailyMixSlot = (typeof DAILY_MIX_SLOTS)[number];
+export type DailyMixKind = `daily${DailyMixSlot}`;
+export type MixKind = DailyMixKind | "weekly";
+
+export function dailyMixKind(slot: DailyMixSlot): DailyMixKind {
+  return `daily${slot}`;
+}
+
+export function isDailyMixKind(kind: MixKind): kind is DailyMixKind {
+  return kind !== "weekly";
+}
+
+export function isMixKind(value: string): value is MixKind {
+  return (
+    value === "weekly" ||
+    DAILY_MIX_SLOTS.some((slot) => value === dailyMixKind(slot))
+  );
+}
+
+/** 1-based slot number encoded in a `dailyN` kind. */
+function slotOf(kind: DailyMixKind): number {
+  return Number(kind.slice("daily".length));
+}
 
 const DAILY_SIZE = 30;
 const WEEKLY_SIZE = 30;
 const DAILY_FAMILIAR = Math.round(DAILY_SIZE * 0.7); // 21; the rest (~30%) is new
+
+// How many owned tracks a viewer needs per extra Daily Mix. A thin library gets
+// one mix; a deep one earns up to DAILY_MIX_SLOTS.length. This is what makes the
+// count adaptive rather than always showing five near-identical mixes.
+const TRACKS_PER_DAILY_MIX = 12;
+// How far down the taste ranking we probe for mutually-dissimilar anchors. Each
+// probe is a getDeezerArtistBundle call, cached 7d and shared with the "new"
+// pool below, so this bounds only the first generation of the day.
+const DAILY_ANCHOR_CANDIDATES = 12;
+// Artists named in a Daily Mix subtitle ("Artist A, Artist B and more").
+const SUBTITLE_ARTISTS = 3;
 
 // How many taste seed artists to expand, and how many similar artists to pull
 // for Discover Weekly. Each getDeezerArtistBundle call is cached 7d, so these
@@ -453,13 +491,13 @@ async function finalizeNewPool(
 }
 
 async function pickDailyNew(
-  profile: TasteProfile,
+  seedArtists: string[],
   excludeTrackKeys: Set<string>,
   count: number,
   seed: string,
 ): Promise<MixTrack[]> {
   if (count <= 0) return [];
-  const seeds = profile.seedArtists.slice(0, SEED_ARTIST_LIMIT);
+  const seeds = seedArtists.slice(0, SEED_ARTIST_LIMIT);
   let pool: DiscoveryTrack[] = [];
   if (seeds.length > 0) {
     const results = await Promise.allSettled(
@@ -513,6 +551,207 @@ async function pickWeeklyNew(
 }
 
 // ---------------------------------------------------------------------------
+// Daily Mix clustering
+// ---------------------------------------------------------------------------
+//
+// Five Daily Mixes are only worth showing if they sound different. We split the
+// viewer's own artists into taste clusters and give each cluster its own mix,
+// rather than reshuffling one pool five times.
+
+type ArtistGroup = {
+  /** Normalized name — the identity used for all matching. */
+  key: string;
+  /** First-seen display spelling. */
+  name: string;
+  score: number;
+  tracks: OwnedTrack[];
+};
+
+type Cluster = {
+  /** The anchor first, then everything that attached to it. */
+  groups: ArtistGroup[];
+  trackCount: number;
+};
+
+function groupOwnedByArtist(
+  owned: OwnedTrack[],
+  profile: TasteProfile,
+): ArtistGroup[] {
+  const byKey = new Map<string, ArtistGroup>();
+  for (const t of owned) {
+    const key = normalizeTrackTitle(t.artistName);
+    if (!key) continue;
+    let group = byKey.get(key);
+    if (!group) {
+      group = { key, name: t.artistName, score: 0, tracks: [] };
+      byKey.set(key, group);
+    }
+    group.tracks.push(t);
+    group.score += scoreOwnedTrack(t, profile);
+  }
+  return [...byKey.values()].sort((a, b) => b.score - a.score);
+}
+
+/**
+ * How many Daily Mixes this library can fill. One mix per TRACKS_PER_DAILY_MIX
+ * owned tracks, capped by the slot count and by how many distinct artists there
+ * are — two artists can't make five different-sounding mixes.
+ */
+function dailyMixCount(owned: OwnedTrack[], groups: ArtistGroup[]): number {
+  const byVolume = Math.floor(owned.length / TRACKS_PER_DAILY_MIX);
+  return Math.max(
+    1,
+    Math.min(DAILY_MIX_SLOTS.length, byVolume, groups.length || 1),
+  );
+}
+
+/**
+ * Walk the taste ranking and keep artists that aren't near-neighbours of one
+ * already chosen, so each anchor seeds a distinguishable mix. Returns the
+ * anchors paired with the similar-artist set used to attract the rest.
+ */
+async function pickAnchors(
+  groups: ArtistGroup[],
+  wanted: number,
+): Promise<{ group: ArtistGroup; similar: Set<string> }[]> {
+  const anchors: { group: ArtistGroup; similar: Set<string> }[] = [];
+  for (const group of groups.slice(0, DAILY_ANCHOR_CANDIDATES)) {
+    if (anchors.length >= wanted) break;
+    // Same arguments as artistTopDiscoveryTracks so both share one cache entry.
+    const bundle = await getDeezerArtistBundle(
+      group.name,
+      10,
+      WEEKLY_SIMILAR_LIMIT,
+    ).catch(() => null);
+    const similar = new Set(
+      (bundle?.similar ?? [])
+        .map((s) => normalizeTrackTitle(s.name))
+        .filter(Boolean),
+    );
+    // Reject in either direction — Deezer's similarity lists aren't symmetric.
+    const tooClose = anchors.some(
+      (a) => a.similar.has(group.key) || similar.has(a.group.key),
+    );
+    if (tooClose) continue;
+    anchors.push({ group, similar });
+  }
+  // Ran out of dissimilar candidates (a narrow library) — top up by rank so the
+  // requested number of mixes still gets filled.
+  for (const group of groups) {
+    if (anchors.length >= wanted) break;
+    if (anchors.some((a) => a.group.key === group.key)) continue;
+    anchors.push({ group, similar: new Set() });
+  }
+  return anchors;
+}
+
+/**
+ * Every artist lands in exactly one cluster: with an anchor that lists it as
+ * similar where possible, otherwise with the currently smallest cluster so the
+ * mixes stay comparably sized.
+ */
+function assignClusters(
+  groups: ArtistGroup[],
+  anchors: { group: ArtistGroup; similar: Set<string> }[],
+): Cluster[] {
+  const clusters: Cluster[] = anchors.map((a) => ({
+    groups: [a.group],
+    trackCount: a.group.tracks.length,
+  }));
+  const anchorKeys = new Set(anchors.map((a) => a.group.key));
+
+  for (const group of groups) {
+    if (anchorKeys.has(group.key)) continue;
+    let target = anchors.findIndex((a) => a.similar.has(group.key));
+    if (target < 0) {
+      target = clusters.reduce(
+        (small, c, i) => (c.trackCount < clusters[small]!.trackCount ? i : small),
+        0,
+      );
+    }
+    const cluster = clusters[target]!;
+    cluster.groups.push(group);
+    cluster.trackCount += group.tracks.length;
+  }
+  return clusters;
+}
+
+function clusterSubtitle(cluster: Cluster): string {
+  const names = cluster.groups
+    .slice()
+    .sort((a, b) => b.score - a.score)
+    .slice(0, SUBTITLE_ARTISTS)
+    .map((g) => g.name);
+  if (names.length === 0) return "Made for you · refreshes daily";
+  if (names.length === 1) return `${names[0]} and more`;
+  return `${names.slice(0, -1).join(", ")}, ${names.at(-1)} and more`;
+}
+
+async function buildDailyMixes(
+  viewer: LibraryViewer,
+  periodKey: string,
+): Promise<GeneratedMix[]> {
+  const userId = viewer!.id;
+  const owned = await getOwnedTracks(viewer);
+  const profile = await buildTasteProfile(userId, owned);
+  const exclude = buildExclusionKeys(owned);
+
+  const groups = groupOwnedByArtist(owned, profile);
+  const wanted = dailyMixCount(owned, groups);
+  const anchors = groups.length > 0 ? await pickAnchors(groups, wanted) : [];
+  const clusters =
+    anchors.length > 0 ? assignClusters(groups, anchors) : [];
+
+  // No library at all: still offer one all-new mix off the taste profile.
+  const plans: { tracks: OwnedTrack[]; seeds: string[]; subtitle: string }[] =
+    clusters.length > 0
+      ? clusters.map((c) => ({
+          tracks: c.groups.flatMap((g) => g.tracks),
+          seeds: c.groups
+            .slice()
+            .sort((a, b) => b.score - a.score)
+            .map((g) => g.name),
+          subtitle: clusterSubtitle(c),
+        }))
+      : [
+          {
+            tracks: [],
+            seeds: profile.seedArtists,
+            subtitle: "Made for you · refreshes daily",
+          },
+        ];
+
+  const single = plans.length === 1;
+  const mixes: GeneratedMix[] = [];
+  // Sequential on purpose: each plan fans out to SEED_ARTIST_LIMIT concurrent
+  // Deezer calls, and running five plans at once would burst past Deezer's
+  // per-IP rate limit and degrade every mix to chart filler at the same time.
+  // This whole function runs once per user per day, behind the page's Suspense.
+  for (const [i, plan] of plans.entries()) {
+    const slot = DAILY_MIX_SLOTS[i]!;
+    const kind = dailyMixKind(slot);
+    const seed = `${kind}:${userId}:${periodKey}`;
+    const familiar = pickFamiliar(plan.tracks, profile, DAILY_FAMILIAR, seed);
+    const fresh = await pickDailyNew(
+      plan.seeds,
+      exclude,
+      DAILY_SIZE - familiar.length,
+      seed,
+    );
+    const tracks = interleave(familiar, fresh);
+    mixes.push({
+      kind,
+      periodKey,
+      title: single ? "Daily Mix" : `Daily Mix ${slot}`,
+      subtitle: plan.subtitle,
+      coverUrls: pickCoverUrls(tracks),
+      tracks,
+    });
+  }
+  return mixes;
+}
+
+// ---------------------------------------------------------------------------
 // Assembly
 // ---------------------------------------------------------------------------
 
@@ -558,65 +797,74 @@ function buildExclusionKeys(owned: OwnedTrack[]): Set<string> {
   return keys;
 }
 
-async function generateMix(
+async function generateWeeklyMix(
   viewer: LibraryViewer,
-  kind: MixKind,
   periodKey: string,
 ): Promise<GeneratedMix> {
   const userId = viewer!.id;
-  const seed = `${kind}:${userId}:${periodKey}`;
+  const seed = `weekly:${userId}:${periodKey}`;
   const owned = await getOwnedTracks(viewer);
   const profile = await buildTasteProfile(userId, owned);
   const exclude = buildExclusionKeys(owned);
-
-  let tracks: MixTrack[];
-  if (kind === "daily") {
-    const familiar = pickFamiliar(owned, profile, DAILY_FAMILIAR, seed);
-    // If the library can't fill the familiar 70%, make up the rest with new.
-    const newCount = DAILY_SIZE - familiar.length;
-    const fresh = await pickDailyNew(profile, exclude, newCount, seed);
-    tracks = interleave(familiar, fresh);
-  } else {
-    tracks = await pickWeeklyNew(profile, exclude, WEEKLY_SIZE, seed);
-  }
+  const tracks = await pickWeeklyNew(profile, exclude, WEEKLY_SIZE, seed);
 
   return {
-    kind,
+    kind: "weekly",
     periodKey,
-    title: kind === "daily" ? "Daily Mix" : "Discover Weekly",
-    subtitle:
-      kind === "daily"
-        ? "Made for you · refreshes daily"
-        : "Brand-new finds · refreshes Monday",
+    title: "Discover Weekly",
+    subtitle: "Brand-new finds · refreshes Monday",
     coverUrls: pickCoverUrls(tracks),
     tracks,
   };
 }
 
+function emptyMix(kind: MixKind): GeneratedMix {
+  return {
+    kind,
+    periodKey: "anon",
+    title: kind === "weekly" ? "Discover Weekly" : "Daily Mix",
+    subtitle: "",
+    coverUrls: [],
+    tracks: [],
+  };
+}
+
 /**
- * The cached entry point. Generates the mix for the current period on first
- * access, then serves it from ApiCache until the period rolls over.
+ * All of the viewer's Daily Mixes for today, 1..DAILY_MIX_SLOTS.length. Cached
+ * as one set rather than per slot: the clustering that makes the mixes differ is
+ * shared work, so generating them together costs one pass instead of five.
+ */
+export async function getOrGenerateDailyMixes(
+  viewer: LibraryViewer,
+): Promise<GeneratedMix[]> {
+  if (!viewer) return [];
+  const now = new Date();
+  const periodKey = dailyPeriodKey(now);
+  return withCache<GeneratedMix[]>(
+    `mix:daily-set:${viewer.id}:${periodKey}`,
+    secondsUntilEndOfDay(now),
+    () => buildDailyMixes(viewer, periodKey),
+  );
+}
+
+/**
+ * The cached entry point for one mix. Generates for the current period on first
+ * access, then serves from ApiCache until the period rolls over.
  */
 export async function getOrGenerateMix(
   viewer: LibraryViewer,
   kind: MixKind,
 ): Promise<GeneratedMix> {
-  if (!viewer) {
-    return {
-      kind,
-      periodKey: "anon",
-      title: kind === "daily" ? "Daily Mix" : "Discover Weekly",
-      subtitle: "",
-      coverUrls: [],
-      tracks: [],
-    };
+  if (!viewer) return emptyMix(kind);
+  if (isDailyMixKind(kind)) {
+    const mixes = await getOrGenerateDailyMixes(viewer);
+    return mixes[slotOf(kind) - 1] ?? emptyMix(kind);
   }
   const now = new Date();
-  const periodKey = kind === "daily" ? dailyPeriodKey(now) : isoWeekPeriodKey(now);
-  const ttl =
-    kind === "daily" ? secondsUntilEndOfDay(now) : secondsUntilEndOfWeek(now);
-  const cacheKey = `mix:${kind}:${viewer.id}:${periodKey}`;
-  return withCache<GeneratedMix>(cacheKey, ttl, () =>
-    generateMix(viewer, kind, periodKey),
+  const periodKey = isoWeekPeriodKey(now);
+  return withCache<GeneratedMix>(
+    `mix:weekly:${viewer.id}:${periodKey}`,
+    secondsUntilEndOfWeek(now),
+    () => generateWeeklyMix(viewer, periodKey),
   );
 }
