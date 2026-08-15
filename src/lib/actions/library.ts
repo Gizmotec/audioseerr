@@ -3,6 +3,7 @@
 import { unlink } from "node:fs/promises";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
+import { MAX_BULK_TRACKS } from "@/lib/bulkSelection";
 import { prisma } from "@/lib/db";
 import { getArtist } from "@/lib/musicbrainz";
 
@@ -48,6 +49,41 @@ export async function deleteLibraryTrackAction(
   revalidatePath("/library");
   revalidatePath(`/album/${track.albumMbid}`);
   return { ok: true };
+}
+
+/**
+ * Bulk sibling of deleteLibraryTrackAction, for the library's multi-select bar.
+ * Missing ids are ignored rather than failing the batch — a stale selection
+ * (someone else deleted the track first) shouldn't strand the rest.
+ */
+export async function deleteLibraryTracksAction(
+  downloadedTrackIds: string[],
+): Promise<ActionResult & { deleted?: number }> {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard;
+
+  const ids = [...new Set(downloadedTrackIds)].filter((id) => id.length > 0);
+  if (ids.length === 0) return { ok: false, error: "Nothing selected." };
+  if (ids.length > MAX_BULK_TRACKS) {
+    return { ok: false, error: `Select ${MAX_BULK_TRACKS} tracks or fewer.` };
+  }
+
+  const tracks = await prisma.downloadedTrack.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, filePath: true, albumMbid: true },
+  });
+  if (tracks.length === 0) return { ok: false, error: "Tracks not found." };
+
+  await deleteFiles(tracks);
+  const removed = await prisma.downloadedTrack.deleteMany({
+    where: { id: { in: tracks.map((t) => t.id) } },
+  });
+
+  revalidatePath("/library");
+  for (const mbid of new Set(tracks.map((t) => t.albumMbid))) {
+    revalidatePath(`/album/${mbid}`);
+  }
+  return { ok: true, deleted: removed.count };
 }
 
 export async function deleteLibraryAlbumAction(

@@ -4,6 +4,7 @@ import {
   Check,
   Clock,
   Disc3,
+  ListChecks,
   Loader2,
   MoreVertical,
   Pause,
@@ -25,6 +26,7 @@ import {
 } from "@/lib/actions/library";
 import { trackLikeTargetId } from "@/lib/likeKeys";
 import { cn } from "@/lib/utils";
+import { LibrarySelectionBar } from "./LibrarySelectionBar";
 
 export type LibraryTrack = {
   id: string;
@@ -125,6 +127,66 @@ export function LibraryView({
     if (queueItems.length > 0) player.playQueue(shuffle(queueItems), 0);
   };
 
+  // Multi-select. Every action reads `selected`, which is derived from the rows
+  // currently on screen — so a track hidden by the search filter is never acted
+  // on, and no effect has to prune the stored id set.
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  // Anchor for shift-click ranges, held by track id rather than index so a
+  // re-sort or a narrowed search can't point it at the wrong row.
+  const anchorIdRef = useRef<string | null>(null);
+
+  const selected = useMemo(
+    () => visible.filter((t) => selectedIds.has(t.id)),
+    [visible, selectedIds],
+  );
+
+  const toggleAt = (idx: number, extendRange: boolean) => {
+    const track = visible[idx];
+    if (!track) return;
+    const anchorId = anchorIdRef.current;
+    const anchor = anchorId
+      ? visible.findIndex((t) => t.id === anchorId)
+      : -1;
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (extendRange && anchor >= 0) {
+        // Shift-click paints the whole span the same way the clicked row went.
+        const [lo, hi] = anchor < idx ? [anchor, idx] : [idx, anchor];
+        const turningOn = !prev.has(track.id);
+        for (let i = lo; i <= hi; i++) {
+          const id = visible[i]?.id;
+          if (!id) continue;
+          if (turningOn) next.add(id);
+          else next.delete(id);
+        }
+        return next;
+      }
+      if (next.has(track.id)) next.delete(track.id);
+      else next.add(track.id);
+      return next;
+    });
+    anchorIdRef.current = track.id;
+  };
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+    anchorIdRef.current = null;
+  };
+
+  const exitSelectMode = () => {
+    clearSelection();
+    setSelectMode(false);
+  };
+
+  const playSelected = () => {
+    const ids = new Set(selected.map((t) => t.id));
+    const queue = queueItems.filter((q) => ids.has(q.id));
+    if (queue.length > 0) player.playQueue(queue, 0);
+  };
+
   return (
     <>
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -186,6 +248,21 @@ export function LibraryView({
               <Shuffle className="h-3.5 w-3.5" />
               Shuffle
             </button>
+            <button
+              type="button"
+              onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+              disabled={visible.length === 0}
+              aria-pressed={selectMode}
+              className={cn(
+                "inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-bold transition-colors disabled:opacity-40",
+                selectMode
+                  ? "bg-pastel-yellow text-ink"
+                  : "bg-card text-foreground hover:bg-surface-2",
+              )}
+            >
+              <ListChecks className="h-3.5 w-3.5" />
+              {selectMode ? "Done" : "Select"}
+            </button>
           </div>
         </div>
       </div>
@@ -205,10 +282,11 @@ export function LibraryView({
           )}
         </div>
       ) : (
-        <ol className="flex flex-col gap-1">
+        <ol className={cn("flex flex-col gap-1", selectMode && "pb-24")}>
           {visible.map((t, idx) => {
             const failed = player.failedIds.has(t.id);
             const isActive = !failed && player.isCurrent(t.id);
+            const checked = selectedIds.has(t.id);
             return (
               <li
                 key={t.id}
@@ -219,12 +297,42 @@ export function LibraryView({
                     recordingMbid: t.recordingMbid,
                   })
                 }
+                // In select mode the whole row is a target, but nested buttons
+                // and links keep their own jobs.
+                onClick={
+                  selectMode
+                    ? (e) => {
+                        if ((e.target as HTMLElement).closest("a,button")) return;
+                        toggleAt(idx, e.shiftKey);
+                      }
+                    : undefined
+                }
                 className={cn(
                   "group flex items-center gap-3 rounded-xl border-2 border-transparent px-2 py-2.5 hover:bg-surface-2",
                   isActive && "bg-surface-2",
                   failed && "opacity-50",
+                  selectMode && "cursor-pointer",
+                  checked && "border-pastel-yellow bg-surface-2",
                 )}
               >
+                {selectMode && (
+                  <button
+                    type="button"
+                    role="checkbox"
+                    aria-checked={checked}
+                    aria-label={`Select ${t.title}`}
+                    onClick={(e) => toggleAt(idx, e.shiftKey)}
+                    className={cn(
+                      "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors",
+                      checked
+                        ? "border-pastel-yellow bg-pastel-yellow text-ink"
+                        : "border-foreground/25 text-transparent hover:border-foreground/50",
+                    )}
+                  >
+                    <Check className="h-3 w-3" strokeWidth={3} />
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={() => playFromIndex(idx)}
@@ -349,6 +457,19 @@ export function LibraryView({
             );
           })}
         </ol>
+      )}
+
+      {selectMode && visible.length > 0 && (
+        <LibrarySelectionBar
+          selected={selected}
+          visibleCount={visible.length}
+          allVisibleSelected={selected.length === visible.length}
+          canDelete={canDelete}
+          onPlay={playSelected}
+          onSelectAll={() => setSelectedIds(new Set(visible.map((t) => t.id)))}
+          onClear={clearSelection}
+          onExit={exitSelectMode}
+        />
       )}
     </>
   );
