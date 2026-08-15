@@ -68,8 +68,8 @@ function Artwork({
     <div
       className={
         kind === "artist"
-          ? "flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary text-muted-foreground/50"
-          : "flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-cover bg-secondary text-muted-foreground/50"
+          ? "flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary text-muted-foreground/50"
+          : "flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-cover bg-secondary text-muted-foreground/50"
       }
     >
       {imgOk && src ? (
@@ -123,7 +123,7 @@ export function TopTracksChart({ tracks }: { tracks: LastFmChartTrack[] }) {
           <li key={`${track.artistName}-${track.name}`}>
             <Link
               href={trackHref(track)}
-              className="group grid min-h-16 grid-cols-[2rem_2.75rem_1fr] items-center gap-3 rounded-md border border-border bg-secondary/20 px-3 py-2 hover:border-foreground/30 hover:bg-secondary/50"
+              className="group grid min-h-20 grid-cols-[2rem_3.5rem_1fr] items-center gap-4 rounded-md border border-border bg-secondary/20 px-3 py-2.5 hover:border-foreground/30 hover:bg-secondary/50"
             >
               <span className="font-mono text-xs text-muted-foreground">
                 {String(index + 1).padStart(2, "0")}
@@ -159,7 +159,7 @@ export function TopArtistsChart({ artists }: { artists: LastFmChartArtist[] }) {
           <li key={`${artist.mbid ?? artist.name}-${index}`}>
             <Link
               href={artistHref(artist)}
-              className="group grid min-h-16 grid-cols-[2rem_2.75rem_1fr] items-center gap-3 rounded-md border border-border bg-secondary/20 px-3 py-2 hover:border-foreground/30 hover:bg-secondary/50"
+              className="group grid min-h-20 grid-cols-[2rem_3.5rem_1fr] items-center gap-4 rounded-md border border-border bg-secondary/20 px-3 py-2.5 hover:border-foreground/30 hover:bg-secondary/50"
             >
               <span className="font-mono text-xs text-muted-foreground">
                 {String(index + 1).padStart(2, "0")}
@@ -192,7 +192,7 @@ export function MostLovedChart({ items }: { items: MostLovedRow[] }) {
           <li key={`${item.targetType}-${item.targetId}`}>
             <Link
               href={lovedHref(item)}
-              className="group grid min-h-16 grid-cols-[2rem_2.75rem_1fr] items-center gap-3 rounded-md border border-border bg-secondary/20 px-3 py-2 hover:border-foreground/30 hover:bg-secondary/50"
+              className="group grid min-h-20 grid-cols-[2rem_3.5rem_1fr] items-center gap-4 rounded-md border border-border bg-secondary/20 px-3 py-2.5 hover:border-foreground/30 hover:bg-secondary/50"
             >
               <span className="font-mono text-xs text-muted-foreground">
                 {String(index + 1).padStart(2, "0")}
