@@ -1,6 +1,13 @@
 import type { DiscoveryTrack } from "@/lib/deezer";
 import { prisma } from "@/lib/db";
+import { chunkForSql } from "@/lib/sqlChunks";
 import { isAdmin, type LibraryViewer } from "@/lib/userLibrary";
+
+// Rows per insert when adding tracks to a playlist, and the budget the whole
+// add gets. Measured on this schema: 1,000 rows insert in ~330ms and 10,000 in
+// ~2.3s, so two minutes covers a library far larger than anyone's.
+const INSERT_CHUNK = 1000;
+const ADD_TRACKS_TIMEOUT_MS = 120_000;
 
 export type PlaylistSummary = {
   id: string;
@@ -490,24 +497,23 @@ export async function addTracksToPlaylist(
   payloads: AddTrackPayload[],
 ): Promise<{ count: number }> {
   if (payloads.length === 0) return { count: 0 };
-  if (payloads.length > 200) throw new Error("Too many tracks selected.");
 
-  return prisma.$transaction(async (tx) => {
-    const playlist = await tx.playlist.findFirst({
-      where: { id: playlistId, userId },
-      select: { id: true },
-    });
-    if (!playlist) throw new Error("Playlist not found.");
+  return prisma.$transaction(
+    async (tx) => {
+      const playlist = await tx.playlist.findFirst({
+        where: { id: playlistId, userId },
+        select: { id: true },
+      });
+      if (!playlist) throw new Error("Playlist not found.");
 
-    const last = await tx.playlistTrack.findFirst({
-      where: { playlistId },
-      orderBy: { position: "desc" },
-      select: { position: true },
-    });
-    const start = last?.position ?? 0;
+      const last = await tx.playlistTrack.findFirst({
+        where: { playlistId },
+        orderBy: { position: "desc" },
+        select: { position: true },
+      });
+      const start = last?.position ?? 0;
 
-    await tx.playlistTrack.createMany({
-      data: payloads.map((payload, idx) => ({
+      const rows = payloads.map((payload, idx) => ({
         playlistId,
         position: start + idx + 1,
         recordingMbid: payload.recordingMbid,
@@ -519,16 +525,24 @@ export async function addTracksToPlaylist(
         albumTitle: payload.albumTitle ?? null,
         coverUrl: payload.coverUrl ?? null,
         durationMs: payload.durationMs ?? null,
-      })),
-    });
+      }));
+      // Insert in batches so one enormous statement never has to be built,
+      // whatever size the selection was.
+      for (const batch of chunkForSql(rows, INSERT_CHUNK)) {
+        await tx.playlistTrack.createMany({ data: batch });
+      }
 
-    await tx.playlist.update({
-      where: { id: playlistId },
-      data: { updatedAt: new Date() },
-    });
+      await tx.playlist.update({
+        where: { id: playlistId },
+        data: { updatedAt: new Date() },
+      });
 
-    return { count: payloads.length };
-  });
+      return { count: payloads.length };
+    },
+    // Adding a whole library runs to tens of thousands of rows; the default
+    // 5s interactive-transaction budget would abandon it part-way.
+    { timeout: ADD_TRACKS_TIMEOUT_MS, maxWait: ADD_TRACKS_TIMEOUT_MS },
+  );
 }
 
 export async function removeTrackFromPlaylist(

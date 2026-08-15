@@ -34,14 +34,20 @@ import { ensureTrackRequested } from "@/lib/trackRequests";
  * trackFileId), kick off a Soulseek fetch so the track becomes playable. Runs
  * after the rows are inserted; best-effort per track.
  */
+// Tracks already in the library carry a trackFileId and need nothing; the rest
+// each open a request. The 200-track cap used to bound that fan-out, so with it
+// gone the requests go a few at a time rather than all at once. allSettled, not
+// all: one track that can't be requested shouldn't undo an add that worked.
+const AUTO_FETCH_CONCURRENCY = 8;
+
 async function autoFetchMissing(
   userId: string,
   payloads: AddTrackPayload[],
 ): Promise<void> {
-  await Promise.all(
-    payloads
-      .filter((p) => p.trackFileId == null)
-      .map((p) =>
+  const missing = payloads.filter((p) => p.trackFileId == null);
+  for (let i = 0; i < missing.length; i += AUTO_FETCH_CONCURRENCY) {
+    await Promise.allSettled(
+      missing.slice(i, i + AUTO_FETCH_CONCURRENCY).map((p) =>
         ensureTrackRequested(userId, {
           albumMbid: p.albumMbid,
           albumTitle: p.albumTitle ?? null,
@@ -52,7 +58,8 @@ async function autoFetchMissing(
           albumPosition: p.albumPosition,
         }),
       ),
-  );
+    );
+  }
 }
 
 type Result<T = void> =
