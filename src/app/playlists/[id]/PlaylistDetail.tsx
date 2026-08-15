@@ -315,7 +315,7 @@ export function PlaylistDetail({
                   })
                 }
                 className={cn(
-                  "group flex items-center gap-4 rounded-xl border-2 border-transparent px-2.5 py-3 hover:bg-surface-2",
+                  "group flex items-center gap-4 rounded-lg border-2 border-transparent px-2.5 py-3 hover:bg-surface-2",
                   isActive && "bg-surface-2",
                   !playable && "opacity-50",
                 )}
@@ -766,7 +766,7 @@ function AddSongsButton({
                           type="button"
                           onClick={() => toggle(track.key)}
                           className={cn(
-                            "flex w-full items-center gap-3 rounded-xl border-2 border-transparent px-4 py-3 text-left transition-colors hover:bg-surface-2",
+                            "flex w-full items-center gap-3 rounded-lg border-2 border-transparent px-4 py-3 text-left transition-colors hover:bg-surface-2",
                             selected && "bg-surface-2",
                           )}
                         >
