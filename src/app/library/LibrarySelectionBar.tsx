@@ -17,7 +17,6 @@ import {
   createPlaylistAction,
   listMyPlaylistsAction,
 } from "@/lib/actions/playlists";
-import { MAX_BULK_TRACKS } from "@/lib/bulkSelection";
 import type { AddTrackPayload } from "@/lib/playlists";
 import { cn } from "@/lib/utils";
 import type { LibraryTrack } from "./LibraryView";
@@ -49,7 +48,6 @@ export function LibrarySelectionBar({
   onExit: () => void;
 }) {
   const count = selected.length;
-  const overCap = count > MAX_BULK_TRACKS;
 
   return (
     <div
@@ -82,14 +80,14 @@ export function LibrarySelectionBar({
 
           <AddSelectedToPlaylist
             selected={selected}
-            disabled={count === 0 || overCap}
+            disabled={count === 0}
             onDone={onClear}
           />
 
           {canDelete && (
             <DeleteSelected
               selected={selected}
-              disabled={count === 0 || overCap}
+              disabled={count === 0}
               onDone={onClear}
             />
           )}
@@ -103,12 +101,6 @@ export function LibrarySelectionBar({
             <X className="h-4 w-4" />
           </button>
         </div>
-
-        {overCap && (
-          <p className="w-full px-2 text-xs text-destructive" role="alert">
-            Select {MAX_BULK_TRACKS} tracks or fewer to add or delete in one go.
-          </p>
-        )}
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { trackLikeTargetId } from "@/lib/likeKeys";
 import { getAlbum } from "@/lib/musicbrainz";
 import type { PlaylistSummary } from "@/lib/playlists";
+import { chunkForSql } from "@/lib/sqlChunks";
 
 // Re-exported so existing server-side callers can keep importing it from here.
 // The definition lives in the client-safe likeKeys module (no Prisma import) so
@@ -50,10 +51,18 @@ export async function getLikedSet(
   targetIds: string[],
 ): Promise<Set<string>> {
   if (targetIds.length === 0) return new Set();
-  const rows = await prisma.like.findMany({
-    where: { userId, targetType, targetId: { in: targetIds } },
-    select: { targetId: true },
-  });
+  // One id per row on the page, so a big library or playlist would otherwise
+  // hand SQLite more parameters than it will bind and fail the whole render.
+  const rows = (
+    await Promise.all(
+      chunkForSql(targetIds).map((ids) =>
+        prisma.like.findMany({
+          where: { userId, targetType, targetId: { in: ids } },
+          select: { targetId: true },
+        }),
+      ),
+    )
+  ).flat();
   return new Set(rows.map((r) => r.targetId));
 }
 
