@@ -74,7 +74,7 @@ export default async function MixPage({
       </Link>
 
       <header className="mt-6 flex flex-col gap-5 border-b border-border pb-8 sm:flex-row sm:items-end">
-        <div className="relative h-36 w-36 shrink-0 overflow-hidden rounded-md bg-secondary">
+        <div className="relative h-36 w-36 shrink-0 overflow-hidden rounded-cover bg-secondary">
           {gridCovers.length >= 4 ? (
             <div className="grid h-full w-full grid-cols-2 grid-rows-2">
               {gridCovers.map((url, i) => (

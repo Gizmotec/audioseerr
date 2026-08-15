@@ -53,6 +53,10 @@
      0 so the small end squares off instead of going negative. Pills stay pills:
      rounded-full is 9999px and never reads this scale. */
   --radius-flatten: 0.5rem;
+  /* Cover art sits outside the ladder: `rounded-cover`, one value at every
+     size, and deliberately not shaved. The 8px that suits chrome left album and
+     track artwork looking hard, so this is the pre-flatten md — 12.8px. */
+  --radius-cover: calc(var(--radius) * 0.8);
   --radius-sm: max(0px, calc(var(--radius) * 0.6 - var(--radius-flatten)));
   --radius-md: max(0px, calc(var(--radius) * 0.8 - var(--radius-flatten)));
   --radius-lg: max(0px, calc(var(--radius) - var(--radius-flatten)));

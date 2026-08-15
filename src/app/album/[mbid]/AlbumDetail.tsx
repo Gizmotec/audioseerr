@@ -137,7 +137,7 @@ export function AlbumDetail({
         seed={album.title}
         innerClassName="flex flex-col gap-6 md:flex-row md:items-end"
       >
-        <div className="relative h-56 w-56 shrink-0 overflow-hidden rounded-md bg-ink/10 md:h-64 md:w-64">
+        <div className="relative h-56 w-56 shrink-0 overflow-hidden rounded-cover bg-ink/10 md:h-64 md:w-64">
           {coverOk ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img

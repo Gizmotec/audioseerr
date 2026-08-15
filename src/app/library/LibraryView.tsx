@@ -360,7 +360,7 @@ export function LibraryView({
                   )}
                 </button>
 
-                <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md bg-surface-2">
+                <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-cover bg-surface-2">
                   {t.coverUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img

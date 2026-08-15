@@ -41,7 +41,7 @@ export function LibraryAlbumTile({
         href={`/album/${item.mbid}`}
         className="flex flex-col gap-2 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <div className="relative aspect-square overflow-hidden rounded-md bg-surface-2">
+        <div className="relative aspect-square overflow-hidden rounded-cover bg-surface-2">
           {imgOk ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img

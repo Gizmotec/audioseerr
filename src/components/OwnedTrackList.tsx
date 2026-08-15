@@ -123,7 +123,7 @@ export function OwnedTrackList({
                 )}
               </button>
 
-              <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md bg-secondary">
+              <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-cover bg-secondary">
                 {t.coverUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img

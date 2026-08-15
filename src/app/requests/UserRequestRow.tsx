@@ -20,7 +20,7 @@ export function UserRequestRow({ request: r }: { request: RequestRowData }) {
     <li className="flex items-center gap-4 py-3">
       <Link
         href={href}
-        className="flex h-12 w-12 shrink-0 overflow-hidden rounded-md bg-secondary"
+        className="flex h-12 w-12 shrink-0 overflow-hidden rounded-cover bg-secondary"
       >
         {r.coverUrl ? (
           // eslint-disable-next-line @next/next/no-img-element

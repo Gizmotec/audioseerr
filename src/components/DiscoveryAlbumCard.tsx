@@ -34,7 +34,7 @@ export function DiscoveryAlbumCard({
       href={href}
       className="group flex flex-col gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <div className="relative aspect-square overflow-hidden rounded-md bg-secondary">
+      <div className="relative aspect-square overflow-hidden rounded-cover bg-secondary">
         <LinkPendingOverlay />
         {imgOk && album.coverUrl ? (
           // eslint-disable-next-line @next/next/no-img-element

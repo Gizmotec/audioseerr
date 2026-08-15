@@ -118,7 +118,7 @@ export function LikedInbox({ tracks, totalLiked, playlists }: Props) {
         innerClassName="flex flex-col gap-4 md:flex-row md:items-end md:justify-between"
       >
         <div className="flex items-end gap-5">
-          <div className="flex h-36 w-36 shrink-0 items-center justify-center rounded-md bg-pastel-pink text-ink">
+          <div className="flex h-36 w-36 shrink-0 items-center justify-center rounded-cover bg-pastel-pink text-ink">
             <Heart className="h-14 w-14" fill="currentColor" strokeWidth={0} />
           </div>
           <div className="flex flex-col gap-2">
@@ -384,7 +384,7 @@ function InboxTrackArtwork({
   return (
     <div
       className={cn(
-        "relative h-10 w-10 shrink-0 overflow-hidden rounded-md bg-surface-2",
+        "relative h-10 w-10 shrink-0 overflow-hidden rounded-cover bg-surface-2",
         dimmed && "opacity-50",
       )}
       title={download.busy ? download.label : undefined}

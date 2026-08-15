@@ -116,7 +116,7 @@ export default async function SpotifyImportPage() {
 
 function PlaylistCover({ url }: { url: string | null }) {
   return (
-    <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md bg-secondary">
+    <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-cover bg-secondary">
       {url ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img

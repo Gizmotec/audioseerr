@@ -41,7 +41,7 @@ export function AlbumCard({
       href={`/album/${album.mbid}`}
       className="group flex flex-col gap-2 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <div className="relative aspect-square overflow-hidden rounded-md bg-secondary">
+      <div className="relative aspect-square overflow-hidden rounded-cover bg-secondary">
         {!cover.exhausted ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img

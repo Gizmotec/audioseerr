@@ -312,7 +312,7 @@ function MatchList({ items }: { items: SpotifyTrackMatch[] }) {
 
 function PlaylistCover({ url }: { url: string | null }) {
   return (
-    <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-md bg-secondary">
+    <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-cover bg-secondary">
       {url ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img

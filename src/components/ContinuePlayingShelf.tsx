@@ -80,7 +80,7 @@ export function ContinuePlayingShelf({
                 }
                 className="group flex w-full flex-col gap-2 rounded-2xl text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <div className="relative aspect-square overflow-hidden rounded-md bg-surface-2">
+                <div className="relative aspect-square overflow-hidden rounded-cover bg-surface-2">
                   {t.coverUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img

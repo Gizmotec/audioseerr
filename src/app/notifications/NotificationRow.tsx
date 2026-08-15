@@ -67,8 +67,8 @@ export function NotificationRow({ item }: { item: NotificationItem }) {
       >
         {/*
           Square artwork tile, sized and rounded like the cover on a
-          /requests row so the two pages read as one app — rounded-md, the one
-          radius all cover art uses. The status icon rides in the corner, so
+          /requests row so the two pages read as one app — rounded-cover, the
+          one radius all cover art uses. The status icon rides in the corner, so
           approved / declined / available / failed still reads at a glance.
         */}
         <span className="relative mt-0.5 size-12 shrink-0">
@@ -78,7 +78,7 @@ export function NotificationRow({ item }: { item: NotificationItem }) {
               <img
                 src={item.coverUrl ?? ""}
                 alt=""
-                className="size-12 rounded-md bg-secondary object-cover"
+                className="size-12 rounded-cover bg-secondary object-cover"
                 referrerPolicy="no-referrer"
                 onError={() => setCoverBroken(true)}
               />
@@ -95,7 +95,7 @@ export function NotificationRow({ item }: { item: NotificationItem }) {
           ) : (
             <span
               className={cn(
-                "flex size-12 items-center justify-center rounded-md",
+                "flex size-12 items-center justify-center rounded-cover",
                 className,
               )}
               title={label}

@@ -500,7 +500,7 @@ function PlaylistTrackArtwork({
 
   return (
     <div
-      className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md bg-surface-2"
+      className="relative h-10 w-10 shrink-0 overflow-hidden rounded-cover bg-surface-2"
       title={download.busy ? download.label : undefined}
     >
       {track.coverUrl ? (
@@ -788,7 +788,7 @@ function AddSongsButton({
                           ) : (
                             <Square className="h-5 w-5 shrink-0 text-muted-foreground" />
                           )}
-                          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-md bg-surface-2 text-muted-foreground/40">
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-cover bg-surface-2 text-muted-foreground/40">
                             {track.coverUrl ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img
@@ -941,7 +941,7 @@ function PlaylistCover({
 
   if (covers.length === 0) {
     return (
-      <div className="group/cover relative flex h-40 w-40 shrink-0 items-center justify-center overflow-hidden rounded-md bg-secondary text-muted-foreground/40 md:h-48 md:w-48">
+      <div className="group/cover relative flex h-40 w-40 shrink-0 items-center justify-center overflow-hidden rounded-cover bg-secondary text-muted-foreground/40 md:h-48 md:w-48">
         <ListMusic className="h-1/3 w-1/3" />
         {!readOnly && uploadControl}
       </div>
@@ -950,7 +950,7 @@ function PlaylistCover({
 
   if (covers.length === 1) {
     return (
-      <div className="group/cover relative h-40 w-40 shrink-0 overflow-hidden rounded-md bg-secondary md:h-48 md:w-48">
+      <div className="group/cover relative h-40 w-40 shrink-0 overflow-hidden rounded-cover bg-secondary md:h-48 md:w-48">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={covers[0]}
@@ -969,7 +969,7 @@ function PlaylistCover({
   }
 
   return (
-    <div className="group/cover relative grid h-40 w-40 shrink-0 grid-cols-2 grid-rows-2 overflow-hidden rounded-md bg-secondary md:h-48 md:w-48">
+    <div className="group/cover relative grid h-40 w-40 shrink-0 grid-cols-2 grid-rows-2 overflow-hidden rounded-cover bg-secondary md:h-48 md:w-48">
       {covers.slice(0, 4).map((url, i) => (
         // eslint-disable-next-line @next/next/no-img-element
         <img

@@ -69,7 +69,7 @@ function Artwork({
       className={
         kind === "artist"
           ? "flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary text-muted-foreground/50"
-          : "flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-md bg-secondary text-muted-foreground/50"
+          : "flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-cover bg-secondary text-muted-foreground/50"
       }
     >
       {imgOk && src ? (

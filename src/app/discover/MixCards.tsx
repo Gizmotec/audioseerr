@@ -62,7 +62,7 @@ function DailyMixTile({ mix }: { mix: GeneratedMix }) {
       href={`/mix/${mix.kind}`}
       className="group flex flex-col gap-2 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <div className="relative aspect-square overflow-hidden rounded-md bg-surface-2">
+      <div className="relative aspect-square overflow-hidden rounded-cover bg-surface-2">
         <MixMosaic
           coverUrls={mix.coverUrls}
           icon={<Sparkles className="h-1/3 w-1/3" />}
@@ -89,7 +89,7 @@ async function WeeklyCard({ viewer }: { viewer: LibraryViewer }) {
   if (mix.tracks.length === 0) {
     return (
       <div className="flex w-full items-center gap-4 rounded-2xl bg-card p-4 opacity-70">
-        <div className="h-16 w-16 shrink-0 overflow-hidden rounded-md bg-secondary">
+        <div className="h-16 w-16 shrink-0 overflow-hidden rounded-cover bg-secondary">
           <MixMosaic coverUrls={[]} icon={<Compass className="h-1/3 w-1/3" />} />
         </div>
         <div className="min-w-0">
@@ -107,7 +107,7 @@ async function WeeklyCard({ viewer }: { viewer: LibraryViewer }) {
       href="/mix/weekly"
       className="group flex w-full items-center gap-4 rounded-2xl bg-pastel-yellow p-4 text-ink outline-none transition-[filter] hover:brightness-95 focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-md bg-secondary">
+      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-cover bg-secondary">
         <MixMosaic
           coverUrls={mix.coverUrls}
           icon={<Compass className="h-1/3 w-1/3" />}
@@ -189,7 +189,7 @@ function DailyMixRowSkeleton() {
     >
       {DAILY_MIX_SLOTS.map((slot) => (
         <li key={slot} className="flex flex-col gap-2">
-          <div className="aspect-square animate-pulse rounded-md bg-secondary" />
+          <div className="aspect-square animate-pulse rounded-cover bg-secondary" />
           <div className="h-3.5 w-3/4 animate-pulse rounded bg-secondary" />
           <div className="h-3 w-1/2 animate-pulse rounded bg-secondary" />
         </li>
@@ -201,7 +201,7 @@ function DailyMixRowSkeleton() {
 function WeeklyCardSkeleton() {
   return (
     <div className="flex w-full items-center gap-4 rounded-2xl border border-border bg-secondary/30 p-4">
-      <div className="h-16 w-16 shrink-0 animate-pulse rounded-md bg-secondary" />
+      <div className="h-16 w-16 shrink-0 animate-pulse rounded-cover bg-secondary" />
       <div className="min-w-0 flex-1 space-y-2">
         <div className="h-3 w-16 animate-pulse rounded bg-secondary" />
         <div className="h-4 w-28 animate-pulse rounded bg-secondary" />

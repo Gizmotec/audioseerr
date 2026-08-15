@@ -136,7 +136,7 @@ function DiscoveryTrackCard({ track }: { track: DiscoveryTrackItem }) {
     >
       <div
         className={cn(
-          "group relative aspect-square overflow-hidden rounded-md bg-secondary",
+          "group relative aspect-square overflow-hidden rounded-cover bg-secondary",
           isActive && "ring-2 ring-foreground",
         )}
       >

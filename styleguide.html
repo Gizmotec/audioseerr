@@ -22,6 +22,7 @@
     /* computed from --radius: 1rem less --radius-flatten: 0.5rem, globals.css @theme */
     --r-sm: 0.1rem;
     --r-md: 0.3rem;
+    --r-cover: 0.8rem;
     --r-lg: 0.5rem;
     --r-xl: 0.9rem;
     --r-2xl: 1.3rem;
@@ -236,15 +237,16 @@
       <tr><th>Class</th><th>Value</th><th>Use for</th></tr>
       <tr><td><code>rounded-full</code></td><td>∞</td><td>Anything pill-shaped: buttons, badges, status pills, tabs, icon buttons, switches, dots, scrubbers, artist images</td></tr>
       <tr><td><code>rounded-2xl</code></td><td>1.3rem</td><td>Page-level containers: modals, large cards, empty states</td></tr>
+      <tr><td><code>rounded-cover</code></td><td>0.8rem</td><td><b>All cover art, every size</b> — grid covers, hero covers (144–224px), row thumbnails, chart thumbs, mix covers</td></tr>
       <tr><td><code>rounded-xl</code></td><td>0.9rem</td><td>Chrome only: inputs, callouts, menus/popovers, track rows. <b>Never cover art.</b></td></tr>
       <tr><td><code>rounded-lg</code></td><td>0.5rem</td><td>Small chrome: logo chips, inline controls</td></tr>
-      <tr><td><code>rounded-md</code></td><td>0.3rem</td><td><b>All cover art, every size</b> — grid covers, hero covers (144–224px), row thumbnails, chart thumbs, mix covers</td></tr>
+      <tr><td><code>rounded-md</code></td><td>0.3rem</td><td>Small chrome: alert boxes, secondary buttons, checkboxes, bordered lists</td></tr>
     </table>
-    <p style="margin-top:0.75rem;font-size:0.8rem;color:var(--muted-foreground)">Album, playlist and mix artwork is square and reads as one family, so it keeps one radius whether it's a 40px row thumbnail or a 224px hero. Sizing the radius to the artwork made the same grid look inconsistent between Discover and Library.</p>
+    <p style="margin-top:0.75rem;font-size:0.8rem;color:var(--muted-foreground)">Album, playlist and mix artwork is square and reads as one family, so it keeps one radius whether it's a 40px row thumbnail or a 224px hero. Sizing the radius to the artwork made the same grid look inconsistent between Discover and Library. <code>rounded-cover</code> is also the one rung the 8px flatten skips — chrome wants the hard edge, artwork doesn't.</p>
     <div class="row" style="margin-top:1rem">
       <div style="width:7rem;height:7rem;background:var(--surface-2);border-radius:var(--r-2xl);display:flex;align-items:center;justify-content:center;font-size:0.6rem;color:var(--muted-foreground);text-align:center">modal / card<br>2xl</div>
-      <div style="width:5.5rem;height:5.5rem;background:var(--surface-2);border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;font-size:0.6rem;color:var(--muted-foreground);text-align:center">tile cover<br>md</div>
-      <div style="width:3rem;height:3rem;background:var(--surface-2);border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;font-size:0.6rem;color:var(--muted-foreground)">md</div>
+      <div style="width:5.5rem;height:5.5rem;background:var(--surface-2);border-radius:var(--r-cover);display:flex;align-items:center;justify-content:center;font-size:0.6rem;color:var(--muted-foreground);text-align:center">tile cover<br>cover</div>
+      <div style="width:3rem;height:3rem;background:var(--surface-2);border-radius:var(--r-cover);display:flex;align-items:center;justify-content:center;font-size:0.6rem;color:var(--muted-foreground)">cover</div>
       <div style="width:1.75rem;height:1.75rem;background:var(--surface-2);border-radius:var(--r-md)"></div>
       <div style="width:2rem;height:2rem;background:var(--surface-2);border-radius:9999px"></div>
     </div>
