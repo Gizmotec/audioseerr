@@ -46,7 +46,9 @@ const TYPE_ICON: Record<
  */
 export function NotificationRow({ item }: { item: NotificationItem }) {
   const [read, setRead] = useState(item.readAt !== null);
+  const [coverBroken, setCoverBroken] = useState(false);
   const { Icon, className, label } = TYPE_ICON[item.type];
+  const showCover = Boolean(item.coverUrl) && !coverBroken;
 
   return (
     <li>
@@ -63,15 +65,39 @@ export function NotificationRow({ item }: { item: NotificationItem }) {
           !read && "font-medium",
         )}
       >
-        <span
-          className={cn(
-            "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl",
-            className,
-          )}
-          title={label}
-        >
-          <Icon className="h-4 w-4" />
-        </span>
+        {showCover ? (
+          // The artwork of the track/album this is about, with the status icon
+          // kept as a corner badge so the row still reads at a glance.
+          <span className="relative mt-0.5 size-11 shrink-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={item.coverUrl ?? ""}
+              alt=""
+              className="size-11 rounded-xl bg-secondary object-cover"
+              referrerPolicy="no-referrer"
+              onError={() => setCoverBroken(true)}
+            />
+            <span
+              className={cn(
+                "absolute -right-1 -bottom-1 flex size-5 items-center justify-center rounded-full ring-2 ring-background",
+                className,
+              )}
+              title={label}
+            >
+              <Icon className="h-3 w-3" />
+            </span>
+          </span>
+        ) : (
+          <span
+            className={cn(
+              "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl",
+              className,
+            )}
+            title={label}
+          >
+            <Icon className="h-4 w-4" />
+          </span>
+        )}
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2">
             <span className="truncate">{item.title}</span>
