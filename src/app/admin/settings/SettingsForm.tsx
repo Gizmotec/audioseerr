@@ -12,7 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { type ReactNode, useMemo, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -21,6 +21,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Hint } from "@/components/ui/hint";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -173,6 +174,26 @@ const SECTIONS: SectionDef[] = [
 ];
 
 const normalize = (s: string) => s.toLowerCase().trim();
+
+// A field label with its explanation tucked into a hint. The "i" sits beside
+// the <label>, never inside it, so poking it can never activate the control the
+// label points at.
+function FieldLabel({
+  htmlFor,
+  label,
+  children,
+}: {
+  htmlFor?: string;
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <Label htmlFor={htmlFor}>{label}</Label>
+      <Hint label={`About ${label}`}>{children}</Hint>
+    </div>
+  );
+}
 
 export function SettingsForm({
   initial,
@@ -355,7 +376,8 @@ export function SettingsForm({
           <IntegrationCard
             provider="soulseek"
             name="Soulseek (slskd)"
-            description="The download source for everything — singles, albums, and playlist auto-fetch all search Soulseek via slskd."
+            description="Where every download comes from."
+            hint="Singles, albums, and playlist auto-fetch all search Soulseek through slskd. Without it, nothing downloads."
             connected={slskdConfigured}
             action={{
               onToggle: () => toggleExpanded("slskd"),
@@ -394,18 +416,17 @@ export function SettingsForm({
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="slskdDownloadPath">Download path</Label>
+                <FieldLabel htmlFor="slskdDownloadPath" label="Download path">
+                  Where slskd writes finished files. If Audioseerr mounts that
+                  directory at a different path, add the translation to the path
+                  map under General.
+                </FieldLabel>
                 <Input
                   id="slskdDownloadPath"
                   value={slskdDownloadPath}
                   onChange={(e) => setSlskdDownloadPath(e.target.value)}
                   placeholder="/downloads (slskd's completed-downloads directory)"
                 />
-                <p className="text-xs text-muted-foreground">
-                  Where slskd writes finished files. If Audioseerr mounts that
-                  directory at a different path, add the translation to the path
-                  map under General.
-                </p>
               </div>
 
               <div className="flex items-center gap-3">
@@ -446,7 +467,8 @@ export function SettingsForm({
           <IntegrationCard
             provider="lastfm"
             name="Last.fm"
-            description="Powers discovery — tag charts, genre browsing, and similar-artist recommendations. The API secret additionally enables scrobbling."
+            description="Powers discovery."
+            hint="Drives tag charts, genre browsing, and similar-artist recommendations. The API secret additionally enables scrobbling."
             connected={lastFmConfigured}
             action={{
               onToggle: () => toggleExpanded("lastfm"),
@@ -464,7 +486,10 @@ export function SettingsForm({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="lastFmApiSecret">API secret</Label>
+                <FieldLabel htmlFor="lastFmApiSecret" label="API secret">
+                  From your Last.fm API account. Stored encrypted, like the
+                  slskd key.
+                </FieldLabel>
                 <Input
                   id="lastFmApiSecret"
                   type="password"
@@ -480,10 +505,6 @@ export function SettingsForm({
                   }}
                   placeholder="Optional — required for scrobbling"
                 />
-                <p className="text-xs text-muted-foreground">
-                  From your Last.fm API account. Stored encrypted, like the
-                  slskd key.
-                </p>
               </div>
             </div>
           </IntegrationCard>
@@ -492,13 +513,18 @@ export function SettingsForm({
         return (
           <Card>
             <CardHeader>
-              <CardTitle>Notifications</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                Notifications
+                <Hint label="About notifications">
+                  A global outbound webhook: Audioseerr POSTs a JSON event
+                  whenever any request changes status — approved, declined,
+                  available, or failed. Point it at Discord, ntfy, Gotify, or
+                  any receiver. Deliveries time out after 4 seconds and never
+                  block requests.
+                </Hint>
+              </CardTitle>
               <CardDescription>
-                A global outbound webhook: Audioseerr POSTs a JSON event here
-                whenever any request changes status (approved, declined,
-                available, failed). Point it at Discord, ntfy, Gotify, or any
-                receiver — deliveries time out after 4 seconds and never block
-                requests.
+                Send a message somewhere when a request changes status.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
@@ -550,27 +576,31 @@ export function SettingsForm({
         return (
           <Card>
             <CardHeader>
-              <CardTitle>Library playback</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                Library playback
+                <Hint label="About library playback">
+                  Streaming reads the downloaded files straight off disk. If
+                  Audioseerr mounts the download directory at a different path
+                  than slskd writes to, list the translations here.
+                </Hint>
+              </CardTitle>
               <CardDescription>
-                Path translations for streaming downloaded files. If Audioseerr
-                mounts the download directory at a different path than slskd
-                writes to, list the translations here.
+                Where Audioseerr finds the files slskd downloaded.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Label htmlFor="mediaPathMap">Path map</Label>
+              <FieldLabel htmlFor="mediaPathMap" label="Path map">
+                Comma-separated{" "}
+                <code className="font-mono">slskdPath:localPath</code> pairs.
+                Longest prefix wins. Leave empty when both containers see the
+                directory at the same path.
+              </FieldLabel>
               <Input
                 id="mediaPathMap"
                 value={mediaPathMap}
                 onChange={(e) => setMediaPathMap(e.target.value)}
                 placeholder="/downloads:/data/dl"
               />
-              <p className="text-xs text-muted-foreground">
-                Comma-separated{" "}
-                <code className="font-mono">slskdPath:localPath</code> pairs.
-                Longest prefix wins. Leave empty when both containers see the
-                directory at the same path.
-              </p>
             </CardContent>
           </Card>
         );
@@ -580,23 +610,21 @@ export function SettingsForm({
             <CardHeader>
               <CardTitle>Discovery pre-download</CardTitle>
               <CardDescription>
-                Eagerly download Daily Mix and Discover Weekly tracks ahead of
-                time so they play full-length instantly.
+                Fetch Daily Mix and Discover Weekly tracks early so they play
+                full-length instantly.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <Label htmlFor="preDownloadMixes">
-                    Pre-download mix tracks
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    A daily job fetches each mix&apos;s new songs into temporary
-                    storage. Anything you don&apos;t like or add to a playlist
-                    is auto-deleted (daily after ~2 days, weekly after ~8).
-                    Needs a Last.fm API key.
-                  </p>
-                </div>
+                <FieldLabel
+                  htmlFor="preDownloadMixes"
+                  label="Pre-download mix tracks"
+                >
+                  A daily job fetches each mix&apos;s new songs into temporary
+                  storage. Anything you don&apos;t like or add to a playlist is
+                  auto-deleted — daily mixes after about 2 days, weekly after
+                  about 8. Needs a Last.fm API key.
+                </FieldLabel>
                 <Switch
                   id="preDownloadMixes"
                   checked={preDownloadMixes}
@@ -610,24 +638,28 @@ export function SettingsForm({
         return (
           <Card>
             <CardHeader>
-              <CardTitle>Single sign-on (OIDC)</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                Single sign-on (OIDC)
+                <Hint label="About single sign-on">
+                  Works with Authentik, Keycloak, Pocket ID, or any
+                  OIDC-compliant issuer. SSO accounts are matched by email and
+                  created automatically on first login, always as regular
+                  users. Username/password sign-in keeps working either way.
+                </Hint>
+              </CardTitle>
               <CardDescription>
-                Let people sign in with an external identity provider —
-                Authentik, Keycloak, Pocket ID, or any OIDC-compliant issuer.
-                SSO accounts are matched by email and created automatically on
-                first login, always as regular users. Username/password
-                sign-in keeps working either way.
+                Let people sign in with an external identity provider.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               <div className="flex items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <Label htmlFor="oidcEnabled">Enable SSO</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Adds a sign-in button labeled “
-                    {oidcButtonLabel.trim() || "SSO"}” to the login page.
-                  </p>
-                </div>
+                <FieldLabel htmlFor="oidcEnabled" label="Enable SSO">
+                  Adds a sign-in button labeled “
+                  {oidcButtonLabel.trim() || "SSO"}” to the login page. SSO
+                  changes take effect on the{" "}
+                  <strong>next server restart</strong> — the button appears once
+                  Audioseerr has reloaded them.
+                </FieldLabel>
                 <Switch
                   id="oidcEnabled"
                   checked={oidcEnabled}
@@ -637,19 +669,20 @@ export function SettingsForm({
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label htmlFor="oidcIssuerUrl">Issuer URL</Label>
+                  <FieldLabel htmlFor="oidcIssuerUrl" label="Issuer URL">
+                    The discovery base — Audioseerr appends{" "}
+                    <code className="font-mono">
+                      /.well-known/openid-configuration
+                    </code>
+                    . For Keycloak this includes the realm, e.g.{" "}
+                    <code className="font-mono">…/realms/main</code>.
+                  </FieldLabel>
                   <Input
                     id="oidcIssuerUrl"
                     value={oidcIssuerUrl}
                     onChange={(e) => setOidcIssuerUrl(e.target.value)}
                     placeholder="https://auth.example.com/application/o/audioseerr"
                   />
-                  <p className="text-xs text-muted-foreground">
-                    The discovery base — Audioseerr appends{" "}
-                    <code className="font-mono">/.well-known/openid-configuration</code>.
-                    For Keycloak this includes the realm, e.g.{" "}
-                    <code className="font-mono">…/realms/main</code>.
-                  </p>
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="oidcClientId">Client ID</Label>
@@ -692,13 +725,18 @@ export function SettingsForm({
                 </div>
               </div>
 
-              <p className="text-xs text-muted-foreground">
-                Register this redirect URI at your provider:{" "}
-                <code className="font-mono break-all">{oidcCallbackUrl}</code>.
-                SSO changes take effect on the{" "}
-                <strong>next server restart</strong> — the login-page button
-                appears once Audioseerr has reloaded them.
-              </p>
+              {/* A value the admin has to paste into their provider, not an
+                  explanation — it stays on the page instead of in a hint. */}
+              <div className="space-y-1.5">
+                <FieldLabel label="Redirect URI">
+                  Register this exact address at your identity provider.
+                  Audioseerr derives it from the address you are reading this
+                  page at.
+                </FieldLabel>
+                <code className="block rounded-xl bg-surface-2 px-3 py-2 font-mono text-xs break-all">
+                  {oidcCallbackUrl}
+                </code>
+              </div>
             </CardContent>
           </Card>
         );
@@ -708,25 +746,27 @@ export function SettingsForm({
         return (
           <Card>
             <CardHeader>
-              <CardTitle>External login (Plex, Jellyfin)</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                External login (Plex, Jellyfin)
+                <Hint label="About external login">
+                  Two extra sign-in methods for the login page: Plex.tv
+                  accounts via Plex&apos;s PIN flow, and username/password
+                  accounts on a Jellyfin server. External sign-ins are matched
+                  to local accounts by email and created automatically on first
+                  login, always as regular users. Changes take effect on the{" "}
+                  <strong>next server restart</strong>.
+                </Hint>
+              </CardTitle>
               <CardDescription>
-                Extra sign-in methods for the login page: Plex.tv accounts via
-                Plex&apos;s PIN flow, and username/password accounts on a
-                Jellyfin server. External sign-ins are matched to local
-                accounts by email and created automatically on first login,
-                always as regular users. Changes take effect on the{" "}
-                <strong>next server restart</strong>.
+                Let people sign in with a Plex or Jellyfin account.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               <div className="flex items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <Label htmlFor="plexEnabled">Sign in with Plex</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Adds a “Sign in with Plex” button to the login page. On by
-                    default — Plex sign-in needs no other configuration.
-                  </p>
-                </div>
+                <FieldLabel htmlFor="plexEnabled" label="Sign in with Plex">
+                  Adds a “Sign in with Plex” button to the login page. On by
+                  default — Plex sign-in needs no other configuration.
+                </FieldLabel>
                 <Switch
                   id="plexEnabled"
                   checked={plexEnabled}
@@ -738,34 +778,33 @@ export function SettingsForm({
               )}
 
               <div className="space-y-1.5">
-                <Label htmlFor="plexClientIdentifier">
-                  Plex client identifier (optional)
-                </Label>
+                <FieldLabel
+                  htmlFor="plexClientIdentifier"
+                  label="Plex client identifier (optional)"
+                >
+                  How Plex identifies this server. A stable id is derived from{" "}
+                  <code className="font-mono">AUDIOSEERR_SECRET</code> when this
+                  is empty.
+                </FieldLabel>
                 <Input
                   id="plexClientIdentifier"
                   value={plexClientIdentifier}
                   onChange={(e) => setPlexClientIdentifier(e.target.value)}
                   placeholder="Leave empty to derive one automatically"
                 />
-                <p className="text-xs text-muted-foreground">
-                  How Plex identifies this server. A stable id is derived from
-                  AUDIOSEERR_SECRET when this is empty.
-                </p>
                 {externalLoginEnv.plexClientIdentifier && (
                   <EnvOverrideNote name="PLEX_CLIENT_IDENTIFIER" />
                 )}
               </div>
 
               <div className="flex items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <Label htmlFor="jellyfinEnabled">
-                    Sign in with Jellyfin
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    Adds a Jellyfin username/password form to the login page.
-                    Off by default — it needs your server&apos;s address first.
-                  </p>
-                </div>
+                <FieldLabel
+                  htmlFor="jellyfinEnabled"
+                  label="Sign in with Jellyfin"
+                >
+                  Adds a Jellyfin username/password form to the login page. Off
+                  by default — it needs your server&apos;s address first.
+                </FieldLabel>
                 <Switch
                   id="jellyfinEnabled"
                   checked={jellyfinEnabled}
@@ -775,9 +814,15 @@ export function SettingsForm({
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label htmlFor="jellyfinServerUrl">
-                    Jellyfin server URL
-                  </Label>
+                  <FieldLabel
+                    htmlFor="jellyfinServerUrl"
+                    label="Jellyfin server URL"
+                  >
+                    Setting a{" "}
+                    <code className="font-mono">JELLYFIN_SERVER_URL</code>{" "}
+                    environment variable overrides this field and turns Jellyfin
+                    sign-in on by itself.
+                  </FieldLabel>
                   <Input
                     id="jellyfinServerUrl"
                     value={jellyfinServerUrl}
@@ -789,9 +834,16 @@ export function SettingsForm({
                   )}
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="jellyfinApiKey">
-                    Jellyfin API key (optional)
-                  </Label>
+                  <FieldLabel
+                    htmlFor="jellyfinApiKey"
+                    label="Jellyfin API key (optional)"
+                  >
+                    Jellyfin users without an email on their server get a{" "}
+                    <code className="font-mono">
+                      &lt;username&gt;@jellyfin.local
+                    </code>{" "}
+                    address for account matching.
+                  </FieldLabel>
                   <Input
                     id="jellyfinApiKey"
                     type="password"
@@ -815,17 +867,6 @@ export function SettingsForm({
                   )}
                 </div>
               </div>
-
-              <p className="text-xs text-muted-foreground">
-                Jellyfin users without an email on their server get a{" "}
-                <code className="font-mono">
-                  &lt;username&gt;@jellyfin.local
-                </code>{" "}
-                address for account matching. Setting a{" "}
-                <code className="font-mono">JELLYFIN_SERVER_URL</code>{" "}
-                environment variable overrides these fields and turns Jellyfin
-                sign-in on by itself.
-              </p>
             </CardContent>
           </Card>
         );
@@ -834,13 +875,16 @@ export function SettingsForm({
           <IntegrationCard
             provider="youtube"
             name="YouTube"
-            description="Powers the in-app watch player — resolves a track to an embeddable YouTube video. Without a key, the watch button falls back to opening a YouTube search in a new tab."
+            description="Powers the in-app watch player."
+            hint="Resolves a track to an embeddable YouTube video. Without a key, the watch button falls back to opening a YouTube search in a new tab."
             connected={env.youtube}
           >
             <div className="flex flex-col gap-3">
               <EnvRow label="YOUTUBE_API_KEY" set={env.youtube} />
+              {/* The link is the next step, not an explanation — it stays
+                  visible rather than hiding inside a hint. */}
               <p className="text-xs text-muted-foreground">
-                Read-only — create a key in the{" "}
+                Read-only. Make a key in the{" "}
                 <a
                   href="https://console.cloud.google.com/apis/library/youtube.googleapis.com"
                   target="_blank"
@@ -848,10 +892,10 @@ export function SettingsForm({
                   className="text-foreground underline"
                 >
                   Google Cloud Console
-                </a>{" "}
-                (YouTube Data API v3), set it as the{" "}
-                <code className="font-mono">YOUTUBE_API_KEY</code> environment
-                variable, and restart the container.
+                </a>
+                , set it as{" "}
+                <code className="font-mono">YOUTUBE_API_KEY</code>, then restart
+                the container.
               </p>
             </div>
           </IntegrationCard>

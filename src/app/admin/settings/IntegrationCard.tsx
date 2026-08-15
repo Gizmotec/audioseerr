@@ -7,6 +7,7 @@ import { ProviderLogo, type ProviderId } from "@/components/provider-logos"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { Hint } from "@/components/ui/hint"
 import { cn } from "@/lib/utils"
 
 export function ConnectionBadge({
@@ -35,10 +36,13 @@ export function ConnectionBadge({
 // (used by Spotify, whose OAuth flow lives on the account page). With no
 // `action` the card is read-only (e.g. env-var-configured services) and
 // `children` — when present — render permanently below the header.
+// `description` stays to one scannable line; anything longer belongs in
+// `hint`, which hangs off the provider name as an "i".
 export function IntegrationCard({
   provider,
   name,
   description,
+  hint,
   connected,
   statusLabels,
   action,
@@ -47,6 +51,7 @@ export function IntegrationCard({
   provider: ProviderId
   name: string
   description: string
+  hint?: ReactNode
   connected: boolean
   statusLabels?: { connected: string; disconnected: string }
   action?: { href: string } | { onToggle: () => void; expanded: boolean }
@@ -64,6 +69,7 @@ export function IntegrationCard({
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-sm font-medium">{name}</h3>
+            {hint ? <Hint label={`About ${name}`}>{hint}</Hint> : null}
             <ConnectionBadge connected={connected} labels={statusLabels} />
           </div>
           <p className="text-xs leading-relaxed text-muted-foreground">

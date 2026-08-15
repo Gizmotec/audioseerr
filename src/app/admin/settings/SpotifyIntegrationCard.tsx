@@ -10,6 +10,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Hint } from "@/components/ui/hint";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -148,7 +149,8 @@ export function SpotifyIntegrationCard({
     <IntegrationCard
       provider="spotify"
       name="Spotify"
-      description="Import your Spotify playlists. Each user connects their own Spotify account."
+      description="Import your Spotify playlists."
+      hint="Every person connects their own Spotify account, so this card is per-user rather than server-wide."
       connected={connected}
       action={{ onToggle: () => setExpanded((v) => !v), expanded }}
     >
@@ -180,7 +182,13 @@ export function SpotifyIntegrationCard({
         <SetupSteps redirectUri={redirectUri} onCopy={copyRedirectUri} copied={copied} />
 
         <div className="space-y-1.5">
-          <Label htmlFor="spotifyClientId">Client ID</Label>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="spotifyClientId">Client ID</Label>
+            <Hint label="About the Spotify Client ID">
+              Found on your Spotify app&apos;s settings page. The Client Secret
+              is not needed — Audioseerr uses PKCE.
+            </Hint>
+          </div>
           <Input
             id="spotifyClientId"
             value={clientId}
@@ -197,10 +205,6 @@ export function SpotifyIntegrationCard({
             autoComplete="off"
             spellCheck={false}
           />
-          <p className="text-xs text-muted-foreground">
-            Found on your Spotify app&apos;s settings page. The Client Secret is
-            not needed — Audioseerr uses PKCE.
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
