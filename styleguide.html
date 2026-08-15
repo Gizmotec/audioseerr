@@ -19,12 +19,12 @@
     --pastel-red: #f0978b;
     --muted-foreground: #9b9aa3;
     --accent: #2e2e35;
-    /* computed from --radius: 1rem in globals.css @theme */
-    --r-sm: 0.6rem;
-    --r-md: 0.8rem;
-    --r-lg: 1rem;
-    --r-xl: 1.4rem;
-    --r-2xl: 1.8rem;
+    /* computed from --radius: 1rem less --radius-flatten: 0.5rem, globals.css @theme */
+    --r-sm: 0.1rem;
+    --r-md: 0.3rem;
+    --r-lg: 0.5rem;
+    --r-xl: 0.9rem;
+    --r-2xl: 1.3rem;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; scroll-behavior: smooth; }
@@ -228,17 +228,17 @@
 <!-- ==================== RADIUS & SPACING ==================== -->
 <section id="radius">
   <h2>Radius &amp; spacing</h2>
-  <p class="lede">Base <code>--radius: 1rem</code>. Computed Tailwind values: <code>rounded-md</code> 0.8rem, <code>rounded-lg</code> 1rem, <code>rounded-xl</code> 1.4rem, <code>rounded-2xl</code> 1.8rem. <b>Core principle: roundness scales down as elements get smaller.</b></p>
+  <p class="lede">Base <code>--radius: 1rem</code>, then every rung is shaved by <code>--radius-flatten: 0.5rem</code> (8px). Computed Tailwind values: <code>rounded-md</code> 0.3rem, <code>rounded-lg</code> 0.5rem, <code>rounded-xl</code> 0.9rem, <code>rounded-2xl</code> 1.3rem. <b>Core principle: roundness scales down as elements get smaller.</b></p>
 
   <h3>The radius ladder</h3>
   <div class="panel">
     <table class="spec-table">
       <tr><th>Class</th><th>Value</th><th>Use for</th></tr>
       <tr><td><code>rounded-full</code></td><td>∞</td><td>Anything pill-shaped: buttons, badges, status pills, tabs, icon buttons, switches, dots, scrubbers, artist images</td></tr>
-      <tr><td><code>rounded-2xl</code></td><td>1.8rem</td><td>Page-level containers: modals, large cards, empty states</td></tr>
-      <tr><td><code>rounded-xl</code></td><td>1.4rem</td><td>Medium components: tiles &amp; grid covers, hero covers, inputs, callouts, menus/popovers, track rows</td></tr>
-      <tr><td><code>rounded-lg</code></td><td>1rem</td><td>Small media: row thumbnails (40–56px), chart thumbs, mix card covers</td></tr>
-      <tr><td><code>rounded-md</code></td><td>0.8rem</td><td>Tiny thumbnails (&lt;40px) only</td></tr>
+      <tr><td><code>rounded-2xl</code></td><td>1.3rem</td><td>Page-level containers: modals, large cards, empty states</td></tr>
+      <tr><td><code>rounded-xl</code></td><td>0.9rem</td><td>Medium components: tiles &amp; grid covers, hero covers, inputs, callouts, menus/popovers, track rows</td></tr>
+      <tr><td><code>rounded-lg</code></td><td>0.5rem</td><td>Small media: row thumbnails (40–56px), chart thumbs, mix card covers</td></tr>
+      <tr><td><code>rounded-md</code></td><td>0.3rem</td><td>Tiny thumbnails (&lt;40px) only</td></tr>
     </table>
     <div class="row" style="margin-top:1rem">
       <div style="width:7rem;height:7rem;background:var(--surface-2);border-radius:var(--r-2xl);display:flex;align-items:center;justify-content:center;font-size:0.6rem;color:var(--muted-foreground);text-align:center">modal / card<br>2xl</div>
