@@ -7,7 +7,6 @@ import {
   ListChecks,
   Loader2,
   MoreVertical,
-  Pause,
   Play,
   Search,
   Shuffle,
@@ -17,6 +16,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { type QueueItem, usePreviewPlayer } from "@/components/PreviewPlayer";
+import { RowPlayButton } from "@/components/RowPlayButton";
 import { TrackLikeButton } from "@/components/TrackLikeButton";
 import { useTrackMenu } from "@/components/TrackMenu";
 import { Input } from "@/components/ui/input";
@@ -333,32 +333,19 @@ export function LibraryView({
                   </button>
                 )}
 
-                <button
-                  type="button"
+                <RowPlayButton
                   onClick={() => playFromIndex(idx)}
-                  disabled={failed}
-                  className={cn(
-                    "flex h-11 w-11 shrink-0 items-center justify-center rounded-full",
-                    failed
-                      ? "cursor-not-allowed text-muted-foreground/40"
-                      : "hover:bg-pastel-pink hover:text-ink",
-                  )}
-                  aria-label={
+                  playable={!failed}
+                  playing={isActive && player.state === "playing"}
+                  loading={isActive && player.state === "loading"}
+                  label={
                     failed
                       ? "Track failed to load"
                       : isActive && player.state === "playing"
                         ? "Pause"
                         : "Play"
                   }
-                >
-                  {isActive && player.state === "loading" ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : isActive && player.state === "playing" ? (
-                    <Pause className="h-4 w-4" />
-                  ) : (
-                    <Play className="h-4 w-4" />
-                  )}
-                </button>
+                />
 
                 <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-cover bg-surface-2">
                   {t.coverUrl ? (

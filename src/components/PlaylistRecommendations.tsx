@@ -4,14 +4,13 @@ import {
   Check,
   Disc3,
   Loader2,
-  Pause,
-  Play,
   Plus,
   RefreshCw,
   Sparkles,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { usePreviewPlayer } from "@/components/PreviewPlayer";
+import { RowPlayButton } from "@/components/RowPlayButton";
 import { TrackLikeButton } from "@/components/TrackLikeButton";
 import { useTrackMenu } from "@/components/TrackMenu";
 import {
@@ -210,32 +209,19 @@ function RecommendationRow({
         isActive && "bg-secondary/40",
       )}
     >
-      <button
-        type="button"
+      <RowPlayButton
         onClick={togglePreview}
-        disabled={!playable}
-        className={cn(
-          "flex h-11 w-11 shrink-0 items-center justify-center rounded-full border",
-          playable
-            ? "border-border hover:border-foreground hover:text-foreground"
-            : "border-border/50 text-muted-foreground/40",
-        )}
-        aria-label={
+        playable={playable}
+        playing={isActive && player.state === "playing"}
+        loading={isActive && player.state === "loading"}
+        label={
           playable
             ? isActive && player.state === "playing"
               ? "Pause preview"
               : "Play preview"
             : "No preview available"
         }
-      >
-        {isActive && player.state === "loading" ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : isActive && player.state === "playing" ? (
-          <Pause className="h-4 w-4" />
-        ) : (
-          <Play className="h-4 w-4" />
-        )}
-      </button>
+      />
 
       <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-cover bg-secondary">
         {rec.coverUrl ? (

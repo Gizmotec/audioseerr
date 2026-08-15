@@ -127,7 +127,7 @@
 
   .play-disc { display: inline-flex; align-items: center; justify-content: center; border-radius: 9999px; border: none; cursor: pointer; background: var(--pastel-pink); color: var(--ink); transition: background-color .15s, transform .15s; flex-shrink: 0; }
   .play-disc:hover { background: color-mix(in srgb, var(--pastel-pink) 80%, transparent); }
-  .play-row { display: inline-flex; align-items: center; justify-content: center; width: 2.25rem; height: 2.25rem; border-radius: 9999px; border: none; cursor: pointer; background: transparent; color: var(--foreground); transition: background-color .15s, color .15s; flex-shrink: 0; }
+  .play-row { display: inline-flex; align-items: center; justify-content: center; width: 2.75rem; height: 2.75rem; border-radius: 9999px; border: none; cursor: pointer; background: transparent; color: var(--foreground); transition: background-color .15s, color .15s; flex-shrink: 0; }
   .play-row:hover { background: var(--pastel-pink); color: var(--ink); }
   .play-row:disabled { color: color-mix(in srgb, var(--muted-foreground) 40%, transparent); cursor: not-allowed; }
   .play-row:disabled:hover { background: transparent; }
@@ -410,7 +410,7 @@ className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full
 <!-- ==================== PLAY BUTTONS ==================== -->
 <section id="play-buttons">
   <h2>Play buttons</h2>
-  <p class="lede">The app currently has <b>3 different row play buttons</b> (filled pink / ghost→pink / bordered) — this is the worst consistency offender. Going forward there are exactly <b>three</b> play buttons, chosen by context:</p>
+  <p class="lede">There are exactly <b>three</b> play buttons, chosen by context. The row variant is a component — <code>&lt;RowPlayButton&gt;</code> in <code>src/components/RowPlayButton.tsx</code> — so every track row is identical by construction. Never hand-roll one; that is how the app once carried three different row play buttons at the same time.</p>
 
   <h3>1 · Row play — ghost disc, pink on hover <span style="color:var(--pastel-mint);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em">standard for all track rows</span></h3>
   <div class="panel">
@@ -422,12 +422,13 @@ className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full
         <span style="font-size:0.75rem;color:var(--muted-foreground);font-variant-numeric:tabular-nums">4:57</span>
       </div>
     </div>
-<pre>className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full
-  transition-colors hover:bg-pastel-pink hover:text-ink
-  disabled:cursor-not-allowed disabled:text-muted-foreground/40"
-// icon: Play h-4 w-4 · while playing: Pause (or Loader2 animate-spin while buffering)
-// migrate: AlbumDetail & MixDetail (filled pink at rest), TopTracksList/OwnedTrackList/
-// PlaylistRecommendations (bordered) → this style</pre>
+<pre>&lt;RowPlayButton onClick={play} playable={playable} playing={playing} loading={buffering} label="Play" /&gt;
+// renders: flex h-11 w-11 shrink-0 items-center justify-center rounded-full
+//          transition-colors hover:bg-pastel-pink hover:text-ink
+//          not playable → cursor-not-allowed text-muted-foreground/40
+// icon: Play h-4 w-4 · playing: Pause · buffering: Loader2 animate-spin
+// used by: AlbumDetail, MixDetail, LibraryView, LikedInbox, PlaylistDetail,
+//          OwnedTrackList, TopTracksList, PlaylistRecommendations</pre>
   </div>
 
   <h3>2 · Filled pink disc — cover overlays &amp; player bar</h3>

@@ -4,8 +4,6 @@ import {
   Disc3,
   Heart,
   ListMusic,
-  Loader2,
-  Pause,
   Play,
   Shuffle,
 } from "lucide-react";
@@ -21,6 +19,7 @@ import {
 } from "@/components/DownloadIndicator";
 import { type QueueItem, usePreviewPlayer } from "@/components/PreviewPlayer";
 import { HeroCard } from "@/components/HeroCard";
+import { RowPlayButton } from "@/components/RowPlayButton";
 import { TrackLikeButton } from "@/components/TrackLikeButton";
 import { useTrackMenu } from "@/components/TrackMenu";
 import { cn } from "@/lib/utils";
@@ -218,17 +217,12 @@ export function LikedInbox({ tracks, totalLiked, playlists }: Props) {
                   isActive && "bg-surface-2",
                 )}
               >
-                <button
-                  type="button"
+                <RowPlayButton
                   onClick={() => player.playQueue(queueItems, idx)}
-                  disabled={!playable}
-                  className={cn(
-                    "flex h-11 w-11 shrink-0 items-center justify-center rounded-full",
-                    playable
-                      ? "hover:bg-pastel-pink hover:text-ink"
-                      : "cursor-not-allowed text-muted-foreground/40",
-                  )}
-                  aria-label={
+                  playable={playable}
+                  playing={isActive && player.state === "playing"}
+                  loading={isActive && player.state === "loading"}
+                  label={
                     playable
                       ? isActive && player.state === "playing"
                         ? "Pause"
@@ -237,15 +231,7 @@ export function LikedInbox({ tracks, totalLiked, playlists }: Props) {
                         ? "Track failed to load"
                         : "Track unavailable"
                   }
-                >
-                  {isActive && player.state === "loading" ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : isActive && player.state === "playing" ? (
-                    <Pause className="h-4 w-4" />
-                  ) : (
-                    <Play className="h-4 w-4" />
-                  )}
-                </button>
+                />
 
                 <InboxTrackArtwork
                   track={t}

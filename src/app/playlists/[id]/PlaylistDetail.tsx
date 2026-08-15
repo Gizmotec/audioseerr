@@ -10,7 +10,6 @@ import {
   Loader2,
   ListMusic,
   Lock,
-  Pause,
   Pencil,
   Play,
   Plus,
@@ -39,6 +38,7 @@ import {
 } from "@/components/DownloadIndicator";
 import { HeroCard } from "@/components/HeroCard";
 import { type QueueItem, usePreviewPlayer } from "@/components/PreviewPlayer";
+import { RowPlayButton } from "@/components/RowPlayButton";
 import { TrackLikeButton } from "@/components/TrackLikeButton";
 import { useTrackMenu } from "@/components/TrackMenu";
 import { trackLikeTargetId } from "@/lib/likeKeys";
@@ -320,17 +320,12 @@ export function PlaylistDetail({
                   !playable && "opacity-50",
                 )}
               >
-                <button
-                  type="button"
+                <RowPlayButton
                   onClick={() => playFromIndex(idx)}
-                  disabled={!playable}
-                  className={cn(
-                    "flex h-11 w-11 shrink-0 items-center justify-center rounded-full",
-                    playable
-                      ? "hover:bg-pastel-pink hover:text-ink"
-                      : "cursor-not-allowed text-muted-foreground/40",
-                  )}
-                  aria-label={
+                  playable={playable}
+                  playing={isActive && player.state === "playing"}
+                  loading={isActive && player.state === "loading"}
+                  label={
                     playable
                       ? isActive && player.state === "playing"
                         ? "Pause"
@@ -339,15 +334,7 @@ export function PlaylistDetail({
                         ? "Track failed to load"
                         : "Track unavailable"
                   }
-                >
-                  {isActive && player.state === "loading" ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : isActive && player.state === "playing" ? (
-                    <Pause className="h-4 w-4" />
-                  ) : (
-                    <Play className="h-4 w-4" />
-                  )}
-                </button>
+                />
 
                 <PlaylistTrackArtwork track={t} fetching={fetching} />
 

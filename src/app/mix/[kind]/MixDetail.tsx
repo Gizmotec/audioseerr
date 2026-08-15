@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, Disc3, Library, Loader2, Pause, Play } from "lucide-react";
+import { Clock, Disc3, Library, Play } from "lucide-react";
 import { useCallback, useMemo } from "react";
 import {
   ArtworkDownloadOverlay,
@@ -8,6 +8,7 @@ import {
   useDownloadState,
 } from "@/components/DownloadIndicator";
 import { usePreviewPlayer, type QueueItem } from "@/components/PreviewPlayer";
+import { RowPlayButton } from "@/components/RowPlayButton";
 import { TrackLikeButton } from "@/components/TrackLikeButton";
 import { useTrackMenu } from "@/components/TrackMenu";
 import { requestDiscoveryTrackAction } from "@/app/discover/actions";
@@ -169,32 +170,19 @@ function MixRow({
         isActive ? "bg-surface-2" : "border-transparent",
       )}
     >
-      <button
-        type="button"
+      <RowPlayButton
         onClick={onPlay}
-        disabled={!playable}
-        className={cn(
-          "flex h-11 w-11 shrink-0 items-center justify-center rounded-full",
-          playable
-            ? "bg-pastel-pink text-ink hover:bg-pastel-pink/80"
-            : "border-transparent text-muted-foreground/40",
-        )}
-        aria-label={
+        playable={playable}
+        playing={isActive && player.state === "playing"}
+        loading={isActive && player.state === "loading"}
+        label={
           playable
             ? isActive && player.state === "playing"
               ? "Pause"
               : "Play"
             : "Not playable"
         }
-      >
-        {isActive && player.state === "loading" ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : isActive && player.state === "playing" ? (
-          <Pause className="h-4 w-4" />
-        ) : (
-          <Play className="h-4 w-4" />
-        )}
-      </button>
+      />
 
       <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-cover bg-secondary">
         {track.coverUrl ? (

@@ -1,9 +1,10 @@
 "use client";
 
-import { ArrowRight, Disc3, Loader2, Pause, Play } from "lucide-react";
+import { ArrowRight, Disc3 } from "lucide-react";
 import Link from "next/link";
 import { useMemo } from "react";
 import { type QueueItem, usePreviewPlayer } from "@/components/PreviewPlayer";
+import { RowPlayButton } from "@/components/RowPlayButton";
 import { useTrackMenu } from "@/components/TrackMenu";
 import { cn } from "@/lib/utils";
 
@@ -96,32 +97,19 @@ export function OwnedTrackList({
                 failed && "opacity-50",
               )}
             >
-              <button
-                type="button"
+              <RowPlayButton
                 onClick={() => player.playQueue(queue, idx)}
-                disabled={failed}
-                aria-label={
+                playable={!failed}
+                playing={isActive && player.state === "playing"}
+                loading={isActive && player.state === "loading"}
+                label={
                   failed
                     ? "Track failed to load"
                     : isActive && player.state === "playing"
                       ? "Pause"
                       : "Play"
                 }
-                className={cn(
-                  "flex h-11 w-11 shrink-0 items-center justify-center rounded-full border",
-                  failed
-                    ? "cursor-not-allowed border-border/50 text-muted-foreground/40"
-                    : "border-border hover:border-foreground hover:text-foreground",
-                )}
-              >
-                {isActive && player.state === "loading" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : isActive && player.state === "playing" ? (
-                  <Pause className="h-4 w-4" />
-                ) : (
-                  <Play className="h-4 w-4" />
-                )}
-              </button>
+              />
 
               <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-cover bg-secondary">
                 {t.coverUrl ? (

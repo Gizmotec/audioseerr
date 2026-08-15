@@ -1,12 +1,12 @@
 "use client";
 
-import { Loader2, Pause, Play } from "lucide-react";
 import { useCallback } from "react";
 import {
   DownloadButton,
   useDownloadState,
 } from "@/components/DownloadIndicator";
 import { usePreviewPlayer } from "@/components/PreviewPlayer";
+import { RowPlayButton } from "@/components/RowPlayButton";
 import { useTrackMenu } from "@/components/TrackMenu";
 import { YouTubeButton } from "@/components/YouTubeButton";
 import { requestDiscoveryTrackAction } from "@/app/discover/actions";
@@ -71,31 +71,19 @@ export function TopTracksList({
                 isActive ? "bg-secondary/40" : ""
               }`}
             >
-              <button
-                type="button"
+              <RowPlayButton
                 onClick={() => togglePreview(t)}
-                disabled={!playable}
-                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border ${
-                  playable
-                    ? "border-border hover:border-foreground hover:text-foreground"
-                    : "border-border/50 text-muted-foreground/40"
-                }`}
-                aria-label={
+                playable={playable}
+                playing={isActive && player.state === "playing"}
+                loading={isActive && player.state === "loading"}
+                label={
                   playable
                     ? isActive && player.state === "playing"
                       ? "Pause preview"
                       : "Play preview"
                     : "No preview available"
                 }
-              >
-                {isActive && player.state === "loading" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : isActive && player.state === "playing" ? (
-                  <Pause className="h-4 w-4" />
-                ) : (
-                  <Play className="h-4 w-4" />
-                )}
-              </button>
+              />
               <span className="w-6 text-right text-xs text-muted-foreground">
                 {i + 1}
               </span>
