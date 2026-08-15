@@ -108,7 +108,7 @@ export function OwnedTrackList({
                       : "Play"
                 }
                 className={cn(
-                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border",
+                  "flex h-11 w-11 shrink-0 items-center justify-center rounded-full border",
                   failed
                     ? "cursor-not-allowed border-border/50 text-muted-foreground/40"
                     : "border-border hover:border-foreground hover:text-foreground",
@@ -123,7 +123,7 @@ export function OwnedTrackList({
                 )}
               </button>
 
-              <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-cover bg-secondary">
+              <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-cover bg-secondary">
                 {t.coverUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img

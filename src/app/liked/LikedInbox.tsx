@@ -214,7 +214,7 @@ export function LikedInbox({ tracks, totalLiked, playlists }: Props) {
                   })
                 }
                 className={cn(
-                  "group flex items-center gap-3 rounded-xl border-2 border-transparent px-2 py-2.5 hover:bg-surface-2",
+                  "group flex items-center gap-4 rounded-xl border-2 border-transparent px-2.5 py-3 hover:bg-surface-2",
                   isActive && "bg-surface-2",
                 )}
               >
@@ -223,7 +223,7 @@ export function LikedInbox({ tracks, totalLiked, playlists }: Props) {
                   onClick={() => player.playQueue(queueItems, idx)}
                   disabled={!playable}
                   className={cn(
-                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
+                    "flex h-11 w-11 shrink-0 items-center justify-center rounded-full",
                     playable
                       ? "hover:bg-pastel-pink hover:text-ink"
                       : "cursor-not-allowed text-muted-foreground/40",
@@ -384,7 +384,7 @@ function InboxTrackArtwork({
   return (
     <div
       className={cn(
-        "relative h-10 w-10 shrink-0 overflow-hidden rounded-cover bg-surface-2",
+        "relative h-14 w-14 shrink-0 overflow-hidden rounded-cover bg-surface-2",
         dimmed && "opacity-50",
       )}
       title={download.busy ? download.label : undefined}

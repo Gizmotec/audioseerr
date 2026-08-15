@@ -165,7 +165,7 @@ function MixRow({
         })
       }
       className={cn(
-        "flex items-center gap-3 rounded-xl px-2 py-2.5 hover:bg-surface-2",
+        "flex items-center gap-4 rounded-xl px-2.5 py-3 hover:bg-surface-2",
         isActive ? "bg-surface-2" : "border-transparent",
       )}
     >
@@ -174,7 +174,7 @@ function MixRow({
         onClick={onPlay}
         disabled={!playable}
         className={cn(
-          "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
+          "flex h-11 w-11 shrink-0 items-center justify-center rounded-full",
           playable
             ? "bg-pastel-pink text-ink hover:bg-pastel-pink/80"
             : "border-transparent text-muted-foreground/40",
@@ -196,7 +196,7 @@ function MixRow({
         )}
       </button>
 
-      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-cover bg-secondary">
+      <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-cover bg-secondary">
         {track.coverUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img

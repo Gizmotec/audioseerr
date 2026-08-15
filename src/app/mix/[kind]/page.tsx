@@ -2,6 +2,7 @@ import { ArrowLeft, Compass, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { HeroCard } from "@/components/HeroCard";
 import { trackMatchKey } from "@/lib/deezer";
 import { buildEphemeralTrackLookup } from "@/lib/downloadedTracks";
 import { getLikedSet, trackLikeTargetId } from "@/lib/likes";
@@ -65,7 +66,7 @@ export default async function MixPage({
   const gridCovers = mix.coverUrls.slice(0, 4);
 
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 md:px-6">
+    <main className="relative isolate mx-auto w-full max-w-3xl flex-1 px-4 py-8 md:px-6">
       <Link
         href="/discover"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
@@ -73,8 +74,18 @@ export default async function MixPage({
         <ArrowLeft className="h-4 w-4" /> Discover
       </Link>
 
-      <header className="mt-6 flex flex-col gap-5 border-b border-border pb-8 sm:flex-row sm:items-end">
-        <div className="relative h-36 w-36 shrink-0 overflow-hidden rounded-cover bg-secondary">
+      {/*
+        Same pastel hero the playlist, album, artist and liked pages use — a
+        mix is a playlist as far as the reader is concerned, and it was the one
+        detail page still rendering a bare header. Seeded on the title so each
+        Daily Mix keeps its own signature colour day to day.
+      */}
+      <HeroCard
+        seed={mix.title}
+        className="mt-6"
+        innerClassName="flex flex-col gap-5 sm:flex-row sm:items-end"
+      >
+        <div className="relative h-40 w-40 shrink-0 overflow-hidden rounded-cover bg-surface-2 md:h-48 md:w-48">
           {gridCovers.length >= 4 ? (
             <div className="grid h-full w-full grid-cols-2 grid-rows-2">
               {gridCovers.map((url, i) => (
@@ -97,23 +108,23 @@ export default async function MixPage({
               className="h-full w-full object-cover"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-muted-foreground/40">
+            <div className="flex h-full w-full items-center justify-center text-ink/40">
               <Icon className="h-1/3 w-1/3" />
             </div>
           )}
         </div>
 
         <div className="min-w-0 space-y-1.5">
-          <p className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          <p className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.18em] text-ink/70">
             <Icon className="h-3.5 w-3.5" />
             {daily ? "Daily Mix" : "Discover Weekly"}
           </p>
           <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">
             {mix.title}
           </h1>
-          <p className="text-sm text-muted-foreground">{mix.subtitle}</p>
+          <p className="text-sm text-ink/70">{mix.subtitle}</p>
         </div>
-      </header>
+      </HeroCard>
 
       <section className="mt-8">
         {mix.tracks.length === 0 ? (

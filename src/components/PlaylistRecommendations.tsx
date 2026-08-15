@@ -215,7 +215,7 @@ function RecommendationRow({
         onClick={togglePreview}
         disabled={!playable}
         className={cn(
-          "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border",
+          "flex h-11 w-11 shrink-0 items-center justify-center rounded-full border",
           playable
             ? "border-border hover:border-foreground hover:text-foreground"
             : "border-border/50 text-muted-foreground/40",
@@ -237,7 +237,7 @@ function RecommendationRow({
         )}
       </button>
 
-      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-cover bg-secondary">
+      <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-cover bg-secondary">
         {rec.coverUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -359,8 +359,8 @@ function RecommendationsSkeleton() {
     <ol className="animate-pulse divide-y divide-border/50">
       {Array.from({ length: 5 }).map((_, i) => (
         <li key={i} className="flex items-center gap-3 py-2.5">
-          <div className="h-9 w-9 shrink-0 rounded-full bg-secondary" />
-          <div className="h-10 w-10 shrink-0 rounded-cover bg-secondary" />
+          <div className="h-11 w-11 shrink-0 rounded-full bg-secondary" />
+          <div className="h-14 w-14 shrink-0 rounded-cover bg-secondary" />
           <div className="min-w-0 flex-1 space-y-1.5">
             <div className="h-3.5 w-2/5 rounded bg-secondary" />
             <div className="h-3 w-1/4 rounded bg-secondary/70" />

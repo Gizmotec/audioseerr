@@ -308,7 +308,7 @@ export function LibraryView({
                     : undefined
                 }
                 className={cn(
-                  "group flex items-center gap-3 rounded-xl border-2 border-transparent px-2 py-2.5 hover:bg-surface-2",
+                  "group flex items-center gap-4 rounded-xl border-2 border-transparent px-2.5 py-3 hover:bg-surface-2",
                   isActive && "bg-surface-2",
                   failed && "opacity-50",
                   selectMode && "cursor-pointer",
@@ -338,7 +338,7 @@ export function LibraryView({
                   onClick={() => playFromIndex(idx)}
                   disabled={failed}
                   className={cn(
-                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
+                    "flex h-11 w-11 shrink-0 items-center justify-center rounded-full",
                     failed
                       ? "cursor-not-allowed text-muted-foreground/40"
                       : "hover:bg-pastel-pink hover:text-ink",
@@ -360,7 +360,7 @@ export function LibraryView({
                   )}
                 </button>
 
-                <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-cover bg-surface-2">
+                <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-cover bg-surface-2">
                   {t.coverUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
