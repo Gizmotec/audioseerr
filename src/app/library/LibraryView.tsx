@@ -308,7 +308,7 @@ export function LibraryView({
                     : undefined
                 }
                 className={cn(
-                  "group flex items-center gap-4 rounded-xl border-2 border-transparent px-2.5 py-3 hover:bg-surface-2",
+                  "group flex items-center gap-4 rounded-lg border-2 border-transparent px-2.5 py-3 hover:bg-surface-2",
                   isActive && "bg-surface-2",
                   failed && "opacity-50",
                   selectMode && "cursor-pointer",

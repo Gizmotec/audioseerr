@@ -12,7 +12,14 @@ import {
   X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type ReactNode, useMemo, useState, useTransition } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -175,6 +182,14 @@ const SECTIONS: SectionDef[] = [
 
 const normalize = (s: string) => s.toLowerCase().trim();
 
+// How long typing has to stop before the edit is committed. Long enough that a
+// normal sentence is one save, short enough that leaving the page feels safe.
+const AUTOSAVE_DELAY_MS = 700;
+const SAVED_LINGER_MS = 2000;
+
+type SaveBody = Parameters<typeof saveAdminSettingsAction>[0];
+type SaveStatus = "idle" | "saving" | "saved";
+
 // A field label with its explanation tucked into a hint. The "i" sits beside
 // the <label>, never inside it, so poking it can never activate the control the
 // label points at.
@@ -215,9 +230,8 @@ export function SettingsForm({
   initialTab?: TabId;
 }) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
+  const [status, setStatus] = useState<SaveStatus>("idle");
 
   const [tab, setTab] = useState<TabId>(initialTab);
   const [query, setQuery] = useState("");
@@ -292,6 +306,124 @@ export function SettingsForm({
     [q, searching],
   );
 
+  // Everything the save action takes, rebuilt whenever a field changes. Its
+  // identity is what drives autosave, so it must hold field values and nothing
+  // else — tab switches and searches have to leave it alone.
+  const payload = useMemo(
+    () => ({
+      slskdUrl,
+      slskdApiKey:
+        slskdKeyEdited || !initial.slskdApiKeyMasked
+          ? slskdApiKey
+          : KEY_UNCHANGED_SENTINEL,
+      slskdDownloadPath,
+      lastFmApiKey,
+      mediaPathMap,
+      preDownloadMixes,
+      notificationWebhookUrl,
+      lastFmApiSecret:
+        lastFmSecretEdited || !initial.lastFmApiSecretMasked
+          ? lastFmApiSecret
+          : KEY_UNCHANGED_SENTINEL,
+      oidcEnabled,
+      oidcIssuerUrl,
+      oidcClientId,
+      oidcClientSecret:
+        oidcSecretEdited || !initial.oidcClientSecretMasked
+          ? oidcClientSecret
+          : KEY_UNCHANGED_SENTINEL,
+      oidcButtonLabel,
+      plexEnabled,
+      plexClientIdentifier,
+      jellyfinEnabled,
+      jellyfinServerUrl,
+      jellyfinApiKey:
+        jellyfinApiKeyEdited || !initial.jellyfinApiKeyMasked
+          ? jellyfinApiKey
+          : KEY_UNCHANGED_SENTINEL,
+    }),
+    [
+      initial.slskdApiKeyMasked,
+      initial.lastFmApiSecretMasked,
+      initial.oidcClientSecretMasked,
+      initial.jellyfinApiKeyMasked,
+      slskdUrl,
+      slskdApiKey,
+      slskdKeyEdited,
+      slskdDownloadPath,
+      lastFmApiKey,
+      lastFmApiSecret,
+      lastFmSecretEdited,
+      mediaPathMap,
+      preDownloadMixes,
+      notificationWebhookUrl,
+      oidcEnabled,
+      oidcIssuerUrl,
+      oidcClientId,
+      oidcClientSecret,
+      oidcSecretEdited,
+      oidcButtonLabel,
+      plexEnabled,
+      plexClientIdentifier,
+      jellyfinEnabled,
+      jellyfinServerUrl,
+      jellyfinApiKey,
+      jellyfinApiKeyEdited,
+    ],
+  );
+
+  // The serialised payload as the server last accepted it. Seeding it from the
+  // first render is what stops the page saving itself on load.
+  const lastSaved = useRef(JSON.stringify(payload));
+  // Bumped per save so a reply that a newer edit has overtaken is dropped
+  // instead of reporting "Saved" over the top of it.
+  const saveSeq = useRef(0);
+
+  const save = useCallback(
+    async (body: SaveBody) => {
+      const seq = ++saveSeq.current;
+      setStatus("saving");
+      let res: Awaited<ReturnType<typeof saveAdminSettingsAction>>;
+      try {
+        res = await saveAdminSettingsAction(body);
+      } catch {
+        // A dropped connection or an expired session rejects rather than
+        // returning an error. Without a Save button to re-press, leaving the
+        // status on "Saving" would read as "it's in hand" forever.
+        if (seq !== saveSeq.current) return;
+        setStatus("idle");
+        setError("Couldn't reach the server — your last change wasn't saved.");
+        return;
+      }
+      if (seq !== saveSeq.current) return;
+      if (!res.ok) {
+        setStatus("idle");
+        setError(res.error);
+        return;
+      }
+      lastSaved.current = JSON.stringify(body);
+      setError(null);
+      setStatus("saved");
+      router.refresh();
+    },
+    [router],
+  );
+
+  // Autosave. Every setState below sits inside a timer callback, never in the
+  // effect body, so this stays clear of the cascading-render lint rule.
+  useEffect(() => {
+    if (JSON.stringify(payload) === lastSaved.current) return;
+    const timer = setTimeout(() => void save(payload), AUTOSAVE_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [payload, save]);
+
+  // Let "Saved" fade rather than sit there claiming the last thing you did.
+  useEffect(() => {
+    if (status !== "saved") return;
+    const timer = setTimeout(() => setStatus("idle"), SAVED_LINGER_MS);
+    return () => clearTimeout(timer);
+  }, [status]);
+
   async function probeSlskd() {
     setSlskdTesting(true);
     setSlskdProbeMsg(null);
@@ -314,59 +446,11 @@ export function SettingsForm({
     setWebhookPingMsg(res.ok ? "Test notification delivered." : res.error);
   }
 
+  // There is no Save button, so Enter just commits whatever is pending rather
+  // than letting the browser navigate.
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setError(null);
-    setSaved(false);
-
-    startTransition(async () => {
-      const res = await saveAdminSettingsAction({
-        slskdUrl,
-        slskdApiKey:
-          slskdKeyEdited || !initial.slskdApiKeyMasked
-            ? slskdApiKey
-            : KEY_UNCHANGED_SENTINEL,
-        slskdDownloadPath,
-        lastFmApiKey,
-        mediaPathMap,
-        preDownloadMixes,
-        notificationWebhookUrl,
-        lastFmApiSecret:
-          lastFmSecretEdited || !initial.lastFmApiSecretMasked
-            ? lastFmApiSecret
-            : KEY_UNCHANGED_SENTINEL,
-        oidcEnabled,
-        oidcIssuerUrl,
-        oidcClientId,
-        oidcClientSecret:
-          oidcSecretEdited || !initial.oidcClientSecretMasked
-            ? oidcClientSecret
-            : KEY_UNCHANGED_SENTINEL,
-        oidcButtonLabel,
-        plexEnabled,
-        plexClientIdentifier,
-        jellyfinEnabled,
-        jellyfinServerUrl,
-        jellyfinApiKey:
-          jellyfinApiKeyEdited || !initial.jellyfinApiKeyMasked
-            ? jellyfinApiKey
-            : KEY_UNCHANGED_SENTINEL,
-      });
-      if (!res.ok) {
-        setError(res.error);
-        return;
-      }
-      setSaved(true);
-      setSlskdKeyEdited(false);
-      setLastFmSecretEdited(false);
-      setOidcSecretEdited(false);
-      setJellyfinApiKeyEdited(false);
-      if (slskdApiKey) setSlskdApiKey("••••••••");
-      if (lastFmApiSecret) setLastFmApiSecret("••••••••");
-      if (oidcClientSecret) setOidcClientSecret("••••••••");
-      if (jellyfinApiKey) setJellyfinApiKey("••••••••");
-      router.refresh();
-    });
+    void save(payload);
   }
 
   function renderSection(id: SectionId) {
@@ -435,7 +519,7 @@ export function SettingsForm({
                   variant="outline"
                   size="sm"
                   onClick={probeSlskd}
-                  disabled={pending || slskdTesting}
+                  disabled={slskdTesting}
                 >
                   {slskdTesting ? (
                     <>
@@ -543,7 +627,7 @@ export function SettingsForm({
                   variant="outline"
                   size="sm"
                   onClick={pingWebhook}
-                  disabled={pending || webhookTesting}
+                  disabled={webhookTesting}
                 >
                   {webhookTesting ? (
                     <>
@@ -1018,21 +1102,28 @@ export function SettingsForm({
           </div>
         )}
 
-        <div className="sticky bottom-4 flex items-center justify-end gap-3 rounded-2xl bg-card p-3">
-          {saved && (
-            <span className="inline-flex items-center gap-1.5 text-sm text-pastel-mint">
-              <CheckCircle2 className="h-4 w-4" /> Saved
-            </span>
-          )}
-          <Button type="submit" disabled={pending}>
-            {pending ? (
+        {/* No Save button — edits commit on their own. This only reports what
+            just happened, and keeps its height so nothing shifts under it. */}
+        <div
+          className="pointer-events-none sticky bottom-4 flex h-7 items-center justify-end"
+          aria-live="polite"
+        >
+          <span
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full bg-card px-3 py-1.5 text-xs text-muted-foreground transition-opacity duration-200",
+              status === "idle" ? "opacity-0" : "opacity-100",
+            )}
+          >
+            {status === "saving" ? (
               <>
-                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Saving
+                <Loader2 className="size-3 animate-spin" /> Saving
               </>
             ) : (
-              "Save changes"
+              <>
+                <CheckCircle2 className="size-3 text-pastel-mint" /> Saved
+              </>
             )}
-          </Button>
+          </span>
         </div>
       </form>
     </div>

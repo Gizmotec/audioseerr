@@ -111,7 +111,7 @@ export function SkeletonRows({
   return (
     <ol className="flex flex-col gap-1" aria-busy="true">
       {Array.from({ length: rows }).map((_, i) => (
-        <li key={i} className="flex items-center gap-4 rounded-xl px-2.5 py-3">
+        <li key={i} className="flex items-center gap-4 rounded-lg px-2.5 py-3">
           <SkeletonBlock className="h-11 w-11 shrink-0 rounded-full" />
           {artwork && <SkeletonBlock className="h-14 w-14 shrink-0" />}
           <div className="min-w-0 flex-1 space-y-1.5">

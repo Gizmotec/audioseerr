@@ -165,7 +165,7 @@ function MixRow({
         })
       }
       className={cn(
-        "flex items-center gap-4 rounded-xl px-2.5 py-3 hover:bg-surface-2",
+        "flex items-center gap-4 rounded-lg px-2.5 py-3 hover:bg-surface-2",
         isActive ? "bg-surface-2" : "border-transparent",
       )}
     >

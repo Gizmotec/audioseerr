@@ -260,7 +260,7 @@ export function AlbumDetail({
                       recordingMbid: t.recordingMbid,
                     })
                   }
-                  className={`flex items-center gap-4 rounded-xl px-2 py-2.5 hover:bg-surface-2 ${
+                  className={`flex items-center gap-4 rounded-lg px-2 py-2.5 hover:bg-surface-2 ${
                     isActive
                       ? "bg-surface-2"
                       : "border-transparent"
